@@ -49,6 +49,8 @@ The included `goose-recipe.yaml` points at `http://localhost:8080/mcp` and sends
 goose session --recipe goose-recipe.yaml
 ```
 
+The recipe’s opening **message** activity and [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md) list every tool, resource URI, and MCP prompt (handy when Goose surfaces tools more prominently than resources or prompts).
+
 ## Tuning the doctor
 
 - Edit `src/main/resources/clinical/*.md` to update patient baseline, device config, or clinical guidelines — picked up on the next request.
