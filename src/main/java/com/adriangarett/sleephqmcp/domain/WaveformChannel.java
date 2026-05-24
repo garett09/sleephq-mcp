@@ -41,4 +41,19 @@ public enum WaveformChannel {
     public String label() {
         return label;
     }
+
+    /**
+     * Ensures {@code candidate} matches a known waveform endpoint segment (defense in depth for HTTP client calls).
+     */
+    public static String requireKnownPathSegment(String candidate) {
+        if (candidate == null || candidate.isBlank()) {
+            throw new IllegalArgumentException("channel path segment is required");
+        }
+        for (WaveformChannel channel : values()) {
+            if (channel.pathSegment.equals(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalArgumentException("Unknown waveform channel path segment");
+    }
 }
