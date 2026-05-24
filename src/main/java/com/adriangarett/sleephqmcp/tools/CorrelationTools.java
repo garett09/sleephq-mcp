@@ -18,8 +18,10 @@ import java.util.List;
 public class CorrelationTools {
 
     private static final String CHANNELS_HELP =
-            "Comma-separated channels (enum names or *_data segments), max 6, e.g. flow_rate,pressure,leak or spo2,pulse_rate. "
-                    + "Default if omitted: flow_rate,pressure,leak.";
+            "Comma-separated channels (enum names or *_data segments), max 6 distinct after dedupe, "
+                    + "e.g. flow_rate,pressure,leak or spo2,pulse_rate. Default if omitted: flow_rate,pressure,leak. "
+                    + "Each selected channel performs one full-night waveform HTTP fetch (same as single-channel tools), "
+                    + "then the server slices to your window — N distinct channels ≈ N SleepHQ GETs.";
 
     private final CorrelationWaveformService correlationWaveformService;
 
@@ -29,6 +31,7 @@ public class CorrelationTools {
 
     @McpTool(name = "get-correlation-window",
             description = "Fetch raw waveform samples for multiple channels over the same HH:MM:SS window in one JSON response. "
+                    + "One waveform GET per distinct channel for that night (up to 6). "
                     + CHANNELS_HELP)
     public String getCorrelationWindow(
             @McpToolParam(description = "machine_date_id", required = true) String machineDateId,
