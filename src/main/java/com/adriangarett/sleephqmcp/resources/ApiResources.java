@@ -2,11 +2,14 @@ package com.adriangarett.sleephqmcp.resources;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.service.NightService;
+import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Dynamic resources — URI templates that delegate to the service layer. The LLM can pin
@@ -25,12 +28,20 @@ public class ApiResources {
 
     @McpResource(uri = "sleephq://team/{teamId}",
             name = "SleepHQ team",
-            description = "Live team record by id.",
+            description = "Single team JSON:API document filtered from GET /api/v1/teams (no GET-by-id in SleepHQ).",
             mimeType = "application/json")
     public McpSchema.ReadResourceResult team(String teamId) {
-        // Teams list endpoint is paginated; for a single team, fall through to listing for now.
-        // SleepHQ has no single-team GET — list-teams returns all of them.
-        return json("sleephq://team/" + teamId, client.listTeams(null, null));
+        try {
+            String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
+            String collection = client.listTeams(null, null);
+            String single = JsonApi.toSingleResourceJsonFromCollection(collection, id);
+            return json("sleephq://team/" + id, single);
+        } catch (IllegalArgumentException e) {
+            String label = teamId == null ? "unknown" : teamId;
+            String body = JsonApi.toJsonString(Map.of(
+                    "error", Map.of("kind", "validation", "message", e.getMessage())));
+            return json("sleephq://team/" + label, body);
+        }
     }
 
     @McpResource(uri = "sleephq://machine/{machineId}",
