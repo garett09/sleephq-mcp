@@ -21,7 +21,7 @@ parameters:
     input_type: select
     requirement: optional
     default: "balanced"
-    description: "Session shape: single-night vs trends vs long windows. After Start, instructions spell out each mode."
+    description: "balanced = default 7-day stats + per-night tables + CPAP waveform stats (raw windows when needed). Other modes narrow focus."
     options:
       - balanced
       - night_summary
@@ -81,26 +81,49 @@ instructions: |
     - **Start date (fromDate)** = toDate minus {% if workflow_mode == "longitudinal_90d" %}89{% else %}29{% endif %} days (inclusive span). Clamp both ends to dates that exist in **list-machine-dates** if the API rejects gaps.
     1. Discovery → machineId, then **get-comparison(fromDate, toDate)** for trend-level therapy metrics (narrate what the JSON returns).
     2. Run **weekly-trend(weekStartDate)** for at least the latest Monday inside the window; add an earlier week if it clarifies regime change.
-    3. Pick up to **three** high-signal nights (worst AHI, worst leak, or nights bracketing a pressure change) via **get-night-stats** / list output; run **titration-decision(date)** on the current anchor night; use **waveform** tools or **get-correlation-window** only where a trace changes the recommendation (avoid pulling six channels for every night).
+    3. Pick up to **three** high-signal nights (worst AHI, worst leak, or nights bracketing a pressure change) via **get-night-stats** / list output; run **titration-decision(date)** on the current anchor night; use **waveform** tools or **get-correlation-window** only where a trace changes the recommendation (avoid pulling six channels for every night). If you render a **multi-night comparison table**, include **SpO₂, pulse rate, and movement** from each row’s `spo2_summary`, `pulse_rate_summary`, and `movement_summary` (use **—** when absent).
     4. Finish with a **pressure / mask / timing** plan and what to re-check next week.
+  {% elif workflow_mode == "balanced" %}
+  **Default “balanced” = rolling 7-day therapy picture** (pressure and outcomes live in **trends**, not one night):
+    - **Window:** after discovery, set **toDate** to the newest resolved machine night unless **session_date** overrides the anchor (see recipe parameters above). **fromDate** = **toDate minus 6 calendar days** (7 days inclusive). Clamp to dates that exist in **list-machine-dates** if needed.
+    - **Range stats:** call **get-comparison(fromDate, toDate)** and narrate pressure/AHI/leak/usage patterns across the week.
+    - **Per-night table:** for each calendar day in that span that has a machine night, call **get-night-stats** once per night (and **get-sessions** / **get-events** when they add context for pressure or leak). **`get-night-stats` is the documented SleepHQ resource** `GET /api/v1/machine_dates/{id}` (Swagger *Machine Dates* → *Retrieve a Machine Date*): the JSON **already includes** nightly aggregates such as `ahi_summary`, `pressure_summary`, `leak_rate_summary`, **`spo2_summary`**, **`pulse_rate_summary`**, **`movement_summary`**, `machine_settings`, usage, etc.—**no separate “summary API”** exists for those columns; read them from this single response. In the Markdown **Rolling 7-Day Performance Table** (or equivalent), **always include columns** for **SpO₂**, **pulse rate**, and **movement**, populated from `data.attributes` of that same payload (pick 1–2 headline numbers each night when objects are non-empty). Keep **Date, mode/pressure, EPR, usage, AHI, leak** as you already do. If a summary object is null, empty, or not applicable (e.g. no O2 ring that night), use **—** or **n/a**—do **not** drop the column.
+    - **O2 Ring vs CPAP `machine_date`:** SleepHQ often stores oximetry on a **second machine** (O2 Ring Pro). CPAP **`get-night-stats`** may have **empty** `spo2_summary` / `pulse_rate_summary` even when you wore the ring. For each calendar night, if those fields are empty on the CPAP response, resolve the **same date** on **`SLEEPHQ_O2_MACHINE_ID`** (`get-machine-date-by-date` with O2 **`machineId`** + **`YYYY-MM-DD`**, or **`list-machine-dates`** on the O2 machine), then **`get-night-stats`** on that **`machine_date_id`** and merge SpO₂ / pulse (and movement if present) into the table row. If no O2 row exists that night, **—** is correct. **Shortcut:** when both machine env vars are set, **`get-combined-night-by-date(date)`** returns the **same `{ data }` JSON:API shape as `get-night-stats`**, with oximetry/movement summaries filled from the O2 import when the CPAP row lacks them—prefer it for rolling tables.
+    - **Waveforms “all tables” (CPAP channels):** optional **beyond** the machine_date JSON above: for **each** night in the 7-day window, run **stats-only** pulls (no fromTime/toTime) for **get-pressure-data**, **get-flow-rate-data**, **get-leak-data**, and **get-tidal-volume-data** when that night exists (skip if 404 / not processed). Use **get-spo2-data** / **get-pulse-rate-data** only when you need **waveform-level** stats or raw traces—not to replace `spo2_summary` / `pulse_rate_summary` in the table.
+    - **Raw windows:** when stats flag unstable pressure, high leak, or clustered events on a given night, add **HH:MM:SS** windows on that night for **get-pressure-data** + **get-flow-rate-data** (and **get-correlation-window** if multi-channel alignment helps). State why each window was chosen.
+    - **Synthesis:** end with how pressure behaved over the **week**, not a single-night snapshot, and what to verify next.
   {% elif workflow_mode == "morning_brief_only" %}
   Prefer the morning-brief MCP prompt and minimal tool calls unless the user requests more depth.
   {% else %}
-  Balanced: follow discovery order, then use the smallest set of tools/prompts that answer the question.
+  Unknown workflow_mode value; behave like **balanced** (7-day rolling playbook above).
   {% endif %}
 
   {% if session_date | trim == '' or session_date | trim | lower == 'auto' %}
+  {% if workflow_mode == "balanced" %}
+  **session_date** is `auto` or blank with **balanced**: after discovery, use the **newest resolved machine night** as **toDate** for the default **7-day** span (see balanced workflow). Do not treat auto as “single night only” unless the user asks to narrow.
+  {% else %}
   **session_date** is `auto` or blank — interpret as “last night” without a fixed calendar string in the recipe:
     1. Derive a **hint date** = calendar **yesterday** relative to “today” from the session (system/user context). Use the **user’s timezone** if known; otherwise ask once or state you used UTC.
     2. **Confirm in SleepHQ**: list-machine-dates / get-machine-date-by-date for that hint. If no row for that calendar night, use the **newest machine_date** from discovery and say you fell back.
     3. If “today” is unknown, skip arithmetic and resolve **latest completed night** from tools only.
+  {% endif %}
+  {% else %}
+  {% if workflow_mode == "balanced" %}
+  **session_date** is fixed **{{ session_date | trim }}**: use as **toDate** for the **balanced** 7-day window (**fromDate** = that date minus 6 days). Confirm both bounds exist in **list-machine-dates** when practical.
   {% else %}
   **session_date** is fixed: treat **{{ session_date | trim }}** as the primary calendar night unless the user overrides; still confirm it exists via tools when practical.
+  {% endif %}
   {% endif %}
 
   ## Data and tools (always)
 
   ALWAYS tech-read first: call the sleephq MCP tools to fetch live data before interpreting. Never invent numbers. If a tool call fails with auth error, call `who-am-i` first to surface the issue.
+
+  **Published SleepHQ OpenAPI vs these tools:** The Swagger UI at sleephq.com loads `swagger.json`, which does **not** document every route the MCP calls (e.g. waveform `*_data` URLs under `machine_dates`, some night-detail paths). Treat **404** on waveform or night-detail tools as “no usable payload for that night / segment” unless `who-am-i` also fails — then fix auth. Continue the workflow (e.g. balanced mode already skips 404 / not processed). Maintainer context: repo file `docs/sleephq-openapi-gap.md` (status: parked until upstream documents the full surface).
+
+  **Goose Memory (builtin `memory`):** not automatic — it only changes behavior when you use its tools to **store** or **retrieve** notes across sessions. Offer to save stable preferences (e.g. mask model, typical pressure range) when the user asks; **confirm before saving**; do not store secrets or sensitive identifiers unless they explicitly want that.
+
+  **Goose Chat Recall (platform `chatrecall`):** searches **past Goose sessions / summaries** on this machine — use when they reference an earlier chat (“what did we set pressure to last week?”). It is **not** a substitute for re-querying SleepHQ for fresh nights.
 
   When the user asks what they can use, what tools exist, or cannot see MCP resources/prompts in Goose:
     repeat the **MCP capability index** from the opening recipe message (same content as
@@ -109,14 +132,16 @@ instructions: |
   Discovery order (IDs for later calls):
     list-teams → list-machines(teamId?) → list-machine-dates(machineId?) →
     get-machine-date-by-date(date, machineId?) or read machine_date id from list output.
-    teamId / machineId default from env when the server is configured (SLEEPHQ_TEAM_ID, SLEEPHQ_CPAP_MACHINE_ID).
+    teamId / machineId default from env when the server is configured (SLEEPHQ_TEAM_ID, SLEEPHQ_CPAP_MACHINE_ID, SLEEPHQ_O2_MACHINE_ID for combined nights).
+
+  **CPAP + O2 same calendar date (all workflows):** Whenever you need the standard **`{ "data": { "type": "machine_date", "attributes", ... } }`** night document and both devices are configured (**`SLEEPHQ_CPAP_MACHINE_ID`** + **`SLEEPHQ_O2_MACHINE_ID`**, or explicit `cpapMachineId` + `o2MachineId` on the tool), prefer **`get-combined-night-by-date(YYYY-MM-DD)`** over two separate **`get-night-stats`** calls—it merges oximetry/movement summaries into one payload. Applies to **balanced**, **longitudinal_30d/90d**, **night_summary**, **waveform_deep_dive**, **mask_leak_with_pressure**, **morning_brief_only**, and any ad-hoc analysis. Still use **`get-night-stats(machineDateId)`** when you only have a **`machine_date_id`** or a single-device night.
 
   ## MCP capability index (sleephq extension)
 
-  **Tools (23)** — exact names:
+  **Tools (24)** — exact names:
     - Auth: who-am-i, get-token-status
     - Machines: list-teams, list-machines, get-machine-details, list-machine-dates, get-machine-date-by-date
-    - Night: get-night-stats, get-sessions, get-events
+    - Night: get-night-stats, get-combined-night-by-date, get-sessions, get-events
     - Waveforms (each: machineDateId required; fromTime, toTime optional HH:MM:SS — both omitted = stats only; both set = raw samples):
       get-flow-rate-data, get-pressure-data, get-leak-data, get-spo2-data, get-pulse-rate-data, get-tidal-volume-data
     - Correlation: get-correlation-window(machineDateId, fromTime, toTime, channels?)
@@ -148,7 +173,7 @@ activities:
   - |
     message: **SleepHQ MCP** — extension `sleephq` · persona `{{ persona }}` · workflow `{{ workflow_mode }}` · night `{{ session_date }}` · notes `{{ persona_addendum }}`
 
-    **Tools (23)** — *Auth:* who-am-i, get-token-status · *Machines:* list-teams, list-machines, get-machine-details, list-machine-dates, get-machine-date-by-date · *Night:* get-night-stats, get-sessions, get-events · *Waveforms:* get-flow-rate-data, get-pressure-data, get-leak-data, get-spo2-data, get-pulse-rate-data, get-tidal-volume-data *(machineDateId + optional fromTime/toTime HH:MM:SS)* · *Correlation:* get-correlation-window · *Team:* list-sleep-tests, list-journals, list-masks, list-devices · *Other:* get-comparison, get-share-dashboard
+    **Tools (24)** — *Auth:* who-am-i, get-token-status · *Machines:* list-teams, list-machines, get-machine-details, list-machine-dates, get-machine-date-by-date · *Night:* get-night-stats, get-combined-night-by-date, get-sessions, get-events · *Waveforms:* get-flow-rate-data, get-pressure-data, get-leak-data, get-spo2-data, get-pulse-rate-data, get-tidal-volume-data *(machineDateId + optional fromTime/toTime HH:MM:SS)* · *Correlation:* get-correlation-window · *Team:* list-sleep-tests, list-journals, list-masks, list-devices · *Other:* get-comparison, get-share-dashboard
 
     **Resources (7)** — *Static:* `sleephq://patient/baseline`, `sleephq://device/current`, `sleephq://guidelines/resmed-titration`, `sleephq://reference/normal-ranges` · *Dynamic:* `sleephq://team/{teamId}`, `sleephq://machine/{machineId}`, `sleephq://machine_date/{machineDateId}`
 
@@ -169,10 +194,27 @@ extensions:
   - type: streamable_http
     name: sleephq
     description: >
-      SleepHQ MCP: 23 tools (auth, machines, nights, 6 waveform channels, correlation, team data, comparison),
+      SleepHQ MCP: 24 tools (auth, machines, nights + combined night-by-date, 6 waveform channels, correlation, team data, comparison),
       7 resources (4 static clinical URIs + 3 dynamic JSON templates), 7 analysis prompts. Goose may list tools
       most prominently; prompts/resources still exist on the server — see recipe opening message.
     uri: http://localhost:8080/mcp
     timeout: 30
     headers:
       X-SleepHQ-MCP-Key: "${SLEEPHQ_MCP_API_KEY}"
+
+  - type: builtin
+    name: memory
+    bundled: true
+    timeout: 120
+    description: >
+      Goose Memory: explicit store/retrieve of durable notes across sessions (e.g. mask model, pressure goals).
+      Not automatic — the model should only save what you ask to remember; avoid secrets and clinical identifiers
+      in memory text unless you accept that risk.
+
+  - type: platform
+    name: chatrecall
+    bundled: true
+    timeout: 120
+    description: >
+      Goose Chat Recall: search prior Goose sessions / summaries when you want continuity with past chats.
+      Scope is local Goose history, not SleepHQ servers.

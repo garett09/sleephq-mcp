@@ -24,11 +24,12 @@ Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInt
 
 ## MCP surface
 
-- **23 tools** — Grouped: auth (2), machines (5), night (3), waveforms (7 single-channel + `get-correlation-window`), team lists (4), other (2). **Canonical names and parameters:** use your MCP client’s `list_tools` against this server (the list changes with releases).
+- **24 tools** — Grouped: auth (2), machines (5), night (4: `get-night-stats`, `get-combined-night-by-date`, `get-sessions`, `get-events`), waveforms (7 single-channel + `get-correlation-window`), team lists (4), other (2). **Canonical names and parameters:** use your MCP client’s `list_tools` against this server (the list changes with releases).
 - **Correlation cost** — `get-correlation-window` issues **one full-night waveform HTTP GET per distinct channel** (same backend path as the single-channel waveform tools), then slices in memory to your window; prefer fewer channels when latency matters.
 - **Resources** — 4 static URIs (`sleephq://patient/baseline`, `sleephq://device/current`, `sleephq://guidelines/resmed-titration`, `sleephq://reference/normal-ranges`) plus 3 URI templates (`sleephq://team/{id}`, `sleephq://machine/{id}`, `sleephq://machine_date/{id}`).
 - **7 prompts** — nightly-review, central-apnea-investigation, weekly-trend, leak-diagnosis, titration-decision, o2-desat-review, morning-brief
 - **Waveform API reference** — [docs/sleephq-waveform-segments.md](docs/sleephq-waveform-segments.md) (known `*_data` path segments and how to probe new ones).
+- **Official OpenAPI gap (parked)** — [docs/sleephq-openapi-gap.md](docs/sleephq-openapi-gap.md): published `swagger.json` does not document the full live API; no extra alignment work until SleepHQ expands the contract.
 
 ## Setup
 

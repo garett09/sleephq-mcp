@@ -1,5 +1,6 @@
 package com.adriangarett.sleephqmcp.tools;
 
+import com.adriangarett.sleephqmcp.service.CombinedNightService;
 import com.adriangarett.sleephqmcp.service.NightService;
 import com.adriangarett.sleephqmcp.support.McpResponses;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -10,16 +11,27 @@ import org.springframework.stereotype.Component;
 public class NightTools {
 
     private final NightService nightService;
+    private final CombinedNightService combinedNightService;
 
-    public NightTools(NightService nightService) {
+    public NightTools(NightService nightService, CombinedNightService combinedNightService) {
         this.nightService = nightService;
+        this.combinedNightService = combinedNightService;
     }
 
     @McpTool(name = "get-night-stats",
-            description = "Get the full nightly summary for a machine_date: AHI breakdown, pressure stats, leak rate, flow limitation, respiratory rate, EPAP, machine settings, pulse rate, SpO2, sleep/movement summary, usage, large_leak flag. Single call returns BOTH CPAP and O2 Ring data inline (no separate calls needed). Cached for 6h.")
+            description = "GET /api/v1/machine_dates/{id} (SleepHQ Swagger: Machine Dates). Full nightly JSON: AHI, pressure, leak, flow limit, resp rate, EPAP, machine_settings, pulse_rate_summary, spo2_summary, movement_summary, usage, large_leak, etc. Summaries for SpO2/pulse/movement come from this single response—not from separate summary endpoints. Cached 6h.")
     public String getNightStats(
             @McpToolParam(description = "machine_date_id from list-machine-dates", required = true) String machineDateId) {
         return McpResponses.safe(() -> nightService.getNightStats(machineDateId));
+    }
+
+    @McpTool(name = "get-combined-night-by-date",
+            description = "Same JSON:API envelope as get-night-stats: { data: { id, type: machine_date, attributes, relationships } }. Fetches CPAP and O2 Ring nights for one calendar date (GET .../machines/{id}/machine_dates/{date}); copies spo2_summary, pulse_rate_summary, movement_summary from the O2 row into attributes when the CPAP row has them null/empty. data.id is the CPAP machine_date id. Requires date=YYYY-MM-DD and both machine env vars (or cpapMachineId + o2MachineId). Fails if CPAP has no row that night; O2 404 leaves oximetry fields unchanged.")
+    public String getCombinedNightByDate(
+            @McpToolParam(description = "Calendar night YYYY-MM-DD", required = true) String date,
+            @McpToolParam(description = "CPAP machine id; defaults to SLEEPHQ_CPAP_MACHINE_ID", required = false) String cpapMachineId,
+            @McpToolParam(description = "O2 Ring machine id; defaults to SLEEPHQ_O2_MACHINE_ID", required = false) String o2MachineId) {
+        return McpResponses.safe(() -> combinedNightService.combineForCalendarDate(date, cpapMachineId, o2MachineId));
     }
 
     @McpTool(name = "get-sessions",
