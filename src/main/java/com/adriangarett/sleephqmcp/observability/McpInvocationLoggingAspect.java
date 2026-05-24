@@ -4,6 +4,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.owasp.encoder.Encode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpPrompt;
@@ -32,12 +33,13 @@ public class McpInvocationLoggingAspect {
         try {
             Object result = pjp.proceed();
             long ms = (System.nanoTime() - start) / 1_000_000;
-            log.info("mcp {} '{}' ok argc={} latency_ms={}", primitive, name, argCount, ms);
+            log.info("mcp {} '{}' ok argc={} latency_ms={}",
+                    Encode.forJava(primitive), Encode.forJava(name), argCount, ms);
             return result;
         } catch (Throwable t) {
             long ms = (System.nanoTime() - start) / 1_000_000;
             log.warn("mcp {} '{}' FAIL argc={} latency_ms={} error={}",
-                    primitive, name, argCount, ms, t.toString());
+                    Encode.forJava(primitive), Encode.forJava(name), argCount, ms, Encode.forJava(String.valueOf(t)));
             throw t;
         }
     }

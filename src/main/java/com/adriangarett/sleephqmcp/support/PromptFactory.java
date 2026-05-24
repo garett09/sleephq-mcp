@@ -31,6 +31,10 @@ public class PromptFactory {
                 new McpSchema.PromptMessage(role, new McpSchema.TextContent(rendered))));
     }
 
+    /**
+     * Replaces every {@code {{key}}} occurrence in the template. Uses {@link String#replace(CharSequence, CharSequence)},
+     * so placeholders that appear multiple times are all substituted (there is no single-occurrence mode).
+     */
     static String render(String template, Map<String, String> variables) {
         String out = template;
         for (Map.Entry<String, String> entry : variables.entrySet()) {
