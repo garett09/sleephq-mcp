@@ -27,6 +27,21 @@ public final class TimeParams {
         }
     }
 
+    /**
+     * Parses HH:mm:ss; throws if null or blank.
+     */
+    public static LocalTime requireTime(String value, String paramName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(paramName + " is required (HH:mm:ss)");
+        }
+        try {
+            return LocalTime.parse(value, FORMATTER);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    "Invalid " + paramName + " '" + value + "' — expected HH:mm:ss (24-hour)", e);
+        }
+    }
+
     public static String format(LocalTime time) {
         return time == null ? null : FORMATTER.format(time);
     }

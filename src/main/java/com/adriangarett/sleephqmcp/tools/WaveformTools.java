@@ -9,7 +9,7 @@ import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
 
 /**
- * Five waveform tools, each two lines. All logic lives in {@link WaveformService}.
+ * Waveform tools (one per channel). All logic lives in {@link WaveformService}.
  * Adding a new waveform channel = one enum constant in {@link WaveformChannel} + one
  * 2-line tool method here.
  *
@@ -71,6 +71,16 @@ public class WaveformTools {
             @McpToolParam(description = "Window start HH:MM:SS", required = false) String fromTime,
             @McpToolParam(description = "Window end HH:MM:SS", required = false) String toTime) {
         return fetch(WaveformChannel.PULSE_RATE, machineDateId, fromTime, toTime);
+    }
+
+    @McpTool(name = "get-tidal-volume-data",
+            description = "Get CPAP tidal volume waveform (25 Hz, mL). May 404 if SleepHQ has not finished processing that night."
+                    + WINDOW_NOTE)
+    public String getTidalVolumeData(
+            @McpToolParam(description = "machine_date_id", required = true) String machineDateId,
+            @McpToolParam(description = "Window start HH:MM:SS", required = false) String fromTime,
+            @McpToolParam(description = "Window end HH:MM:SS", required = false) String toTime) {
+        return fetch(WaveformChannel.TIDAL_VOLUME, machineDateId, fromTime, toTime);
     }
 
     private String fetch(WaveformChannel channel, String machineDateId, String fromTime, String toTime) {

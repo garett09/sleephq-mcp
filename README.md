@@ -7,7 +7,7 @@ A Spring AI MCP server (Streamable HTTP transport) that wraps the SleepHQ REST A
 ```
 mcp layer        @McpTool / @McpResource / @McpPrompt — thin facades (≤5 lines)
    ↓
-service layer    NightService, WaveformService, ComparisonService
+service layer    NightService, WaveformService, CorrelationWaveformService, ComparisonService
    ↓
 client layer     SleepHqClient — one method per endpoint family
    ↓
@@ -24,9 +24,10 @@ Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInt
 
 ## MCP surface
 
-- **14 tools** — who-am-i, get-token-status, list-teams, list-machines, get-machine-details, list-machine-dates, get-machine-date-by-date, get-night-stats, get-sessions, get-events, get-flow-rate-data, get-pressure-data, get-leak-data, get-spo2-data, get-pulse-rate-data, get-comparison, get-share-dashboard
-- **7 resources** — `sleephq://patient/baseline`, `sleephq://device/current`, `sleephq://guidelines/resmed-titration`, `sleephq://reference/normal-ranges`, `sleephq://team/{id}`, `sleephq://machine/{id}`, `sleephq://machine_date/{id}`
+- **23 tools** — Auth: `who-am-i`, `get-token-status`. Machines: `list-teams`, `list-machines`, `get-machine-details`, `list-machine-dates`, `get-machine-date-by-date`. Night: `get-night-stats`, `get-sessions`, `get-events`. Waveforms: `get-flow-rate-data`, `get-pressure-data`, `get-leak-data`, `get-tidal-volume-data`, `get-spo2-data`, `get-pulse-rate-data`, `get-correlation-window`. Team data: `list-sleep-tests`, `list-journals`, `list-masks`, `list-devices`. Other: `get-comparison`, `get-share-dashboard`.
+- **Resources** — 4 static URIs (`sleephq://patient/baseline`, `sleephq://device/current`, `sleephq://guidelines/resmed-titration`, `sleephq://reference/normal-ranges`) plus 3 URI templates (`sleephq://team/{id}`, `sleephq://machine/{id}`, `sleephq://machine_date/{id}`).
 - **7 prompts** — nightly-review, central-apnea-investigation, weekly-trend, leak-diagnosis, titration-decision, o2-desat-review, morning-brief
+- **Waveform API reference** — [docs/sleephq-waveform-segments.md](docs/sleephq-waveform-segments.md) (known `*_data` path segments and how to probe new ones).
 
 ## Setup
 

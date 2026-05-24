@@ -28,4 +28,16 @@ class TimeParamsTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("HH:mm:ss");
     }
+
+    @Test
+    void requireTime_rejectsBlank() {
+        assertThatThrownBy(() -> TimeParams.requireTime(null, "fromTime"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("fromTime");
+    }
+
+    @Test
+    void requireTime_parsesValid() {
+        assertThat(TimeParams.requireTime("01:02:03", "fromTime")).isEqualTo(LocalTime.of(1, 2, 3));
+    }
 }
