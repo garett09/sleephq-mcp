@@ -2,7 +2,7 @@
 
 ## Status: parked
 
-We are **not** pursuing alignment, discovery work, or support tickets against the public SleepHQ OpenAPI until their published contract covers the same surface area the MCP calls. Rationale: the Swagger UI at [https://sleephq.com/api-docs/index.html](https://sleephq.com/api-docs/index.html) loads [https://sleephq.com/api/swagger.json](https://sleephq.com/api/swagger.json); that spec documents core resources (teams, machines, `GET /api/v1/machine_dates/{id}`, imports, journals, etc.) but **does not list** several routes this server uses (waveform `*_data` segments under `machine_dates`, night `sessions`, `events_data`, comparisons, and similar). Tooling and operators should assume **published docs are incomplete** relative to live behavior.
+We are **not** pursuing alignment, discovery work, or support tickets against the public SleepHQ OpenAPI until their published contract covers the same surface area the MCP calls. Rationale: the Swagger UI at [https://sleephq.com/api-docs/index.html](https://sleephq.com/api-docs/index.html) loads [https://sleephq.com/api/swagger.json](https://sleephq.com/api/swagger.json); that spec documents core resources (teams, machines, `GET /api/v1/machine_dates/{id}`, imports, journals, etc.) but **does not list** several routes this server uses (waveform `*_data` segments under `machine_dates`, night `sessions`, `events_data`, and similar). Period comparison is **not** proxied to SleepHQ — `get-comparison` aggregates documented per-night `machine_dates` in this MCP. Tooling and operators should assume **published docs are incomplete** relative to all live behavior.
 
 ### Clarification: machine_date already bundles summaries
 

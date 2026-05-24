@@ -17,6 +17,8 @@ import java.nio.charset.StandardCharsets;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -96,6 +98,22 @@ class CombinedNightServiceTest {
         assertThatThrownBy(() -> bare.combineForCalendarDate("2026-05-20", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cpapMachineId");
+    }
+
+    @Test
+    void combineForCalendarDate_cpapOnly_noO2Configured_doesNotFetchSecondMachine() {
+        CombinedNightService cpapOnly = new CombinedNightService(client,
+                new ClinicalContextProperties(null, "cpap-1", null, null));
+        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-06-01")))
+                .thenReturn("{\"data\":{\"id\":\"md-1\",\"type\":\"machine_date\",\"attributes\":{\"usage\":2},"
+                        + "\"relationships\":{}}}");
+
+        String json = cpapOnly.combineForCalendarDate("2026-06-01", null, null);
+        var root = JsonApi.parse(json);
+
+        assertThat(root.path("data").path("id").asText()).isEqualTo("md-1");
+        verify(client).getMachineDateByDate(eq("cpap-1"), eq("2026-06-01"));
+        verifyNoMoreInteractions(client);
     }
 
     @Test

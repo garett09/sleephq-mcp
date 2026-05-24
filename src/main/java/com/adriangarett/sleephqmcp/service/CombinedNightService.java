@@ -16,7 +16,8 @@ import java.util.List;
  * Builds one JSON:API {@code machine_date} document for a calendar night: CPAP is the primary
  * {@code data} resource (same shape as {@code GET /api/v1/machine_dates/{id}}); when the CPAP row
  * lacks oximetry summaries, copies {@code spo2_summary}, {@code pulse_rate_summary}, and
- * {@code movement_summary} from the O2 Ring machine's {@code machine_date} for that date.
+ * {@code movement_summary} from the O2 Ring machine's {@code machine_date} for that date when configured
+ * ({@code SLEEPHQ_O2_MACHINE_ID} or tool override); if no O2 machine is configured, returns CPAP-only.
  */
 @Service
 public class CombinedNightService {
@@ -42,15 +43,14 @@ public class CombinedNightService {
         String date = SleepHqPathParams.requireCalendarDate(calendarDate, "date");
         String cpapMid = resolveMachineId(cpapMachineId, clinical.defaultCpapMachineId(), "cpapMachineId",
                 "SLEEPHQ_CPAP_MACHINE_ID");
-        String o2Mid = resolveMachineId(o2MachineId, clinical.defaultO2MachineId(), "o2MachineId",
-                "SLEEPHQ_O2_MACHINE_ID");
+        String o2Mid = resolveO2MachineIdOptional(o2MachineId);
 
         JsonNode cpapDoc = requireCpapDocument(() -> client.getMachineDateByDate(cpapMid, date), date);
         JsonNode cpapData = cpapDoc.path("data");
         if (!cpapData.path("attributes").isObject()) {
             throw new IllegalStateException("CPAP machine_date response missing data.attributes");
         }
-        JsonNode o2Attrs = loadO2AttributesOrNull(o2Mid, date);
+        JsonNode o2Attrs = o2Mid == null ? null : loadO2AttributesOrNull(o2Mid, date);
 
         ObjectNode mergedAttrs = mergeAttributes((ObjectNode) cpapData.path("attributes").deepCopy(), o2Attrs);
 
@@ -82,6 +82,19 @@ public class CombinedNightService {
             throw new IllegalArgumentException(paramName + " is required, or set " + envKey + " for a default");
         }
         return SleepHqPathParams.requireResourceId(configured, envKey);
+    }
+
+    /**
+     * O2 machine id from tool override, else env; {@code null} if neither is set (CPAP-only merge).
+     */
+    private String resolveO2MachineIdOptional(String o2MachineId) {
+        if (o2MachineId != null && !o2MachineId.isBlank()) {
+            return SleepHqPathParams.requireResourceId(o2MachineId, "o2MachineId");
+        }
+        if (clinical.defaultO2MachineId() == null || clinical.defaultO2MachineId().isBlank()) {
+            return null;
+        }
+        return SleepHqPathParams.requireResourceId(clinical.defaultO2MachineId(), "SLEEPHQ_O2_MACHINE_ID");
     }
 
     private static JsonNode requireCpapDocument(java.util.function.Supplier<String> fetch, String date) {

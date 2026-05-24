@@ -129,25 +129,6 @@ public class SleepHqClient {
                 .build(id));
     }
 
-    public String getComparison(String machineId, String fromDate, String toDate) {
-        String mid = SleepHqPathParams.optionalResourceId(machineId, "machineId");
-        String from = SleepHqPathParams.optionalCalendarDate(fromDate, "fromDate");
-        String to = SleepHqPathParams.optionalCalendarDate(toDate, "toDate");
-        return get(uriBuilder -> {
-            UriBuilder b = uriBuilder.path("/api/v1/comparisons");
-            if (mid != null) {
-                b.queryParam("machine_id", mid);
-            }
-            if (from != null) {
-                b.queryParam("from", from);
-            }
-            if (to != null) {
-                b.queryParam("to", to);
-            }
-            return b.build();
-        });
-    }
-
     public String getShareDashboard(String shareLinkToken) {
         String token = SleepHqPathParams.requireResourceId(shareLinkToken, "shareLinkToken");
         return get(uriBuilder -> uriBuilder

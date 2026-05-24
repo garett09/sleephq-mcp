@@ -1,19 +1,90 @@
 package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
+import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+
+/**
+ * Period "comparison" is computed locally: each calendar day uses documented
+ * {@code GET /api/v1/machines/{id}/machine_dates/{date}} via {@link CombinedNightService} (CPAP + optional O2
+ * overlay). There is no SleepHQ {@code /comparisons} API.
+ */
 @Service
 public class ComparisonService {
 
-    private final SleepHqClient client;
+    private static final int MAX_RANGE_DAYS = 120;
 
-    public ComparisonService(SleepHqClient client) {
+    private final SleepHqClient client;
+    private final CombinedNightService combinedNightService;
+    private final ClinicalContextProperties clinical;
+
+    public ComparisonService(
+            SleepHqClient client,
+            CombinedNightService combinedNightService,
+            ClinicalContextProperties clinical) {
         this.client = client;
+        this.combinedNightService = combinedNightService;
+        this.clinical = clinical;
     }
 
+    /**
+     * @param machineId CPAP (therapy) machine id
+     * @return JSON with {@code meta} (range, machine ids, source) and {@code nights} array of per-day results
+     */
     public String compare(String machineId, String fromDate, String toDate) {
-        return client.getComparison(machineId, fromDate, toDate);
+        String cpap = SleepHqPathParams.requireResourceId(machineId, "machineId");
+        String from = SleepHqPathParams.requireCalendarDate(fromDate, "fromDate");
+        String to = SleepHqPathParams.requireCalendarDate(toDate, "toDate");
+        LocalDate start = LocalDate.parse(from);
+        LocalDate end = LocalDate.parse(to);
+        if (start.isAfter(end)) {
+            throw new IllegalArgumentException("fromDate must be on or before toDate");
+        }
+        long spanDays = ChronoUnit.DAYS.between(start, end) + 1;
+        if (spanDays > MAX_RANGE_DAYS) {
+            throw new IllegalArgumentException("Date range exceeds " + MAX_RANGE_DAYS + " days");
+        }
+
+        ObjectNode root = JsonApi.mapper().createObjectNode();
+        ObjectNode meta = root.putObject("meta");
+        meta.put("source", "sleephq-mcp/aggregated_range");
+        meta.put("cpap_machine_id", cpap);
+        if (clinical.defaultO2MachineId() != null && !clinical.defaultO2MachineId().isBlank()) {
+            meta.put("o2_machine_id", clinical.defaultO2MachineId());
+        }
+        meta.put("from", from);
+        meta.put("to", to);
+        meta.put("note", "Each night is GET .../machines/{id}/machine_dates/{date}; O2 summaries merged when configured. No upstream /comparisons.");
+
+        ArrayNode nights = root.putArray("nights");
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            String day = d.toString();
+            ObjectNode row = JsonApi.mapper().createObjectNode();
+            row.put("date", day);
+            try {
+                String envelope = combinedNightService.combineForCalendarDate(day, cpap, null);
+                row.set("data", JsonApi.parse(envelope).path("data"));
+            } catch (IllegalArgumentException | IllegalStateException e) {
+                row.put("skipped", true);
+                String msg = e.getMessage();
+                row.put("reason", msg != null ? msg : e.getClass().getSimpleName());
+            }
+            nights.add(row);
+        }
+
+        try {
+            return JsonApi.mapper().writeValueAsString(root);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize comparison", e);
+        }
     }
 
     public String shareDashboard(String shareLinkToken) {

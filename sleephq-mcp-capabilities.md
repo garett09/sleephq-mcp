@@ -31,7 +31,7 @@ Update this file when you add or rename `@McpTool`, `@McpResource`, or `@McpProm
 | `list-journals` | Journals |
 | `list-masks` | Masks |
 | `list-devices` | Devices |
-| `get-comparison` | Period comparison |
+| `get-comparison` | **Local range aggregate:** `fromDate`, `toDate` (YYYY-MM-DD), optional `machineId` (CPAP). No upstream `/comparisons` — one merged `machine_date`-shaped `data` per day in `nights[]` (see tool description). |
 | `get-share-dashboard` | Share dashboard |
 
 Waveform tools: required `machineDateId`; without both times → **stats only**; with `fromTime` + `toTime` → **raw samples** for that window.
