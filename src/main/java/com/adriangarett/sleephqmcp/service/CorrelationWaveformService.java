@@ -3,6 +3,7 @@ package com.adriangarett.sleephqmcp.service;
 import com.adriangarett.sleephqmcp.domain.WaveformChannel;
 import com.adriangarett.sleephqmcp.domain.WaveformResponse;
 import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Service;
@@ -25,19 +26,23 @@ public class CorrelationWaveformService {
     }
 
     public String fetchWindow(String machineDateId, LocalTime from, LocalTime to, List<WaveformChannel> channels) {
-        try {
-            ObjectNode root = MAPPER.createObjectNode();
-            root.put("machine_date_id", machineDateId);
-            root.put("from", from.toString());
-            root.put("to", to.toString());
-            ObjectNode channelsNode = root.putObject("channels");
-            for (WaveformChannel channel : channels) {
-                WaveformResponse response = waveformService.fetch(channel, machineDateId, from, to);
+        ObjectNode root = MAPPER.createObjectNode();
+        root.put("machine_date_id", machineDateId);
+        root.put("from", from.toString());
+        root.put("to", to.toString());
+        ObjectNode channelsNode = root.putObject("channels");
+        for (WaveformChannel channel : channels) {
+            WaveformResponse response = waveformService.fetch(channel, machineDateId, from, to);
+            try {
                 channelsNode.set(channel.name().toLowerCase(), MAPPER.readTree(response.toJson()));
+            } catch (JsonProcessingException e) {
+                throw new IllegalStateException("Correlation window: invalid JSON for channel " + channel.name(), e);
             }
+        }
+        try {
             return MAPPER.writeValueAsString(root);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to build correlation window JSON", e);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Correlation window: serialization failed", e);
         }
     }
 }

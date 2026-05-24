@@ -4,6 +4,7 @@ import com.adriangarett.sleephqmcp.domain.WaveformChannel;
 import com.adriangarett.sleephqmcp.domain.WaveformResponse;
 import com.adriangarett.sleephqmcp.domain.WaveformStats;
 import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -42,8 +43,9 @@ class CorrelationWaveformServiceTest {
                 LocalTime.of(1, 0, 1),
                 List.of(WaveformChannel.FLOW_RATE, WaveformChannel.PRESSURE));
 
-        assertThat(JsonApi.parse(json).path("machine_date_id").asText()).isEqualTo("md-1");
-        assertThat(JsonApi.parse(json).path("channels").path("flow_rate").path("mode").asText()).isEqualTo("stats");
-        assertThat(JsonApi.parse(json).path("channels").path("pressure").path("mode").asText()).isEqualTo("stats");
+        JsonNode root = JsonApi.parse(json);
+        assertThat(root.path("machine_date_id").asText()).isEqualTo("md-1");
+        assertThat(root.path("channels").path("flow_rate").path("mode").asText()).isEqualTo("stats");
+        assertThat(root.path("channels").path("pressure").path("mode").asText()).isEqualTo("stats");
     }
 }

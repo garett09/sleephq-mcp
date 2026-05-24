@@ -1,5 +1,7 @@
 package com.adriangarett.sleephqmcp.support;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import org.owasp.encoder.Encode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,8 +25,20 @@ public final class McpResponses {
             return action.get();
         } catch (IllegalArgumentException e) {
             return errorJson(McpError.fatal(e.getMessage(), Map.of("kind", "validation")));
+        } catch (IllegalStateException e) {
+            if (e.getCause() instanceof JsonProcessingException jpe) {
+                String safeDetail = jpe.getOriginalMessage() != null ? jpe.getOriginalMessage() : jpe.getMessage();
+                log.warn("MCP JSON assembly failed: {}", Encode.forJava(String.valueOf(safeDetail)), e);
+                return errorJson(McpError.fatal(
+                        "Could not assemble multi-channel waveform response",
+                        Map.of("kind", "json")));
+            }
+            log.warn("MCP call failed: {}", Encode.forJava(String.valueOf(e.getMessage())), e);
+            return errorJson(McpError.fatal(
+                    "Upstream request failed",
+                    Map.of("kind", "remote", "exception", e.getClass().getSimpleName())));
         } catch (Exception e) {
-            log.warn("MCP remote call failed", e);
+            log.warn("MCP remote call failed: {}", Encode.forJava(String.valueOf(e.getMessage())), e);
             return errorJson(McpError.fatal(
                     "Upstream request failed",
                     Map.of("kind", "remote", "exception", e.getClass().getSimpleName())));

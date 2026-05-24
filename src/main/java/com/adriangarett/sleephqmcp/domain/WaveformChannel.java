@@ -64,7 +64,7 @@ public enum WaveformChannel {
 
     /**
      * Parses a comma-separated list of channel tokens (enum names e.g. {@code flow_rate},
-     * or API path segments e.g. {@code flow_rate_data}). Order is preserved; duplicates are kept.
+     * or API path segments e.g. {@code flow_rate_data}). Order is preserved; duplicate tokens are skipped.
      */
     public static List<WaveformChannel> parseChannelList(String commaSeparated) {
         if (commaSeparated == null || commaSeparated.isBlank()) {
@@ -86,13 +86,15 @@ public enum WaveformChannel {
             if (resolved == null) {
                 throw new IllegalArgumentException("Unknown waveform channel token: " + token);
             }
-            out.add(resolved);
+            if (!out.contains(resolved)) {
+                out.add(resolved);
+            }
         }
         if (out.isEmpty()) {
             throw new IllegalArgumentException("channels contained no valid tokens");
         }
         if (out.size() > 6) {
-            throw new IllegalArgumentException("At most 6 channels per correlation request");
+            throw new IllegalArgumentException("At most 6 distinct channels per correlation request");
         }
         return out;
     }

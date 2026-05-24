@@ -24,18 +24,36 @@ class WaveformChannelTest {
     }
 
     @Test
+    void parseChannelList_dedupesPreservingOrder() {
+        assertThat(WaveformChannel.parseChannelList("flow_rate,flow_rate,pressure_data"))
+                .containsExactly(WaveformChannel.FLOW_RATE, WaveformChannel.PRESSURE);
+    }
+
+    @Test
+    void parseChannelList_sevenDuplicateTokens_yieldsOneChannel() {
+        assertThat(WaveformChannel.parseChannelList(
+                "flow_rate,flow_rate,flow_rate,flow_rate,flow_rate,flow_rate,flow_rate"))
+                .containsExactly(WaveformChannel.FLOW_RATE);
+    }
+
+    @Test
+    void parseChannelList_sixDistinctChannels_succeeds() {
+        assertThat(WaveformChannel.parseChannelList(
+                "flow_rate,pressure,leak,spo2,pulse_rate,tidal_volume"))
+                .containsExactly(
+                        WaveformChannel.FLOW_RATE,
+                        WaveformChannel.PRESSURE,
+                        WaveformChannel.LEAK,
+                        WaveformChannel.SPO2,
+                        WaveformChannel.PULSE_RATE,
+                        WaveformChannel.TIDAL_VOLUME);
+    }
+
+    @Test
     void parseChannelList_rejectsUnknownToken() {
         assertThatThrownBy(() -> WaveformChannel.parseChannelList("flow_rate,nope"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("nope");
-    }
-
-    @Test
-    void parseChannelList_rejectsMoreThanSixChannels() {
-        assertThatThrownBy(() -> WaveformChannel.parseChannelList(
-                "flow_rate,pressure,leak,spo2,pulse_rate,tidal_volume,flow_rate"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("6");
     }
 
     @Test
