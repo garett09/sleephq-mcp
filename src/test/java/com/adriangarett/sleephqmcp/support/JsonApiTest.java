@@ -30,6 +30,28 @@ class JsonApiTest {
     }
 
     @Test
+    void toSingleResourceJsonFromCollection_findsById() {
+        String collection = "{\"data\":[{\"id\":\"1\",\"type\":\"team\"},{\"id\":\"2\",\"type\":\"team\"}],\"meta\":{\"p\":1}}";
+        String single = JsonApi.toSingleResourceJsonFromCollection(collection, "2");
+        assertThat(single).contains("\"id\":\"2\"");
+        assertThat(single).contains("\"meta\":{\"p\":1}");
+    }
+
+    @Test
+    void toSingleResourceJsonFromCollection_throwsWhenMissing() {
+        String collection = "{\"data\":[{\"id\":\"1\",\"type\":\"team\"}]}";
+        assertThatThrownBy(() -> JsonApi.toSingleResourceJsonFromCollection(collection, "99"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("99");
+    }
+
+    @Test
+    void toSingleResourceJsonFromCollection_throwsWhenNotArray() {
+        assertThatThrownBy(() -> JsonApi.toSingleResourceJsonFromCollection("{\"data\":{}}", "1"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void id_returnsStringFormOrNull() {
         assertThat(JsonApi.id(JsonApi.parse("{\"data\":{\"id\":42}}"))).isEqualTo("42");
         assertThat(JsonApi.id(JsonApi.parse("{\"data\":{}}"))).isNull();
