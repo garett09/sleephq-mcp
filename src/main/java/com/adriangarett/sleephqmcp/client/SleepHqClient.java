@@ -1,17 +1,18 @@
 package com.adriangarett.sleephqmcp.client;
 
+import com.adriangarett.sleephqmcp.domain.WaveformChannel;
+import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriBuilder;
 
-import java.net.URI;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Thin wrapper over the SleepHQ REST API. Cross-cutting auth + retry lives in {@code AuthInterceptor};
- * this class is only path composition and JSON pass-through.
+ * this class is only path composition and JSON pass-through. Path variables use URI templates so values
+ * are encoded as single segments; {@link SleepHqPathParams} rejects malformed identifiers up front.
  */
 @Component
 public class SleepHqClient {
@@ -25,111 +26,151 @@ public class SleepHqClient {
     // --- documented (v1 swagger.json) ---
 
     public String getMe() {
-        return get("/api/v1/me");
+        return get(uriBuilder -> uriBuilder.path("/api/v1/me").build());
     }
 
     public String listTeams(Integer page, Integer perPage) {
-        return get("/api/v1/teams", pageParams(page, perPage));
+        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/teams"), page, perPage).build());
     }
 
     public String listMachines(String teamId, Integer page, Integer perPage) {
-        return get("/api/v1/teams/" + teamId + "/machines", pageParams(page, perPage));
+        String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
+        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/teams/{teamId}/machines"), page, perPage)
+                .build(id));
     }
 
     public String getMachine(String machineId) {
-        return get("/api/v1/machines/" + machineId);
+        String id = SleepHqPathParams.requireResourceId(machineId, "machineId");
+        return get(uriBuilder -> uriBuilder.path("/api/v1/machines/{machineId}").build(id));
     }
 
     public String listMachineDates(String machineId, String sortOrder, Integer page, Integer perPage) {
-        Map<String, String> q = pageParams(page, perPage);
-        if (sortOrder != null && !sortOrder.isBlank()) q.put("sort_order", sortOrder);
-        return get("/api/v1/machines/" + machineId + "/machine_dates", q);
+        String id = SleepHqPathParams.requireResourceId(machineId, "machineId");
+        String sort = SleepHqPathParams.optionalQueryToken(sortOrder, "sortOrder");
+        return get(uriBuilder -> {
+            UriBuilder b = uriBuilder.path("/api/v1/machines/{machineId}/machine_dates");
+            if (sort != null) {
+                b.queryParam("sort_order", sort);
+            }
+            appendPageParams(b, page, perPage);
+            return b.build(id);
+        });
     }
 
     public String getMachineDateByDate(String machineId, String date) {
-        return get("/api/v1/machines/" + machineId + "/machine_dates/" + date);
+        String mid = SleepHqPathParams.requireResourceId(machineId, "machineId");
+        String d = SleepHqPathParams.requireCalendarDate(date, "date");
+        return get(uriBuilder -> uriBuilder
+                .path("/api/v1/machines/{machineId}/machine_dates/{date}")
+                .build(mid, d));
     }
 
     public String getMachineDate(String machineDateId) {
-        return get("/api/v1/machine_dates/" + machineDateId);
+        String id = SleepHqPathParams.requireResourceId(machineDateId, "machineDateId");
+        return get(uriBuilder -> uriBuilder.path("/api/v1/machine_dates/{machineDateId}").build(id));
     }
 
     public String listMasks(String teamId, Integer page, Integer perPage) {
-        return get("/api/v1/teams/" + teamId + "/masks", pageParams(page, perPage));
+        String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
+        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/teams/{teamId}/masks"), page, perPage)
+                .build(id));
     }
 
     public String listPatients(String teamId, Integer page, Integer perPage) {
-        return get("/api/v1/teams/" + teamId + "/patients", pageParams(page, perPage));
+        String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
+        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/teams/{teamId}/patients"), page, perPage)
+                .build(id));
     }
 
     public String listSleepTests(String teamId, String bucket, Integer page, Integer perPage) {
-        Map<String, String> q = pageParams(page, perPage);
-        if (bucket != null && !bucket.isBlank()) q.put("bucket", bucket);
-        return get("/api/v1/teams/" + teamId + "/sleep_tests", q);
+        String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
+        String b = SleepHqPathParams.optionalQueryToken(bucket, "bucket");
+        return get(uriBuilder -> {
+            UriBuilder ub = uriBuilder.path("/api/v1/teams/{teamId}/sleep_tests");
+            if (b != null) {
+                ub.queryParam("bucket", b);
+            }
+            appendPageParams(ub, page, perPage);
+            return ub.build(id);
+        });
     }
 
     public String listJournals(String teamId, Integer page, Integer perPage) {
-        return get("/api/v1/teams/" + teamId + "/journals", pageParams(page, perPage));
+        String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
+        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/teams/{teamId}/journals"), page, perPage)
+                .build(id));
     }
 
     public String listDevices() {
-        return get("/api/v1/devices");
+        return get(uriBuilder -> uriBuilder.path("/api/v1/devices").build());
     }
 
     // --- undocumented but live (probed) ---
 
     public String getNightWaveform(String machineDateId, String channelPathSegment) {
-        return get("/api/v1/machine_dates/" + machineDateId + "/" + channelPathSegment);
+        String md = SleepHqPathParams.requireResourceId(machineDateId, "machineDateId");
+        String seg = WaveformChannel.requireKnownPathSegment(channelPathSegment);
+        return get(uriBuilder -> uriBuilder
+                .path("/api/v1/machine_dates/{machineDateId}/{segment}")
+                .build(md, seg));
     }
 
     public String getNightSessions(String machineDateId) {
-        return get("/api/v1/machine_dates/" + machineDateId + "/sessions");
+        String id = SleepHqPathParams.requireResourceId(machineDateId, "machineDateId");
+        return get(uriBuilder -> uriBuilder
+                .path("/api/v1/machine_dates/{machineDateId}/sessions")
+                .build(id));
     }
 
     public String getNightEvents(String machineDateId) {
-        return get("/api/v1/machine_dates/" + machineDateId + "/events_data");
+        String id = SleepHqPathParams.requireResourceId(machineDateId, "machineDateId");
+        return get(uriBuilder -> uriBuilder
+                .path("/api/v1/machine_dates/{machineDateId}/events_data")
+                .build(id));
     }
 
     public String getComparison(String machineId, String fromDate, String toDate) {
-        Map<String, String> q = new LinkedHashMap<>();
-        if (machineId != null && !machineId.isBlank()) q.put("machine_id", machineId);
-        if (fromDate != null && !fromDate.isBlank()) q.put("from", fromDate);
-        if (toDate != null && !toDate.isBlank()) q.put("to", toDate);
-        return get("/api/v1/comparisons", q);
+        String mid = SleepHqPathParams.optionalResourceId(machineId, "machineId");
+        String from = SleepHqPathParams.optionalCalendarDate(fromDate, "fromDate");
+        String to = SleepHqPathParams.optionalCalendarDate(toDate, "toDate");
+        return get(uriBuilder -> {
+            UriBuilder b = uriBuilder.path("/api/v1/comparisons");
+            if (mid != null) {
+                b.queryParam("machine_id", mid);
+            }
+            if (from != null) {
+                b.queryParam("from", from);
+            }
+            if (to != null) {
+                b.queryParam("to", to);
+            }
+            return b.build();
+        });
     }
 
     public String getShareDashboard(String shareLinkToken) {
-        return get("/api/v1/share_links/" + shareLinkToken + "/dashboard");
+        String token = SleepHqPathParams.requireResourceId(shareLinkToken, "shareLinkToken");
+        return get(uriBuilder -> uriBuilder
+                .path("/api/v1/share_links/{token}/dashboard")
+                .build(token));
     }
 
     // --- helpers ---
 
-    private String get(String path) {
-        return get(path, Map.of());
-    }
-
-    private String get(String path, Map<String, String> queryParams) {
-        URI uri = buildUri(path, queryParams);
+    private String get(Function<UriBuilder, java.net.URI> uriFunction) {
         return restClient.get()
-                .uri(uri)
+                .uri(uriFunction)
                 .retrieve()
                 .body(String.class);
     }
 
-    private URI buildUri(String path, Map<String, String> queryParams) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromPath(path);
-        queryParams.forEach((key, value) -> {
-            if (value != null && !value.isBlank()) {
-                builder.queryParam(key, value);
-            }
-        });
-        return builder.build().toUri();
-    }
-
-    private static Map<String, String> pageParams(Integer page, Integer perPage) {
-        Map<String, String> q = new LinkedHashMap<>();
-        if (page != null) q.put("page", page.toString());
-        if (perPage != null) q.put("per_page", perPage.toString());
-        return q;
+    private static UriBuilder appendPageParams(UriBuilder builder, Integer page, Integer perPage) {
+        if (page != null) {
+            builder.queryParam("page", page);
+        }
+        if (perPage != null) {
+            builder.queryParam("per_page", perPage);
+        }
+        return builder;
     }
 }
