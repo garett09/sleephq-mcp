@@ -14,7 +14,13 @@ client layer     SleepHqClient — one method per endpoint family
 transport        RestClient + AuthInterceptor (bearer header + 401 retry, in one place)
 ```
 
-Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInterceptor`, errors in `McpResponses`, observability in `McpInvocationLoggingAspect`, caching via `@Cacheable("nightStats")`.
+Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInterceptor`, errors in `McpResponses`, observability in `McpInvocationLoggingAspect`, caching via `@Cacheable("nightStats")`, MCP HTTP access in `McpApiKeyAuthFilter`, and path validation in `SleepHqPathParams` / `SleepHqClient` URI templates.
+
+## Security
+
+- **MCP endpoint** (`/mcp`): By default requires header `X-SleepHQ-MCP-Key` matching `SLEEPHQ_MCP_API_KEY`. For trusted localhost only, you can set `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true` (disables this check; not for shared networks).
+- **SleepHQ OAuth**: Token scope defaults to `read` (`SLEEPHQ_OAUTH_SCOPE`). Increase only if the API returns 403 for your use case.
+- **Actuator health**: Details are shown only to authorized requests (`management.endpoint.health.show-details=when_authorized`); unauthenticated `GET /actuator/health` returns status only.
 
 ## MCP surface
 
@@ -26,7 +32,7 @@ Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInt
 
 ```bash
 cp .env.example .env
-# edit .env with your SleepHQ OAuth credentials
+# edit .env: SleepHQ OAuth credentials, SLEEPHQ_MCP_API_KEY (or SLEEPHQ_MCP_ALLOW_ANONYMOUS=true for local-only)
 ./mvnw package
 ./run.sh
 ```
@@ -35,7 +41,7 @@ Server listens on `http://localhost:8080/mcp` (Streamable HTTP). Health at `/act
 
 ## Hook up Goose
 
-The included `goose-recipe.yaml` points at `http://localhost:8080/mcp`. Start the MCP server, then:
+The included `goose-recipe.yaml` points at `http://localhost:8080/mcp` and sends `X-SleepHQ-MCP-Key` from `SLEEPHQ_MCP_API_KEY`. Export that variable (same value as in `.env` for the server) before starting Goose, unless the server runs with `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true`. Then:
 
 ```bash
 goose session --recipe goose-recipe.yaml
@@ -63,11 +69,15 @@ goose session --recipe goose-recipe.yaml
 curl -sX POST localhost:8080/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
+  -H 'X-SleepHQ-MCP-Key: YOUR_MCP_API_KEY' \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
 ```
 
+If the server uses `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true`, omit the `X-SleepHQ-MCP-Key` header for local checks.
+
 ## Troubleshooting
 
-- **401 from tools** — check `SLEEPHQ_CLIENT_ID` / `SLEEPHQ_CLIENT_SECRET` env vars. `/actuator/health` will show `credentialsConfigured: false` if missing.
+- **401 from `/mcp` (before tools run)** — send header `X-SleepHQ-MCP-Key` matching `SLEEPHQ_MCP_API_KEY`, or set `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true` only on trusted localhost.
+- **401 from SleepHQ tools** — check `SLEEPHQ_CLIENT_ID` / `SLEEPHQ_CLIENT_SECRET`. With anonymous health, `/actuator/health` returns only UP/DOWN; configure actuator authentication if you need credential details on that endpoint.
 - **Waveform tool returns `"mode":"passthrough"`** — the SleepHQ response shape didn't match any known parser. Inspect the `raw` field and adjust `WaveformService.extractSamples()`.
 - **MCP client can't connect** — confirm the server is on the right port (default 8080, override via `SLEEPHQ_MCP_PORT`). Streamable HTTP requires both `Content-Type: application/json` and `Accept: application/json, text/event-stream`.

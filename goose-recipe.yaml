@@ -36,3 +36,5 @@ extensions:
     name: sleephq
     uri: http://localhost:8080/mcp
     timeout: 30
+    headers:
+      X-SleepHQ-MCP-Key: "${SLEEPHQ_MCP_API_KEY}"
