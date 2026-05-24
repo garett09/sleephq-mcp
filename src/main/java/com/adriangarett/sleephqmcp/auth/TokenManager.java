@@ -58,7 +58,7 @@ public class TokenManager {
         form.add("grant_type", "password");
         form.add("client_id", properties.clientId());
         form.add("client_secret", properties.clientSecret());
-        form.add("scope", "read write delete");
+        form.add("scope", properties.oauthScope());
 
         TokenResponse response = tokenRestClient.post()
                 .uri("/oauth/token")
