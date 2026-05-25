@@ -25,14 +25,6 @@ public class StaticContextResources {
         return content.load("patient-baseline.md", "sleephq://patient/baseline");
     }
 
-    @McpResource(uri = "sleephq://device/current",
-            name = "Current device",
-            description = "CPAP + O2 Ring configuration (machine IDs, mode, pressure, EPR, mask).",
-            mimeType = "text/markdown")
-    public McpSchema.ReadResourceResult deviceCurrent() {
-        return content.load("device-current.md", "sleephq://device/current");
-    }
-
     @McpResource(uri = "sleephq://guidelines/resmed-titration",
             name = "ResMed titration quick rules",
             description = "One-screen adult OSA triggers; links to full Therapy Handbook digest.",
@@ -71,6 +63,14 @@ public class StaticContextResources {
             mimeType = "text/markdown")
     public McpSchema.ReadResourceResult dataSourceMatrix() {
         return content.load("data-source-matrix.md", "sleephq://playbook/data-sources");
+    }
+
+    @McpResource(uri = "sleephq://playbook/clock-alignment",
+            name = "CPAP clock drift",
+            description = "ResMed EDF wall-clock correction vs O2 ring and Apple Health; not session-start alignment.",
+            mimeType = "text/markdown")
+    public McpSchema.ReadResourceResult clockAlignment() {
+        return content.load("clock-alignment.md", "sleephq://playbook/clock-alignment");
     }
 
     @McpResource(uri = "sleephq://playbook/output-format",

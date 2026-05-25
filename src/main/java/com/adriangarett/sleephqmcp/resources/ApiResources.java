@@ -3,6 +3,7 @@ package com.adriangarett.sleephqmcp.resources;
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.service.ComparisonService;
+import com.adriangarett.sleephqmcp.service.DeviceContextService;
 import com.adriangarett.sleephqmcp.service.NightService;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
@@ -22,13 +23,16 @@ public class ApiResources {
     private final SleepHqClient client;
     private final NightService nightService;
     private final ComparisonService comparisonService;
+    private final DeviceContextService deviceContext;
     private final ClinicalContextProperties clinical;
 
     public ApiResources(SleepHqClient client, NightService nightService,
-                        ComparisonService comparisonService, ClinicalContextProperties clinical) {
+                        ComparisonService comparisonService, DeviceContextService deviceContext,
+                        ClinicalContextProperties clinical) {
         this.client = client;
         this.nightService = nightService;
         this.comparisonService = comparisonService;
+        this.deviceContext = deviceContext;
         this.clinical = clinical;
     }
 
@@ -56,6 +60,14 @@ public class ApiResources {
             mimeType = "application/json")
     public McpSchema.ReadResourceResult machine(String machineId) {
         return json("sleephq://machine/" + machineId, client.getMachine(machineId));
+    }
+
+    @McpResource(uri = "sleephq://device/context",
+            name = "Device context",
+            description = "Live SleepHQ device context: machine_settings, CPAP/O2 machines, registered masks. Same as get-device-context.",
+            mimeType = "application/json")
+    public McpSchema.ReadResourceResult deviceContext() {
+        return json("sleephq://device/context", deviceContext.deviceContextJson(null));
     }
 
     @McpResource(uri = "sleephq://machine_date/{machineDateId}",
