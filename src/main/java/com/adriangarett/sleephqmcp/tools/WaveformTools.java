@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class WaveformTools {
 
-    private static final int DEFAULT_MAX_MINUTES = 10;
+    private static final int DEFAULT_MAX_MINUTES = 3;
     private static final int MAX_MAX_MINUTES     = 30;
 
     private final WaveformService waveformService;
@@ -34,8 +34,9 @@ public class WaveformTools {
                     "Returns: filename, start_datetime (ISO-8601), duration_seconds (full recording), and channels[] " +
                     "each with label, sample_rate (Hz), unit, and samples[]. " +
                     "ResMed PLD.edf channels: Flow, Pressure, Leak, Snore, FlowLimitation at 25 Hz. " +
-                    "Sample count is capped at maxMinutes × 60 × sampleRate per channel (default 10 min, max 30 min). " +
-                    "Supports startMinute offset (default 0) to fetch segment chunks."
+                    "Sample count is capped at maxMinutes × 60 × sampleRate per channel (default 3 min, max 30 min). " +
+                    "Arrays are auto-downsampled to ≤500 points/channel for LLM safety (see sample_count_original). " +
+                    "Prefer scan-apnea-events for event lists. Supports startMinute offset."
     )
     public String getWaveform(
             @McpToolParam(description = "File ID from list-files or list-import-files", required = true)
@@ -62,7 +63,7 @@ public class WaveformTools {
             name = "get-waveform-by-date",
             description = "Resolves the BRP.edf file ID for a calendar date, downloads and parses it, and returns the segment's channel data. " +
                     "Avoids file ID hunting. Returns the same structure as get-waveform. " +
-                    "Date format must be YYYY-MM-DD. Capped to maxMinutes (default 10, max 30)."
+                    "Date format YYYY-MM-DD. Default maxMinutes=3; samples downsampled to ≤500/channel. Prefer scan-apnea-events for titration."
     )
     public String getWaveformByDate(
             @McpToolParam(description = "Calendar date (YYYY-MM-DD)", required = true)
@@ -93,7 +94,8 @@ public class WaveformTools {
                     "over the full respiration flow channel. Returns a list of all detected apnea/severe-hypopnea flow drops " +
                     "(periods where flow absolute amplitude drops below threshold for >= minDurationSeconds). " +
                     "Threshold defaults to 0.08 L/s. minDurationSeconds defaults to 10 seconds. " +
-                    "Provides high clinical value without flooding the client with raw sample arrays."
+                    "Full-night server-side flow analysis — equivalent to waveform for event lists and reconciliation with EVE; "
+                    + "does not require get-waveform-by-date for High-confidence mechanism when aligned with device events."
     )
     public String scanApneaEvents(
             @McpToolParam(description = "File ID of the BRP.edf file. Optional if date is provided.", required = false)
@@ -150,9 +152,9 @@ public class WaveformTools {
 
     @McpTool(
             name = "get-o2-oximetry",
-            description = "Downloads a Viatom O2 Ring binary session file via list-imports (not EDF). "
-                    + "Returns SpO2, pulse, and motion samples at ~4 s intervals. "
-                    + "Nightly averages remain on get-combined-night-by-date."
+            description = "Downloads a Viatom O2 Ring binary session via list-imports (not EDF). "
+                    + "O2Ring S (0x0301): 1 s samples; classic VLD3: ~4 s. Always set maxMinutes in chat "
+                    + "(full night can exceed 1M chars). Nightly averages: get-combined-night-by-date."
     )
     public String getO2Oximetry(
             @McpToolParam(description = "File ID from list-import-files. Optional if date is provided.", required = false)

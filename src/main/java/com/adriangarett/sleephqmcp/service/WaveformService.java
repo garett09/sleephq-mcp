@@ -10,6 +10,7 @@ import com.adriangarett.sleephqmcp.support.BinaryDownloadSupport;
 import com.adriangarett.sleephqmcp.support.EdfParser;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.TeamFileResolver;
+import com.adriangarett.sleephqmcp.support.WaveformDownsampler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -58,12 +59,12 @@ public class WaveformService {
 
         // 3. Parse EDF and attach filename from metadata
         WaveformResult parsed = EdfParser.parse(edfBytes, startSeconds, maxSeconds);
-        WaveformResult result = new WaveformResult(
+        WaveformResult result = WaveformDownsampler.compact(new WaveformResult(
                 filename != null ? filename : "",
                 parsed.startDatetime(),
                 parsed.durationSeconds(),
                 parsed.channels()
-        );
+        ));
 
         try {
             return JsonApi.mapper().writeValueAsString(result);
