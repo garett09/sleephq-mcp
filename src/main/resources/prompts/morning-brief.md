@@ -4,11 +4,13 @@ Resources: `get-device-context`, `sleephq://reference/normal-ranges`
 
 Workflow:
 1. Discovery → resolve latest night date (or use user-provided date).
-2. `get-combined-night-by-date(date)` — AHI, leak, usage, SpO₂, `journal` steps/stages if present.
+2. `get-combined-night-by-date(date)` — **`ahi_components`** (or `ahi_summary`): **OSA (OA)**, **CSA (CA)**, total AHI, leak, usage, SpO₂, **pulse_rate_summary**, `resp_rate_summary`, journal.
 3. Optional MCP prompt `nightly-review` context only if user asks for 7-day comparison.
 
-Output (4 lines max):
-- **AHI** (value + Confidence: High/Medium + source tool)
-- **Key concern** (or "none")
+Output (5 lines max):
+- **AHI** (total /hr + Confidence + source)
+- **OSA (OA)** and **CSA (CA)** indices when present — flag if `osa_elevated` / `csa_elevated` on `ahi_components`
+- **Key concern** (or "none") — if CA ≥ 5/hr, note possible over-titration before suggesting pressure **up**
 - **One action**
-- **Journal** (steps / sleep stages one line, or omit)
+- **Journal** — sleep: total · light · deep · rem; steps/feeling if present (from `table_display` or journal)
+- **Heart rate** — `pulse_rate_summary` avg/min with **bpm** when O2 merged; else **—**
