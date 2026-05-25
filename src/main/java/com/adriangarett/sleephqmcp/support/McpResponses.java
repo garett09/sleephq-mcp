@@ -43,6 +43,12 @@ public final class McpResponses {
             }
             return errorJson(McpError.fatal(message,
                     Map.of("kind", "remote", "exception", e.getClass().getSimpleName())));
+        } catch (LinkageError e) {
+            log.error("MCP classpath/linkage failure: {}", Encode.forJava(String.valueOf(e.getMessage())), e);
+            return errorJson(McpError.fatal(
+                    "Server classpath error — stop the process and restart with ./run.sh (full rebuild). "
+                            + "Do not reuse a JVM started before the latest package.",
+                    Map.of("kind", "classpath", "exception", e.getClass().getSimpleName())));
         } catch (Exception e) {
             log.warn("MCP remote call failed: {}", Encode.forJava(String.valueOf(e.getMessage())), e);
             return errorJson(McpError.fatal(
