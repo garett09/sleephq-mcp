@@ -202,6 +202,23 @@ class CombinedNightServiceTest {
     }
 
     @Test
+    void combineForCalendarDate_attachesAhiComponents_whenOaCaPresent() {
+        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-22")))
+                .thenReturn("{\"data\":{\"id\":\"md\",\"type\":\"machine_date\","
+                        + "\"ahi_summary\":{\"av\":1.2,\"oa\":0.8,\"ca\":0.3,\"h\":0.1}}}");
+        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-22")))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
+                        "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
+
+        var root = JsonApi.parse(service.combineForCalendarDate("2026-05-22", null, null));
+
+        assertThat(root.path("ahi_components").path("ahi_per_hr").asDouble()).isEqualTo(1.2);
+        assertThat(root.path("ahi_components").path("oa_per_hr").asDouble()).isEqualTo(0.8);
+        assertThat(root.path("ahi_components").path("ca_per_hr").asDouble()).isEqualTo(0.3);
+        assertThat(root.path("ahi_components").path("osa_elevated").asBoolean()).isFalse();
+    }
+
+    @Test
     void mergeAttributes_cpapKeepsSpo2WhenPresent() {
         ObjectNode cpap = JsonApi.mapper().createObjectNode();
         cpap.putObject("spo2_summary").put("av", 95);

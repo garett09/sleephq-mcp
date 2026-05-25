@@ -26,7 +26,7 @@ public class NightTools {
     }
 
     @McpTool(name = "get-combined-night-by-date",
-            description = "Same shape as get-night-stats: { data: machine_date, journal?: wellness }. Merges CPAP + optional O2 machine_date summaries for one calendar date; attaches team journal (steps, sleep_stages, active energy) when SLEEPHQ_TEAM_ID is set. Requires date=YYYY-MM-DD and SLEEPHQ_CPAP_MACHINE_ID (or cpapMachineId). Fails if CPAP has no row that night.")
+            description = "Same shape as get-night-stats: { data: machine_date, journal?: wellness, ahi_components?: { ahi_per_hr, oa_per_hr, ca_per_hr, osa_elevated, csa_elevated } }. Merges CPAP + optional O2; journal overlay when SLEEPHQ_TEAM_ID set. Requires date=YYYY-MM-DD and CPAP machine id.")
     public String getCombinedNightByDate(
             @McpToolParam(description = "Calendar night YYYY-MM-DD", required = true) String date,
             @McpToolParam(description = "CPAP machine id; defaults to SLEEPHQ_CPAP_MACHINE_ID", required = false) String cpapMachineId,

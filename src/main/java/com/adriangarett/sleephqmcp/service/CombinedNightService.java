@@ -2,6 +2,7 @@ package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.support.AhiSummarySupport;
 import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
@@ -94,7 +95,26 @@ public class CombinedNightService {
 
         ObjectNode envelope = JsonApi.mapper().createObjectNode();
         envelope.set("data", dataOut);
+        attachAhiComponents(envelope, mergedAttrs.path("ahi_summary"));
         return envelope;
+    }
+
+    private static void attachAhiComponents(ObjectNode envelope, JsonNode ahiSummary) {
+        AhiSummarySupport.readComponents(ahiSummary).ifPresent(components -> {
+            ObjectNode out = envelope.putObject("ahi_components");
+            out.put("ahi_per_hr", components.ahiPerHr());
+            if (components.oaPerHr() != null) {
+                out.put("oa_per_hr", components.oaPerHr());
+                out.put("osa_elevated", AhiSummarySupport.isOaElevated(components.oaPerHr()));
+            }
+            if (components.caPerHr() != null) {
+                out.put("ca_per_hr", components.caPerHr());
+                out.put("csa_elevated", AhiSummarySupport.isCaElevated(components.caPerHr()));
+            }
+            if (components.hypopneaPerHr() != null) {
+                out.put("h_per_hr", components.hypopneaPerHr());
+            }
+        });
     }
 
     private static String serializeEnvelope(ObjectNode envelope) {
