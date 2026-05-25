@@ -79,4 +79,4 @@ See [goose-recipe.yaml](goose-recipe.yaml). Grounding: `get-device-context` → 
 
 Goose loads tools, prompts, and resources from the live MCP session. This file and [goose-recipe.yaml](goose-recipe.yaml) are the workflow “skill” for this repo (there is no separate `SKILL.md`).
 
-**Runtime:** services call `SleepHqClient` + `BinaryDownloadSupport` directly; `get-comparison` walks dates sequentially. Only `get-night-stats` uses Spring `@Cacheable("nightStats")` (6h Caffeine). No `sleephq.cache.*` / parallel fetch executor properties.
+**Runtime:** services call `SleepHqClient` + `BinaryDownloadSupport` directly; `get-comparison` parallelizes per-day fetches via `sleephq.fetch.parallelism` (default 8). No response caching — every tool call hits SleepHQ live.

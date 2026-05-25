@@ -14,7 +14,7 @@ client layer     SleepHqClient — one method per documented endpoint family
 transport        RestClient + AuthInterceptor (bearer header + 401 retry, in one place)
 ```
 
-Outbound URLs are composed only from paths in [https://sleephq.com/api/swagger.json](https://sleephq.com/api/swagger.json) (`https://sleephq.com` + `/api` + `/v1/...`). Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInterceptor`, errors in `McpResponses`, observability in `McpInvocationLoggingAspect`, caching via `@Cacheable("nightStats")`, MCP HTTP access in `McpApiKeyAuthFilter`, and path validation in `SleepHqPathParams` / `SleepHqClient` URI templates.
+Outbound URLs are composed only from paths in [https://sleephq.com/api/swagger.json](https://sleephq.com/api/swagger.json) (`https://sleephq.com` + `/api` + `/v1/...`). Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInterceptor`, errors in `McpResponses`, observability in `McpInvocationLoggingAspect`, MCP HTTP access in `McpApiKeyAuthFilter`, and path validation in `SleepHqPathParams` / `SleepHqClient` URI templates.
 
 ## Security
 
