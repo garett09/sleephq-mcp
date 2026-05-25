@@ -90,4 +90,79 @@ public final class EdfParser {
         double durationSeconds = nRecords >= 0 ? nRecords * recDuration : (skipRecords + recordsToRead) * recDuration;
         return new WaveformResult(null, startDatetime.toString(), durationSeconds, channels);
     }
+
+    /**
+     * Parses only the first channel whose label starts with {@code flow} (case-insensitive).
+     * Used by apnea scan to avoid decoding unused BRP channels.
+     */
+    public static WaveformResult parseFlowChannel(byte[] edf, int startSeconds, int maxSeconds) {
+        EdfHeader header = EdfBinarySupport.readHeader(edf);
+        int ns = header.signalCount();
+        String[] labels = header.labels();
+        int flowIndex = -1;
+        for (int i = 0; i < ns; i++) {
+            if (labels[i].toLowerCase().startsWith("flow")) {
+                flowIndex = i;
+                break;
+            }
+        }
+        if (flowIndex < 0) {
+            throw new IllegalArgumentException("No flow respiration channel found in EDF");
+        }
+
+        int[] samplesPerRec = header.samplesPerRecord();
+        double recDuration = header.recordDurationSeconds();
+        int nRecords = header.nRecords();
+        LocalDateTime startDatetime = header.startDatetime();
+
+        int skipRecords = (int) Math.max(0, Math.floor((double) startSeconds / recDuration));
+        int maxRecords = (int) Math.ceil((double) maxSeconds / recDuration);
+        int availableRecords = nRecords < 0 ? Integer.MAX_VALUE : Math.max(0, nRecords - skipRecords);
+        int recordsToRead = Math.min(availableRecords, maxRecords);
+
+        if (skipRecords > 0) {
+            double skipSeconds = skipRecords * recDuration;
+            startDatetime = startDatetime.plusNanos((long) (skipSeconds * 1_000_000_000L));
+        }
+
+        int recordSizeBytes = EdfBinarySupport.recordSizeBytes(header);
+        double[] physMins = EdfBinarySupport.parseDoubleBlock(edf, 256 + ns * 104, ns, 8);
+        double[] physMaxs = EdfBinarySupport.parseDoubleBlock(edf, 256 + ns * 112, ns, 8);
+        int[] digMins = EdfBinarySupport.parseIntBlock(edf, 256 + ns * 120, ns, 8);
+        int[] digMaxs = EdfBinarySupport.parseIntBlock(edf, 256 + ns * 128, ns, 8);
+        String[] units = EdfBinarySupport.readAsciiBlock(edf, 256 + ns * 96, ns, 8);
+
+        List<Double> flowSamples = new ArrayList<>(samplesPerRec[flowIndex] * recordsToRead);
+        int startOffset = header.headerBytes() + skipRecords * recordSizeBytes;
+        for (int rec = 0; rec < recordsToRead; rec++) {
+            int recStart = startOffset + rec * recordSizeBytes;
+            if (recStart + recordSizeBytes > edf.length) {
+                break;
+            }
+            int pos = recStart;
+            for (int i = 0; i < ns; i++) {
+                int nSamples = samplesPerRec[i];
+                if (i == flowIndex) {
+                    for (int s = 0; s < nSamples; s++) {
+                        short raw = (short) ((edf[pos] & 0xFF) | ((edf[pos + 1] & 0xFF) << 8));
+                        pos += 2;
+                        double physical = EdfBinarySupport.scale(raw, digMins[i], digMaxs[i], physMins[i], physMaxs[i]);
+                        flowSamples.add(EdfBinarySupport.round4(physical));
+                    }
+                } else {
+                    pos += nSamples * 2;
+                }
+            }
+        }
+
+        double sampleRate = samplesPerRec[flowIndex] / recDuration;
+        int maxSamples = (int) Math.floor(maxSeconds * sampleRate);
+        if (flowSamples.size() > maxSamples) {
+            flowSamples = new ArrayList<>(flowSamples.subList(0, maxSamples));
+        }
+
+        WaveformChannel flowChannel = new WaveformChannel(labels[flowIndex], sampleRate, units[flowIndex], flowSamples);
+        double durationSeconds = nRecords >= 0 ? nRecords * recDuration : (skipRecords + recordsToRead) * recDuration;
+        return new WaveformResult(null, startDatetime.toString(), durationSeconds, List.of(flowChannel));
+    }
 }

@@ -80,6 +80,42 @@ class EdfParserTest {
         assertThat(flow.samples().get(1)).isCloseTo(expectedPhys2, org.assertj.core.api.Assertions.within(0.001));
     }
 
+    @Test
+    void parseFlowChannel_matchesFlowFromFullParse() {
+        byte[] edf = new byte[256 + 256 + 10 * 2 * 2];
+        Arrays.fill(edf, (byte) ' ');
+        writeString(edf, 0, "0");
+        writeString(edf, 168, "20.05.26");
+        writeString(edf, 176, "21.09.00");
+        writeString(edf, 184, "512");
+        writeString(edf, 236, "10");
+        writeString(edf, 244, "1.0");
+        writeString(edf, 252, "1");
+        writeString(edf, 256, "Flow");
+        writeString(edf, 256 + 96, "L/s");
+        writeString(edf, 256 + 104, "-5.0");
+        writeString(edf, 256 + 112, "5.0");
+        writeString(edf, 256 + 120, "-2048");
+        writeString(edf, 256 + 128, "2047");
+        writeString(edf, 256 + 216, "2");
+        int pos = 512;
+        for (int rec = 0; rec < 10; rec++) {
+            short val1 = (short) (rec * 200 + 100);
+            short val2 = (short) (rec * 200 + 200);
+            edf[pos++] = (byte) (val1 & 0xFF);
+            edf[pos++] = (byte) ((val1 >> 8) & 0xFF);
+            edf[pos++] = (byte) (val2 & 0xFF);
+            edf[pos++] = (byte) ((val2 >> 8) & 0xFF);
+        }
+
+        WaveformResult full = EdfParser.parse(edf, 2, 3);
+        WaveformResult flowOnly = EdfParser.parseFlowChannel(edf, 2, 3);
+
+        assertThat(flowOnly.channels()).hasSize(1);
+        assertThat(flowOnly.channels().getFirst().samples())
+                .isEqualTo(full.channels().getFirst().samples());
+    }
+
     private void writeString(byte[] buf, int offset, String s) {
         byte[] bytes = s.getBytes(StandardCharsets.US_ASCII);
         System.arraycopy(bytes, 0, buf, offset, bytes.length);
