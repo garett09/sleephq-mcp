@@ -1,6 +1,7 @@
 package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.config.SleepHqPayloadProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -38,7 +39,8 @@ class ComparisonServiceTest {
     void setUp() {
         ClinicalContextProperties clinical = new ClinicalContextProperties("team-1", "cpap-default", "o2-default", null);
         executor = Executors.newSingleThreadExecutor();
-        service = new ComparisonService(combinedNightService, journalLookup, clinical, executor);
+        SleepHqPayloadProperties payload = new SleepHqPayloadProperties(10, 60, 4000, 45, null);
+        service = new ComparisonService(combinedNightService, journalLookup, clinical, executor, payload);
     }
 
     @Test
@@ -65,6 +67,7 @@ class ComparisonServiceTest {
         assertThat(root.path("nights").get(0).path("data").path("id").asText()).isEqualTo("a");
         assertThat(root.path("nights").get(1).path("data").path("id").asText()).isEqualTo("b");
         assertThat(root.path("meta").path("table_display_hint").asText()).contains("titration_decision_support");
+        assertThat(root.path("mcp_payload_hints").path("waveform_default_max_minutes").asInt()).isEqualTo(10);
         assertThat(root.path("apnea_trends").path("nights_with_ahi_summary").asInt()).isEqualTo(2);
         assertThat(root.path("apnea_trends").path("titration_decision_support").path("evaluate_in_order").size()).isGreaterThan(0);
         assertThat(root.path("nights").get(0).path("table_display").path("osa_cell").asText()).isEqualTo("0.5/hr");
@@ -125,7 +128,8 @@ class ComparisonServiceTest {
     @Test
     void compare_noO2InMeta_whenClinicalO2Unset() {
         ClinicalContextProperties clinical = new ClinicalContextProperties(null, "x", null, null);
-        ComparisonService bare = new ComparisonService(combinedNightService, journalLookup, clinical, executor);
+        SleepHqPayloadProperties payload = new SleepHqPayloadProperties(10, 60, 4000, 45, null);
+        ComparisonService bare = new ComparisonService(combinedNightService, journalLookup, clinical, executor, payload);
 
         when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
         when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))

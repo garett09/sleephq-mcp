@@ -1,6 +1,8 @@
 package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.config.SleepHqPayloadProperties;
+import com.adriangarett.sleephqmcp.support.McpPayloadHints;
 import com.adriangarett.sleephqmcp.support.ComparisonApneaTrendSupport;
 import com.adriangarett.sleephqmcp.support.ComparisonTableDisplay;
 import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
@@ -34,13 +36,16 @@ public class ComparisonService {
     private final JournalLookupService journalLookup;
     private final ClinicalContextProperties clinical;
     private final ExecutorService sleepHqFetchExecutor;
+    private final SleepHqPayloadProperties payload;
 
     public ComparisonService(CombinedNightService combinedNightService, JournalLookupService journalLookup,
-                             ClinicalContextProperties clinical, ExecutorService sleepHqFetchExecutor) {
+                             ClinicalContextProperties clinical, ExecutorService sleepHqFetchExecutor,
+                             SleepHqPayloadProperties payload) {
         this.combinedNightService = combinedNightService;
         this.journalLookup = journalLookup;
         this.clinical = clinical;
         this.sleepHqFetchExecutor = sleepHqFetchExecutor;
+        this.payload = payload;
     }
 
     /**
@@ -74,6 +79,7 @@ public class ComparisonService {
         meta.put("table_display_hint",
                 "Each nights[] row: table_display (*_cell including apnea_indices_cell with ! if elevated). "
                         + "Root apnea_trends + titration_decision_support for physician_titration_review pressure decisions.");
+        McpPayloadHints.attach(root, payload);
 
         Map<String, JsonNode> journalByDate = loadJournalMapSafely(start, end);
 
