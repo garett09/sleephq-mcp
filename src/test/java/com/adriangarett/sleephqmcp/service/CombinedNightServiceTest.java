@@ -31,7 +31,7 @@ class CombinedNightServiceTest {
 
     @BeforeEach
     void setUp() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties(null, "cpap-1", "o2-1", null);
+        ClinicalContextProperties clinical = new ClinicalContextProperties(null, "cpap-1", "o2-1");
         service = new CombinedNightService(client, clinical);
     }
 
@@ -94,7 +94,7 @@ class CombinedNightServiceTest {
     @Test
     void combineForCalendarDate_missingDefaults_throws() {
         CombinedNightService bare = new CombinedNightService(client,
-                new ClinicalContextProperties(null, null, null, null));
+                new ClinicalContextProperties(null, null, null));
         assertThatThrownBy(() -> bare.combineForCalendarDate("2026-05-20", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cpapMachineId");
@@ -103,7 +103,7 @@ class CombinedNightServiceTest {
     @Test
     void combineForCalendarDate_cpapOnly_noO2Configured_doesNotFetchSecondMachine() {
         CombinedNightService cpapOnly = new CombinedNightService(client,
-                new ClinicalContextProperties(null, "cpap-1", null, null));
+                new ClinicalContextProperties(null, "cpap-1", null));
         when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-06-01")))
                 .thenReturn("{\"data\":{\"id\":\"md-1\",\"type\":\"machine_date\",\"attributes\":{\"usage\":2},"
                         + "\"relationships\":{}}}");

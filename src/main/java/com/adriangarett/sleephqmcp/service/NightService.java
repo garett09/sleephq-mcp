@@ -22,12 +22,4 @@ public class NightService {
     public String getNightStats(String machineDateId) {
         return client.getMachineDate(machineDateId);
     }
-
-    public String getSessions(String machineDateId) {
-        return client.getNightSessions(machineDateId);
-    }
-
-    public String getEvents(String machineDateId) {
-        return client.getNightEvents(machineDateId);
-    }
 }

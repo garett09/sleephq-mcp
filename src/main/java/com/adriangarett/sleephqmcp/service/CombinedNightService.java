@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
@@ -98,28 +99,46 @@ public class CombinedNightService {
     }
 
     private static JsonNode requireCpapDocument(java.util.function.Supplier<String> fetch, String date) {
+        final String raw;
         try {
-            return JsonApi.parse(fetch.get());
-        } catch (RestClientResponseException e) {
-            throw new IllegalStateException(
-                    "No CPAP machine_date for date=" + date + " (HTTP " + e.getStatusCode().value() + ")", e);
-        } catch (Exception e) {
-            throw new IllegalStateException("CPAP machine_date fetch failed for date=" + date, e);
+            raw = fetch.get();
+        } catch (RestClientException e) {
+            String suffix = "";
+            if (e instanceof RestClientResponseException rre) {
+                suffix = " (HTTP " + rre.getStatusCode().value() + ")";
+            }
+            throw new IllegalStateException("No CPAP machine_date for date=" + date + suffix, e);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("CPAP machine_date fetch failed for date=" + date + ": " + e.getMessage(), e);
+        }
+        try {
+            return JsonApi.parse(raw);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("CPAP machine_date response not valid JSON for date=" + date, e);
         }
     }
 
     private JsonNode loadO2AttributesOrNull(String o2MachineId, String date) {
+        final String raw;
         try {
-            JsonNode doc = JsonApi.parse(client.getMachineDateByDate(o2MachineId, date));
-            return doc.path("data").path("attributes");
-        } catch (RestClientResponseException e) {
-            if (e.getStatusCode().value() == 404) {
+            raw = client.getMachineDateByDate(o2MachineId, date);
+        } catch (RestClientException e) {
+            if (e instanceof RestClientResponseException rre && rre.getStatusCode().value() == 404) {
                 return null;
             }
-            throw new IllegalStateException(
-                    "O2 machine_date fetch failed (HTTP " + e.getStatusCode().value() + ")", e);
-        } catch (Exception e) {
-            throw new IllegalStateException("O2 machine_date fetch failed", e);
+            String suffix = "";
+            if (e instanceof RestClientResponseException rre) {
+                suffix = " (HTTP " + rre.getStatusCode().value() + ")";
+            }
+            throw new IllegalStateException("O2 machine_date fetch failed" + suffix, e);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("O2 machine_date fetch failed: " + e.getMessage(), e);
+        }
+        try {
+            JsonNode doc = JsonApi.parse(raw);
+            return doc.path("data").path("attributes");
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("O2 machine_date response not valid JSON", e);
         }
     }
 

@@ -34,17 +34,4 @@ public class NightTools {
         return McpResponses.safe(() -> combinedNightService.combineForCalendarDate(date, cpapMachineId, o2MachineId));
     }
 
-    @McpTool(name = "get-sessions",
-            description = "Get mask on/off session boundaries for a specific night. Shows exact therapy start/stop times and mid-night mask removal events.")
-    public String getSessions(
-            @McpToolParam(description = "machine_date_id", required = true) String machineDateId) {
-        return McpResponses.safe(() -> nightService.getSessions(machineDateId));
-    }
-
-    @McpTool(name = "get-events",
-            description = "Get apnea/hypopnea event timestamps for a specific night. Use to correlate with waveform data for morphology analysis (obstructive vs central).")
-    public String getEvents(
-            @McpToolParam(description = "machine_date_id", required = true) String machineDateId) {
-        return McpResponses.safe(() -> nightService.getEvents(machineDateId));
-    }
 }
