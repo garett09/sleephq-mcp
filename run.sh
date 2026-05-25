@@ -11,9 +11,7 @@ if [ -f .env ]; then
   set +a
 fi
 
-if [ ! -f target/sleephq-mcp-0.0.1-SNAPSHOT.jar ]; then
-  echo "Jar not found — running ./mvnw package first…" >&2
-  ./mvnw package -DskipTests
-fi
+echo "Building…" >&2
+./mvnw clean package -DskipTests
 
 exec java -jar target/sleephq-mcp-0.0.1-SNAPSHOT.jar "$@"
