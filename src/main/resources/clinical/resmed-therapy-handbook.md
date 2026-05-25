@@ -99,7 +99,7 @@
 - **EPR:** handbook — consider for **difficulty exhaling** (Levels 1–3; **full-time or ramp only**; floor 4 cmH₂O). PDF does **not** list “EPR causes TECSA” — reconcile live `machine_settings` with `patient/baseline` before recommending EPR changes.
 - **AutoSet Response:** **Soft** for patients sensitive to pressure change (gentler AutoSet).
 - **Ramp:** consider if difficulty initiating sleep (pressure rises to minimum treatment pressure).
-- **Mask type in device menu:** must match actual mask (e.g. Full Face vs nasal pillows) for leak reporting.
+- **Mask type in device menu:** should match interface class for leak algorithms — **AirFit F40 full face may correctly show as Pillows** in ResMed menu; change only for persistent leak, fit issues, or misclassified events, not label mismatch alone.
 - **Elevated BMI / re-titration:** higher starting CPAP may be considered.
 - **Split-night lab:** adults may use **+2 or +2.5 cmH₂O** steps (not only +1) per shorter titration time.
 - **Pressure too high (awake):** lower pressure to return to sleep, then resume titration.

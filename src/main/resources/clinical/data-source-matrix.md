@@ -3,13 +3,24 @@
 | Question | Authoritative tool | Confidence | Do not use alone |
 |----------|-------------------|------------|------------------|
 | Current pressure / mode / EPR / ramp / menu mask | `get-device-context` or `sleephq://device/context` (newest therapy night; magic uploader) | High | Static markdown or memory |
-| Registered masks vs menu | `get-device-context` (`registered_masks` + `machine_settings`) | High | Guessing mask type |
-| Nightly AHI / OA/CA/H index | `ahi_summary` on `get-combined-night-by-date` | High | `scan-apnea-events` count |
+| Registered masks vs menu | `get-device-context` (`registered_masks` + `machine_settings`) | High | Treating F40 + Pillows menu as automatic error (F40 often uses Pillows in ResMed menu) |
+| Nightly AHI / OA/CA/H index | `ahi_summary` → `apnea_indices_cell` (OSA·CSA·H·AHI), `osa_cell`, `csa_cell`, `h_cell`, `ahi_cell` | High | `scan-apnea-events` count |
+| Multi-night OA/CA trend | `get-comparison` → `apnea_trends` | High when ≥7 nights with `ahi_summary` | Total AHI trend only |
+| Delivered pressure (95th / avg) | `pressure_summary` → `pressure_cell` | High | `machine_settings` alone |
+| EPAP (95th / avg) | `epap_summary` → `epap_cell` | High when bilevel/EPR relevant | — |
+| Therapy usage hours | `usage` → `usage_cell` | High | — |
 | Device-flagged events | `get-device-events` (EVE.edf TAL) | High for labeled flags | May be sparse vs flow |
 | Flow-drop / hypopnea scan | `scan-apnea-events` (BRP, full-night server-side) | **High** when aligned with EVE + `ahi_summary` | As billing AHI alone |
 | Flow morphology (dispute only) | `get-waveform-by-date` (2–3 min, downsampled OK) | High in window; optional if EVE+scan agree | Full night without cap |
 | SpO₂ nightly min/avg | `spo2_summary` on combined night | High | — |
+| Heart rate (pulse) nightly min/avg | `pulse_rate_summary` on combined night / `table_display.pulse_cell` | High when O2 merged | Guessing from journal |
 | SpO₂ time series | `get-o2-oximetry` (O2Ring S 1 Hz, cap minutes) | Medium in aligned window | Uncapped full night in chat |
+| Pulse time series | `get-o2-oximetry` (`pulse_bpm` per sample) | Medium in aligned window | — |
+| Leak 95th / large leak | `leak_rate_summary`, `leak_95th`, `large_leak` | High | — |
+| Respiratory rate nightly | `resp_rate_summary` → `resp_rate_cell` | High | — |
+| Flow limitation index | `flow_limit_summary` → `flow_limit_cell` | High when present | — |
+| Flow / leak morphology | `get-waveform-by-date` (Flow, Press, Leak channels) | High in 2–5 min window | Full night uncapped |
+| Tidal volume | **Not** in SleepHQ `machine_date` summaries | — | Inventing TV from resp rate alone |
 | Wall-clock correlation (O2 / journal vs CPAP EDF) | `sleephq://playbook/clock-alignment`; CPAP tools apply `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS` | High when drift env set | Matching O2 session start to CPAP t=0 |
 | 7–120 day trends | `get-comparison` | High for per-night summaries | Guessing from one night |
 | Steps / sleep stages | `journal` on night tools | High when present | `movement_summary` as steps |

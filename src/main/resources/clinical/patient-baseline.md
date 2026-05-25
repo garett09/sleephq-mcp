@@ -1,5 +1,7 @@
 # Patient baseline
 
+**Reference only (PSG / history).** Do not report these values as last night's CPAP, O2, or journal metrics — use `get-comparison` / `get-combined-night-by-date` for live nights.
+
 ## PSG (Lung Center of the Philippines, August 2023)
 
 - **Unassisted AHI:** 91.3 / hr — severe OSA
