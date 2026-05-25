@@ -20,7 +20,7 @@ parameters:
     input_type: select
     requirement: optional
     default: "balanced"
-    description: "balanced = default 7-day stats + per-night tables from documented machine_date APIs only. Other modes narrow focus."
+    description: "balanced = default 7-day stats + per-night tables (machine_date + journal wellness). All modes must narrate journal when present on night tool responses."
     options:
       - balanced
       - night_summary
@@ -68,21 +68,32 @@ instructions: |
   {{ persona_addendum | trim }}
   {% endif %}
 
+  ## Journal wellness (all workflows)
+
+  After **get-night-stats**, **get-combined-night-by-date**, or **get-comparison**, read top-level **`journal`** when present (also on skipped nights in comparisons). Narrate non-empty: **step_count**, **sleep_stages_summary** (preferred), **active_energy_joules** (≈ kcal: joules ÷ 4184), **feeling_score**, **weight_grams**. Use **—** when `journal` is absent. Do **not** infer steps or sleep stages from `movement_summary` or **get-o2-oximetry**. Prefer **get-combined-night-by-date** when you need CPAP + O2 summaries and journal in one call; use **get-journal-by-date** for wellness-only.
+
+  **Sleep stages (`journal.sleep_stages_summary`)** — Apple Health segments synced via SleepHQ. Prefer **`sleep_stages_summary`** over raw `sleep_stages` / full `sleep_stages_parsed` (MCP omits the long raw string when summary is built).
+    - **`stage_type_legend`**: `0` in_bed · `1` asleep_unspecified · `2` awake · `3` core (light) · `4` deep · `5` rem
+    - **`minutes_by_stage`**: use labeled totals (e.g. core, deep, rem, awake) for tables and narrative
+    - **`asleep_minutes`**: sum of non-awake, non-in_bed stages
+    - **`sleep_window`**: `start` / `end` / `span_minutes` across all segments
+    - For rolling tables, **Sleep stages** column = compact line e.g. `Deep 81m · REM 30m · Core 22m · Awake 20m` from `minutes_by_stage` (omit zero stages). Do not dump the segment array unless the user asks for detail.
+
   ## Workflow mode (selected: {{ workflow_mode }})
 
   {% if workflow_mode == "night_summary" %}
-  Prioritize: discovery → **get-combined-night-by-date** (or **get-night-stats**) for a single night; produce a concise summary of AHI, pressure, leak, SpO₂, and any threshold breaches.
+  Prioritize: discovery → **get-combined-night-by-date** (or **get-night-stats**) for a single night; produce a concise summary of AHI, pressure, leak, SpO₂, threshold breaches, and **journal wellness** (steps, sleep stages, active energy when present).
   {% elif workflow_mode == "deep_machine_date" %}
-  Prioritize: resolve `machine_date_id`, then **`get-night-stats`** and read **all** summary objects in `data.attributes`: `ahi_summary` (total + OA/CA/H/RERA split if present), `pressure_summary`, `leak_rate_summary`, `flow_limit_summary`, `resp_rate_summary`, `epap_summary`, `spo2_summary`, `pulse_rate_summary`, `movement_summary`, `machine_settings`, usage, `large_leak`. Narrate every non-empty object. If deep respiration wave analysis is needed, you can use **get-waveform-by-date** to check high-resolution channel logs.
+  Prioritize: resolve `machine_date_id`, then **`get-night-stats`** and read **all** summary objects in `data.attributes`: `ahi_summary` (total + OA/CA/H/RERA split if present), `pressure_summary`, `leak_rate_summary`, `flow_limit_summary`, `resp_rate_summary`, `epap_summary`, `spo2_summary`, `pulse_rate_summary`, `movement_summary`, `machine_settings`, usage, `large_leak`. Add a **Journal / wellness** subsection from top-level **`journal`**. If deep respiration wave analysis is needed, use **get-waveform-by-date**.
 
   {% elif workflow_mode == "mask_leak_with_pressure" %}
-  Prioritize **mask fit and leak**: use `leak_rate_summary`, `large_leak`, and usage from **get-night-stats** / **get-combined-night-by-date**. Call **list-masks** / **list-devices** for interface context. When pressure change is on the table for that same focal night, analyze `ahi_summary` and `pressure_summary` metrics directly from the machine_date payload (use **longitudinal_30d** / **longitudinal_90d** for weeks–months of trend + titration context).
+  Prioritize **mask fit and leak**: use `leak_rate_summary`, `large_leak`, and usage from **get-night-stats** / **get-combined-night-by-date**. Call **list-masks** / **list-devices** for interface context. Include **`journal.feeling_score`** and steps/energy when relevant to adherence. When pressure change is on the table, analyze `ahi_summary` and `pressure_summary` (use **longitudinal_30d** / **longitudinal_90d** for trend context).
   {% elif workflow_mode == "longitudinal_30d" or workflow_mode == "longitudinal_90d" %}
   Multi-week **stats + titration** review ({% if workflow_mode == "longitudinal_90d" %}90{% else %}30{% endif %} calendar days):
     - **End date (toDate)** for get-comparison: if **session_date** is a fixed YYYY-MM-DD, use it as toDate; if auto/blank, use the newest resolved machine night after discovery.
     - **Start date (fromDate)** = toDate minus {% if workflow_mode == "longitudinal_90d" %}89{% else %}29{% endif %} days (inclusive span). Clamp both ends to dates that exist in **list-machine-dates** if the API rejects gaps.
     1. Discovery → machineId, then **get-comparison(fromDate, toDate)** for trend-level therapy metrics (MCP builds this from each night’s `machine_date` via documented APIs—no SleepHQ `/comparisons` route; narrate the JSON).
-    2. Pick up to **three** high-signal nights (worst AHI, worst leak, or nights bracketing a pressure change) via **get-night-stats** / list output; analyze `ahi_summary` (total + OA/CA/H split if present), `pressure_summary`, `leak_rate_summary`, `flow_limit_summary`, `resp_rate_summary`, and `epap_summary` directly from machine_date payload. If you render a **multi-night comparison table**, include **SpO₂, pulse rate, and movement** from each row’s `spo2_summary`, `pulse_rate_summary`, and `movement_summary` (use **—** when absent).
+    2. Pick up to **three** high-signal nights via **get-night-stats** / list output. In **multi-night tables**, include therapy columns (AHI, leak, SpO₂, pulse, movement) plus **Steps**, **Sleep stages**, **Active energy** from each row’s **`journal`** (use **—** when absent).
     4. Finish with a **pressure / mask / timing** plan and what to re-check next week.
   {% elif workflow_mode == "balanced" %}
   **Default “balanced” = rolling 7-day therapy picture** (pressure and outcomes live in **trends**, not one night):
@@ -98,14 +109,18 @@ instructions: |
       - **SpO₂ (Avg/Min)** — from `spo2_summary` (see O2 Ring note below)
       - **Pulse (Avg)** — from `pulse_rate_summary`
       - **Mov. (Avg)** — from `movement_summary`
+      - **Steps** — from `journal.step_count`
+      - **Sleep stages** — from `journal.sleep_stages_summary.minutes_by_stage` (compact: Deep/REM/Core/Awake minutes)
+      - **Active energy** — from `journal.active_energy_joules` (optional kcal)
       If a summary object is null, empty, or not applicable, use **—**—do **not** drop the column.
     - **O2 Ring vs CPAP `machine_date`:** SleepHQ often stores oximetry on a **second machine** (O2 Ring Pro). CPAP **`get-night-stats`** may have **empty** `spo2_summary` / `pulse_rate_summary` even when you wore the ring. For each calendar night, if those fields are empty on the CPAP response, resolve the **same date** on **`SLEEPHQ_O2_MACHINE_ID`** (`get-machine-date-by-date` with O2 **`machineId`** + **`YYYY-MM-DD`**, or **`list-machine-dates`** on the O2 machine), then **`get-night-stats`** on that **`machine_date_id`** and merge SpO₂ / pulse (and movement if present) into the table row. If no O2 row exists that night, **—** is correct. **Shortcut:** when both machine env vars are set, **`get-combined-night-by-date(date)`** returns the **same `{ data }` JSON:API shape as `get-night-stats`**, with oximetry/movement summaries filled from the O2 import when the CPAP row lacks them—prefer it for rolling tables.
     - **Synthesis:** end with how pressure behaved over the **week**, not a single-night snapshot, and what to verify next.
   {% elif workflow_mode == "morning_brief_only" %}
-  Minimal tool calls: discovery → **get-combined-night-by-date** (or **get-night-stats**) for last night → produce a 3-line brief: AHI, key concern, one action.
+  Minimal tool calls: discovery → **get-combined-night-by-date** (or **get-night-stats**) for last night → 3-line brief: AHI, key concern, one action; add a 4th line or parenthetical for **journal** steps/sleep stages when present.
   {% elif workflow_mode == "waveform_dive" %}
   Prioritize **high-resolution EDF waveform and respiratory analysis**:
     - **Date resolution:** resolve YYYY-MM-DD from **session_date** (if auto/blank, fallback to the latest night date from discovery).
+    - **Step 0: Wellness context:** **get-combined-night-by-date** or **get-journal-by-date** for session date; note **`journal`** briefly before EDF work.
     - **Step 1: Scan Apnea Events:** call **scan-apnea-events** for that date to check the entire night for apnea and severe hypopnea flow-drop events. List the count, timestamp offsets, and durations of detected events.
     - **Step 2: Retrieve Segment Waveform:** if events are detected, identify 1-2 interesting segments (e.g. the longest apnea, or one matching a pressure/leak anomaly) and fetch raw details using **get-waveform-by-date** specifying the target date and a `startMinute` bracketing the event (default window is 10 minutes).
     - **Step 3: Clinical Synthesis:** analyze the breathing morphology (obstructive vs. central patterns, flow limitation) and the pressure/leak response in that window to synthesize a clinical picture.
@@ -154,16 +169,16 @@ instructions: |
 
   ## MCP capability index (sleephq extension)
 
-  **Tools (24)** — exact names (HTTP paths = [sleephq.com/api/swagger.json](https://sleephq.com/api/swagger.json) only):
-    - Auth: who-am-i, get-token-status
+  **Tools (27)** — exact names (HTTP paths = [sleephq.com/api/swagger.json](https://sleephq.com/api/swagger.json) only):
+    - Auth: who-am-i, get-token-status, get-configured-defaults
     - Machines: list-teams, list-machines, get-machine-details, list-machine-dates, get-machine-date-by-date
-    - Night: get-night-stats, get-combined-night-by-date
+    - Night: get-night-stats, get-combined-night-by-date (both include optional top-level `journal`)
     - Team / devices: list-sleep-tests, list-journals, list-masks, list-devices
     - Patients: list-patients
     - Imports: list-imports, get-import, list-import-files, get-import-file
     - Files: list-files
-    - Journals: get-journal
-    - Waveform: get-waveform (startMinute offset), get-waveform-by-date (date auto-correlation), scan-apnea-events (apnea detector)
+    - Journals: get-journal, get-journal-by-date
+    - Waveform: get-waveform, get-waveform-by-date (BRP.edf), scan-apnea-events (flow detector), get-device-events (EVE.edf device flags), get-o2-oximetry (Viatom ring binary)
     - Other: get-comparison
 
 
@@ -184,7 +199,7 @@ activities:
   - |
     message: **SleepHQ MCP** — extension `sleephq` · persona `{{ persona }}` · workflow `{{ workflow_mode }}` · night `{{ session_date }}` · notes `{{ persona_addendum }}`
 
-    **Tools (24)** — *Auth:* who-am-i, get-token-status · *Machines:* list-teams, list-machines, get-machine-details, list-machine-dates, get-machine-date-by-date · *Night:* get-night-stats, get-combined-night-by-date · *Team:* list-sleep-tests, list-journals, list-masks, list-devices · *Patients:* list-patients · *Imports:* list-imports, get-import, list-import-files, get-import-file · *Files:* list-files · *Journals:* get-journal · *Waveform:* get-waveform, get-waveform-by-date, scan-apnea-events · *Other:* get-comparison
+    **Tools (27)** — *Auth:* who-am-i, get-token-status, get-configured-defaults · *Machines:* list-teams, list-machines, get-machine-details, list-machine-dates, get-machine-date-by-date · *Night:* get-night-stats, get-combined-night-by-date · *Team:* list-sleep-tests, list-journals, list-masks, list-devices · *Patients:* list-patients · *Imports:* list-imports, get-import, list-import-files, get-import-file · *Files:* list-files · *Journals:* get-journal, get-journal-by-date · *Waveform:* get-waveform, get-waveform-by-date, scan-apnea-events, get-device-events, get-o2-oximetry · *Other:* get-comparison
 
     Full param detail: `{{ recipe_dir }}/sleephq-mcp-capabilities.md`
   - "Run discovery (teams → machines → dates) then summarize my last usable night (session_date={{ session_date }})."
@@ -194,13 +209,14 @@ activities:
   - "Use get-night-stats (leak_rate_summary, large_leak) + list-masks for leak-focused troubleshooting."
   - "Longitudinal titration: 30-day window (get-comparison + worst-night stats as needed)."
   - "Longitudinal titration: 90-day window (same playbook, wider fromDate/toDate)."
-  - "Waveform analysis: scan apnea events for the focal date (session_date={{ session_date }}) then retrieve raw waveform details."
+  - "Waveform analysis: get-device-events then scan-apnea-events for the focal date (session_date={{ session_date }}), then get-waveform-by-date for interesting segments."
+  - "O2 deep read: get-o2-oximetry(session_date={{ session_date }}) for SpO2/pulse series; compare to get-combined-night-by-date summaries."
 
 extensions:
   - type: streamable_http
     name: sleephq
     description: >
-      SleepHQ MCP: 24 tools (auth, machines, nights + combined night-by-date, team data, patients, imports, files, journals, waveform EDF parser, comparison); HTTP paths match published swagger.json only.
+      SleepHQ MCP: 27 tools (auth, machines, nights + journal wellness overlay, team data, patients, imports, files, journals, EDF waveforms, EVE device events, Viatom O2 oximetry, comparison); HTTP paths match published swagger.json only.
     uri: http://localhost:8080/mcp
     timeout: 30
     headers:

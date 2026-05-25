@@ -24,7 +24,7 @@ Outbound URLs are composed only from paths in [https://sleephq.com/api/swagger.j
 
 ## MCP surface
 
-- **21 tools** — Auth (2), machines (5), night (2: `get-night-stats`, `get-combined-night-by-date`), team data (5: sleep tests, journals, masks, devices, patients), imports (4: list-imports, get-import, list-import-files, get-import-file), files (1: list-files), journal detail (1: get-journal), `get-comparison`. **Canonical names and parameters:** use your MCP client’s `list_tools` against this server, or see [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md).
+- **27 tools** — Auth, machines, night (`get-night-stats`, `get-combined-night-by-date` with journal wellness overlay), team data, imports/files, journals (`get-journal`, `get-journal-by-date`), waveform, O2, `get-comparison`. See [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md).
 - **OpenAPI contract** — [docs/sleephq-openapi-gap.md](docs/sleephq-openapi-gap.md) (how `get-comparison` / `get-combined-night-by-date` relate to documented routes).
 
 ## Setup
