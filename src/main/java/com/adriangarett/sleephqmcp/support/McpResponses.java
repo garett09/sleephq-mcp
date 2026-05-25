@@ -30,12 +30,14 @@ public final class McpResponses {
                 String safeDetail = jpe.getOriginalMessage() != null ? jpe.getOriginalMessage() : jpe.getMessage();
                 log.warn("MCP JSON assembly failed: {}", Encode.forJava(String.valueOf(safeDetail)), e);
                 return errorJson(McpError.fatal(
-                        "Could not assemble multi-channel waveform response",
+                        "Could not assemble JSON response",
                         Map.of("kind", "json")));
             }
             log.warn("MCP call failed: {}", Encode.forJava(String.valueOf(e.getMessage())), e);
-            return errorJson(McpError.fatal(
-                    "Upstream request failed",
+            String message = e.getMessage() != null && !e.getMessage().isBlank()
+                    ? e.getMessage()
+                    : "Upstream request failed";
+            return errorJson(McpError.fatal(message,
                     Map.of("kind", "remote", "exception", e.getClass().getSimpleName())));
         } catch (Exception e) {
             log.warn("MCP remote call failed: {}", Encode.forJava(String.valueOf(e.getMessage())), e);
