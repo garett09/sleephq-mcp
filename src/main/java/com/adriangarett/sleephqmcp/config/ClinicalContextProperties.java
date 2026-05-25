@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ClinicalContextProperties(
         String defaultTeamId,
         String defaultCpapMachineId,
-        String defaultO2MachineId
+        String defaultO2MachineId,
+        Integer cpapClockAdjustSeconds
 ) {
 }
