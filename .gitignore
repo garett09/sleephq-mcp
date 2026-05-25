@@ -35,3 +35,6 @@ build/
 ### Secrets ###
 .env
 
+### run.sh runtime ###
+.sleephq-mcp.run.lock.d
+
