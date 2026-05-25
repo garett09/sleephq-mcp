@@ -8,8 +8,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import com.adriangarett.sleephqmcp.support.PhaseTiming;
-import com.adriangarett.sleephqmcp.support.SameThreadExecutorService;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,8 +34,7 @@ class ComparisonServiceTest {
     @BeforeEach
     void setUp() {
         ClinicalContextProperties clinical = new ClinicalContextProperties("team-1", "cpap-default", "o2-default", null);
-        service = new ComparisonService(combinedNightService, journalLookup, clinical,
-                new SameThreadExecutorService(), new PhaseTiming(new com.adriangarett.sleephqmcp.config.SleepHqObservabilityProperties(false)));
+        service = new ComparisonService(combinedNightService, journalLookup, clinical);
     }
 
     @Test
@@ -116,8 +113,7 @@ class ComparisonServiceTest {
     @Test
     void compare_noO2InMeta_whenClinicalO2Unset() {
         ClinicalContextProperties clinical = new ClinicalContextProperties(null, "x", null, null);
-        ComparisonService bare = new ComparisonService(combinedNightService, journalLookup, clinical,
-                new SameThreadExecutorService(), new PhaseTiming(new com.adriangarett.sleephqmcp.config.SleepHqObservabilityProperties(false)));
+        ComparisonService bare = new ComparisonService(combinedNightService, journalLookup, clinical);
 
         when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
         when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))

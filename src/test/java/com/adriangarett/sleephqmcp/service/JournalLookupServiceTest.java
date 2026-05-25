@@ -2,12 +2,7 @@ package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
-import com.adriangarett.sleephqmcp.config.SleepHqCachePolicy;
-import com.adriangarett.sleephqmcp.config.SleepHqCacheProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
-import org.springframework.web.client.RestClient;
-
-import java.time.Duration;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,19 +26,12 @@ class JournalLookupServiceTest {
     @Mock
     private SleepHqClient client;
 
-    @Mock
-    private RestClient s3RestClient;
-
     private JournalLookupService service;
     private String sampleListJson;
 
     @BeforeEach
     void setUp() throws Exception {
-        SleepHqCacheProperties cacheProps = new SleepHqCacheProperties(false,
-                Duration.ofHours(6), Duration.ofMinutes(5), Duration.ofHours(1), Duration.ofMinutes(30), 100);
-        SleepHqCacheFacade cacheFacade = new SleepHqCacheFacade(client, s3RestClient,
-                new SleepHqCachePolicy(cacheProps), cacheProps);
-        service = new JournalLookupService(client, new ClinicalContextProperties("team-1", null, null, null), cacheFacade);
+        service = new JournalLookupService(client, new ClinicalContextProperties("team-1", null, null, null));
         sampleListJson = new String(
                 getClass().getResourceAsStream("/journal/list-journals-sample.json").readAllBytes(),
                 StandardCharsets.UTF_8);
@@ -84,12 +72,7 @@ class JournalLookupServiceTest {
 
     @Test
     void requireTeamId_missingConfigured_throws() {
-        SleepHqCacheProperties cacheProps = new SleepHqCacheProperties(false,
-                Duration.ofHours(6), Duration.ofMinutes(5), Duration.ofHours(1), Duration.ofMinutes(30), 100);
-        SleepHqCacheFacade cacheFacade = new SleepHqCacheFacade(client, s3RestClient,
-                new SleepHqCachePolicy(cacheProps), cacheProps);
-        JournalLookupService bare = new JournalLookupService(client,
-                new ClinicalContextProperties(null, null, null, null), cacheFacade);
+        JournalLookupService bare = new JournalLookupService(client, new ClinicalContextProperties(null, null, null, null));
         assertThatThrownBy(() -> bare.findAttributesByDate(null, "2026-05-23"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("SLEEPHQ_TEAM_ID");

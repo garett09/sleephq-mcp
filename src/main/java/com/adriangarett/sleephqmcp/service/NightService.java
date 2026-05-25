@@ -27,7 +27,7 @@ public class NightService {
         return enrichWithJournal(fetchMachineDateJson(machineDateId));
     }
 
-    @Cacheable(value = "nightStats", key = "#machineDateId", condition = "@sleepHqCachePolicy.cachesEnabled()")
+    @Cacheable(value = "nightStats", key = "#machineDateId")
     String fetchMachineDateJson(String machineDateId) {
         return client.getMachineDate(machineDateId);
     }
