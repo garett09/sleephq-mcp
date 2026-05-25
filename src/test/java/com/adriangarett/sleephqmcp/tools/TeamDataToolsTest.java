@@ -22,7 +22,7 @@ class TeamDataToolsTest {
 
     @Test
     void listSleepTests_blankTeamAndNoDefault_throws() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties(null, null, null, null);
+        ClinicalContextProperties clinical = new ClinicalContextProperties(null, null, null);
         TeamDataTools tools = new TeamDataTools(client, clinical);
 
         assertThatThrownBy(() -> tools.listSleepTests(null, null, null, null))
@@ -32,7 +32,7 @@ class TeamDataToolsTest {
 
     @Test
     void listSleepTests_blankTeam_usesConfiguredDefault() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties("team-99", null, null, null);
+        ClinicalContextProperties clinical = new ClinicalContextProperties("team-99", null, null);
         TeamDataTools tools = new TeamDataTools(client, clinical);
         when(client.listSleepTests(eq("team-99"), isNull(), isNull(), isNull())).thenReturn("{}");
 
@@ -44,11 +44,46 @@ class TeamDataToolsTest {
 
     @Test
     void listJournals_explicitTeamId_passesThrough() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties("ignored", null, null, null);
+        ClinicalContextProperties clinical = new ClinicalContextProperties("ignored", null, null);
         TeamDataTools tools = new TeamDataTools(client, clinical);
         when(client.listJournals(eq("team-2"), isNull(), isNull())).thenReturn("[]");
 
         assertThat(tools.listJournals("team-2", null, null)).isEqualTo("[]");
         verify(client).listJournals("team-2", null, null);
     }
+
+    @Test
+    void listTeamFiles_noFilter_delegatesToClient() {
+        ClinicalContextProperties clinical = new ClinicalContextProperties("team-default", null, null);
+        TeamDataTools tools = new TeamDataTools(client, clinical);
+        when(client.listTeamFiles("team-default", 1, 10)).thenReturn("{\"data\":[]}");
+
+        String result = tools.listTeamFiles(null, null, 1, 10);
+
+        assertThat(result).isEqualTo("{\"data\":[]}");
+        verify(client).listTeamFiles("team-default", 1, 10);
+    }
+
+    @Test
+    void listTeamFiles_withFilter_filtersMatchingFiles() {
+        ClinicalContextProperties clinical = new ClinicalContextProperties("team-default", null, null);
+        TeamDataTools tools = new TeamDataTools(client, clinical);
+
+        String pageJson = """
+                {
+                  "data": [
+                    { "type": "file", "id": "1", "attributes": { "name": "20260430_BRP.edf" } },
+                    { "type": "file", "id": "2", "attributes": { "name": "other_file.txt" } }
+                  ]
+                }
+                """;
+        when(client.listTeamFiles("team-default", 1, 100)).thenReturn(pageJson);
+
+        String result = tools.listTeamFiles(null, "BRP.edf", null, null);
+
+        assertThat(result).contains("20260430_BRP.edf");
+        assertThat(result).doesNotContain("other_file.txt");
+        assertThat(result).contains("\"meta_total_matches\":1");
+    }
 }
+
