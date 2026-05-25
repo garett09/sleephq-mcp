@@ -1,20 +1,20 @@
 # sleephq-mcp
 
-A Spring AI MCP server (Streamable HTTP transport) that wraps the SleepHQ REST API and exposes it as MCP **tools**, **resources**, and **prompts** for an LLM client (e.g. Goose) to drive sleep therapy analysis and titration decisions.
+A Spring AI MCP server (Streamable HTTP transport) that wraps the SleepHQ REST API and exposes it as MCP **tools** for an LLM client (e.g. Goose) to drive sleep therapy analysis and titration decisions.
 
 ## Architecture
 
 ```
-mcp layer        @McpTool / @McpResource / @McpPrompt — thin facades (≤5 lines)
+mcp layer        @McpTool — thin facades (≤5 lines)
    ↓
-service layer    NightService, WaveformService, CorrelationWaveformService, ComparisonService
+service layer    NightService, CombinedNightService, ComparisonService
    ↓
-client layer     SleepHqClient — one method per endpoint family
+client layer     SleepHqClient — one method per documented endpoint family
    ↓
 transport        RestClient + AuthInterceptor (bearer header + 401 retry, in one place)
 ```
 
-Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInterceptor`, errors in `McpResponses`, observability in `McpInvocationLoggingAspect`, caching via `@Cacheable("nightStats")`, MCP HTTP access in `McpApiKeyAuthFilter`, and path validation in `SleepHqPathParams` / `SleepHqClient` URI templates.
+Outbound URLs are composed only from paths in [https://sleephq.com/api/swagger.json](https://sleephq.com/api/swagger.json) (`https://sleephq.com` + `/api` + `/v1/...`). Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInterceptor`, errors in `McpResponses`, observability in `McpInvocationLoggingAspect`, caching via `@Cacheable("nightStats")`, MCP HTTP access in `McpApiKeyAuthFilter`, and path validation in `SleepHqPathParams` / `SleepHqClient` URI templates.
 
 ## Security
 
@@ -24,12 +24,8 @@ Single sources of truth for cross-cutting concerns: auth+retry lives in `AuthInt
 
 ## MCP surface
 
-- **24 tools** — Grouped: auth (2), machines (5), night (4: `get-night-stats`, `get-combined-night-by-date`, `get-sessions`, `get-events`), waveforms (7 single-channel + `get-correlation-window`), team lists (4), other (2). **Canonical names and parameters:** use your MCP client’s `list_tools` against this server (the list changes with releases).
-- **Correlation cost** — `get-correlation-window` issues **one full-night waveform HTTP GET per distinct channel** (same backend path as the single-channel waveform tools), then slices in memory to your window; prefer fewer channels when latency matters.
-- **Resources** — 4 static URIs (`sleephq://patient/baseline`, `sleephq://device/current`, `sleephq://guidelines/resmed-titration`, `sleephq://reference/normal-ranges`) plus 3 URI templates (`sleephq://team/{id}`, `sleephq://machine/{id}`, `sleephq://machine_date/{id}`).
-- **7 prompts** — nightly-review, central-apnea-investigation, weekly-trend, leak-diagnosis, titration-decision, o2-desat-review, morning-brief
-- **Waveform API reference** — [docs/sleephq-waveform-segments.md](docs/sleephq-waveform-segments.md) (known `*_data` path segments and how to probe new ones).
-- **Official OpenAPI gap (parked)** — [docs/sleephq-openapi-gap.md](docs/sleephq-openapi-gap.md): published `swagger.json` does not document the full live API; no extra alignment work until SleepHQ expands the contract.
+- **21 tools** — Auth (2), machines (5), night (2: `get-night-stats`, `get-combined-night-by-date`), team data (5: sleep tests, journals, masks, devices, patients), imports (4: list-imports, get-import, list-import-files, get-import-file), files (1: list-files), journal detail (1: get-journal), `get-comparison`. **Canonical names and parameters:** use your MCP client’s `list_tools` against this server, or see [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md).
+- **OpenAPI contract** — [docs/sleephq-openapi-gap.md](docs/sleephq-openapi-gap.md) (how `get-comparison` / `get-combined-night-by-date` relate to documented routes).
 
 ## Setup
 
@@ -50,21 +46,13 @@ The included `goose-recipe.yaml` points at `http://localhost:8080/mcp` and sends
 goose session --recipe goose-recipe.yaml
 ```
 
-The recipe’s opening **message** activity and [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md) list every tool, resource URI, and MCP prompt (handy when Goose surfaces tools more prominently than resources or prompts).
-
-## Tuning the doctor
-
-- Edit `src/main/resources/clinical/*.md` to update patient baseline, device config, or clinical guidelines — picked up on the next request.
-- Edit `src/main/resources/prompts/*.md` to refine analysis workflows.
+The recipe’s opening **message** activity and [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md) list every tool with its backing endpoint.
 
 ## Adding capabilities
 
 | To add a... | Steps |
 |---|---|
-| New tool | One method in `SleepHqClient`, one `@McpTool` method in the right `*Tools` class |
-| New waveform channel | One enum constant in `WaveformChannel` + one 2-line tool method |
-| New static resource | Drop a `.md` in `clinical/`, add one `@McpResource` method |
-| New prompt | Drop a `.md` in `prompts/`, add one `@McpPrompt` method |
+| New tool | Add a path-backed method in `SleepHqClient` only if it appears in `swagger.json`, then one `@McpTool` method in the right `*Tools` class |
 
 ## Build verification
 
@@ -84,5 +72,5 @@ If the server uses `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true`, omit the `X-SleepHQ-MCP-K
 
 - **401 from `/mcp` (before tools run)** — send header `X-SleepHQ-MCP-Key` matching `SLEEPHQ_MCP_API_KEY`, or set `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true` only on trusted localhost.
 - **401 from SleepHQ tools** — check `SLEEPHQ_CLIENT_ID` / `SLEEPHQ_CLIENT_SECRET`. With anonymous health, `/actuator/health` returns only UP/DOWN; configure actuator authentication if you need credential details on that endpoint.
-- **Waveform tool returns `"mode":"passthrough"`** — the SleepHQ response shape didn't match any known parser. Inspect the `raw` field and adjust `WaveformService.extractSamples()`.
+- **404 from `get-machine-date-by-date` / `get-combined-night-by-date`** — usually no `machine_date` for that machine and calendar date; confirm with `list-machine-dates`. Not the same as a missing API route.
 - **MCP client can't connect** — confirm the server is on the right port (default 8080, override via `SLEEPHQ_MCP_PORT`). Streamable HTTP requires both `Content-Type: application/json` and `Accept: application/json, text/event-stream`.
