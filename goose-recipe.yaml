@@ -72,10 +72,12 @@ instructions: |
 
   After **get-night-stats**, **get-combined-night-by-date**, or **get-comparison**, read top-level **`journal`** when present (also on skipped nights in comparisons). Narrate non-empty: **step_count**, **sleep_stages_summary** (preferred), **active_energy_joules** (≈ kcal: joules ÷ 4184), **feeling_score**, **weight_grams**. Use **—** when `journal` is absent. Do **not** infer steps or sleep stages from `movement_summary` or **get-o2-oximetry**. Prefer **get-combined-night-by-date** when you need CPAP + O2 summaries and journal in one call; use **get-journal-by-date** for wellness-only.
 
-  **Sleep stages (`journal.sleep_stages_summary`)** — Apple Health segments synced via SleepHQ. Prefer **`sleep_stages_summary`** over raw `sleep_stages` / full `sleep_stages_parsed` (MCP omits the long raw string when summary is built).
+  **Sleep stages (`journal.sleep_stages_summary`)** — Apple Health segments synced via SleepHQ. Prefer **`sleep_stages_summary`** over raw `sleep_stages` / full `sleep_stages_parsed` (MCP omits the long raw string when summary is built). Do **not** re-sum segments or invent stage labels — use MCP totals only.
+    - **`aggregation_method`**: `merged_timeline` — overlapping segments are merged; when two stages share the same instant, priority is awake > deep > rem > core > asleep_unspecified > in_bed
     - **`stage_type_legend`**: `0` in_bed · `1` asleep_unspecified · `2` awake · `3` core (light) · `4` deep · `5` rem
     - **`minutes_by_stage`**: use labeled totals (e.g. core, deep, rem, awake) for tables and narrative
-    - **`asleep_minutes`**: sum of non-awake, non-in_bed stages
+    - **`asleep_minutes`**: merged non-awake, non-in_bed time (typically ≤ `sleep_window.span_minutes`)
+    - **`segments_overlap_detected`**: when `true`, source segments overlapped — trust merged totals, do not add stage minutes manually
     - **`sleep_window`**: `start` / `end` / `span_minutes` across all segments
     - For rolling tables, **Sleep stages** column = compact line e.g. `Deep 81m · REM 30m · Core 22m · Awake 20m` from `minutes_by_stage` (omit zero stages). Do not dump the segment array unless the user asks for detail.
 

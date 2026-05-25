@@ -25,6 +25,21 @@ public final class JournalSleepStageType {
         return LEGEND.getOrDefault(stageType, "unknown_" + stageType);
     }
 
+    /**
+     * When segments overlap in time, the higher priority label wins for that interval (awake > deep > rem > core).
+     */
+    public static int timelinePriority(String label) {
+        return switch (label) {
+            case "awake" -> 100;
+            case "deep" -> 80;
+            case "rem" -> 60;
+            case "core" -> 40;
+            case "asleep_unspecified" -> 20;
+            case "in_bed" -> 10;
+            default -> 5;
+        };
+    }
+
     public static ObjectNode legendNode() {
         ObjectNode legend = JsonApi.mapper().createObjectNode();
         LEGEND.forEach((code, label) -> legend.put(String.valueOf(code), label));

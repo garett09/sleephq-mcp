@@ -153,10 +153,20 @@ public class TeamDataTools {
     }
 
     @McpTool(name = "get-journal",
-            description = "Retrieve a single journal entry by ID. Returns date, feeling_score, weight_grams, step_count, sleep_stages, active_energy_joules (when API returns it), and notes.")
+            description = "Retrieve a single journal entry by ID. Returns JSON:API data plus top-level journal wellness (sleep_stages_summary with merged timeline, sleep_stages_parsed, step_count, active_energy_joules when present).")
     public String getJournal(
             @McpToolParam(description = "Journal ID from list-journals", required = true) String journalId) {
-        return McpResponses.safe(() -> client.getJournal(journalId));
+        return McpResponses.safe(() -> {
+            String raw = client.getJournal(journalId);
+            ObjectNode envelope = (ObjectNode) JsonApi.parse(raw);
+            JsonNode attrs = envelope.path("data").path("attributes");
+            JournalOverlaySupport.attachIfPresent(envelope, attrs);
+            try {
+                return JsonApi.mapper().writeValueAsString(envelope);
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to serialize journal", e);
+            }
+        });
     }
 
     @McpTool(name = "get-journal-by-date",
