@@ -1,6 +1,8 @@
 package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.support.ComparisonApneaTrendSupport;
+import com.adriangarett.sleephqmcp.support.ComparisonTableDisplay;
 import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
@@ -69,6 +71,9 @@ public class ComparisonService {
         meta.put("from", from);
         meta.put("to", to);
         meta.put("note", "Each night is GET .../machines/{id}/machine_dates/{date}; O2 and journal wellness merged when configured. No upstream /comparisons.");
+        meta.put("table_display_hint",
+                "Each nights[] row: table_display (*_cell including apnea_indices_cell with ! if elevated). "
+                        + "Root apnea_trends + titration_decision_support for physician_titration_review pressure decisions.");
 
         Map<String, JsonNode> journalByDate = loadJournalMapSafely(start, end);
 
@@ -87,6 +92,8 @@ public class ComparisonService {
         for (CompletableFuture<ObjectNode> future : rowFutures) {
             nights.add(future.join());
         }
+        ComparisonTableDisplay.markSettingsChanges(nights);
+        ComparisonApneaTrendSupport.attach(root, nights);
 
         try {
             return JsonApi.mapper().writeValueAsString(root);
@@ -117,6 +124,7 @@ public class ComparisonService {
             String msg = e.getMessage();
             row.put("reason", msg != null ? msg : e.getClass().getSimpleName());
         }
+        ComparisonTableDisplay.attachIfPresent(row);
         return row;
     }
 

@@ -45,9 +45,11 @@ class ComparisonServiceTest {
     void compare_twoDays_aggregatesNightsAndMeta() {
         when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
         when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))
-                .thenReturn("{\"data\":{\"id\":\"a\",\"type\":\"machine_date\",\"attributes\":{}}}");
+                .thenReturn("{\"data\":{\"id\":\"a\",\"type\":\"machine_date\",\"attributes\":{"
+                        + "\"ahi_summary\":{\"av\":1.0,\"oa\":0.5,\"ca\":0.2}}}}");
         when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-02"), eq("cpap-1"), isNull(), any()))
-                .thenReturn("{\"data\":{\"id\":\"b\",\"type\":\"machine_date\",\"attributes\":{}}}");
+                .thenReturn("{\"data\":{\"id\":\"b\",\"type\":\"machine_date\",\"attributes\":{"
+                        + "\"ahi_summary\":{\"av\":2.0,\"oa\":1.5,\"ca\":6.0}}}}");
 
         String json = service.compare("cpap-1", "2026-05-01", "2026-05-02");
         var root = JsonApi.parse(json);
@@ -62,6 +64,12 @@ class ComparisonServiceTest {
         assertThat(root.path("nights").get(0).path("date").asText()).isEqualTo("2026-05-01");
         assertThat(root.path("nights").get(0).path("data").path("id").asText()).isEqualTo("a");
         assertThat(root.path("nights").get(1).path("data").path("id").asText()).isEqualTo("b");
+        assertThat(root.path("meta").path("table_display_hint").asText()).contains("titration_decision_support");
+        assertThat(root.path("apnea_trends").path("nights_with_ahi_summary").asInt()).isEqualTo(2);
+        assertThat(root.path("apnea_trends").path("titration_decision_support").path("evaluate_in_order").size()).isGreaterThan(0);
+        assertThat(root.path("nights").get(0).path("table_display").path("osa_cell").asText()).isEqualTo("0.5/hr");
+        assertThat(root.path("nights").get(1).path("table_display").path("csa_cell").asText()).isEqualTo("6/hr");
+        assertThat(root.path("nights").get(1).path("table_display").path("csa_elevated").asBoolean()).isTrue();
 
         verify(combinedNightService).combineForCalendarDateWithJournalMap("2026-05-01", "cpap-1", null, java.util.Map.of());
         verify(combinedNightService).combineForCalendarDateWithJournalMap("2026-05-02", "cpap-1", null, java.util.Map.of());
