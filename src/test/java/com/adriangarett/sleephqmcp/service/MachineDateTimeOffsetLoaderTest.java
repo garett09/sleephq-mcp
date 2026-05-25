@@ -1,5 +1,6 @@
 package com.adriangarett.sleephqmcp.service;
 
+import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,18 +17,18 @@ import static org.mockito.Mockito.when;
 class MachineDateTimeOffsetLoaderTest {
 
     @Mock
-    private SleepHqCacheFacade cacheFacade;
+    private SleepHqClient client;
 
     private MachineDateTimeOffsetLoader loader;
 
     @BeforeEach
     void setUp() {
-        loader = new MachineDateTimeOffsetLoader(cacheFacade, new ClinicalContextProperties("team-1", "cpap-9", "o2-1", null));
+        loader = new MachineDateTimeOffsetLoader(client, new ClinicalContextProperties("team-1", "cpap-9", "o2-1", null));
     }
 
     @Test
     void loadForCpapDate_validTimeOffset_returnsSeconds() {
-        when(cacheFacade.getMachineDateByDate("cpap-9", "2026-05-20"))
+        when(client.getMachineDateByDate("cpap-9", "2026-05-20"))
                 .thenReturn("""
                         {"data":{"id":"1","type":"machine_date","attributes":{"time_offset":1428,"date":"2026-05-20"}}}
                         """);
@@ -37,7 +38,7 @@ class MachineDateTimeOffsetLoaderTest {
 
     @Test
     void loadForCpapDate_absurdTimeOffset_empty() {
-        when(cacheFacade.getMachineDateByDate("cpap-9", "2026-05-20"))
+        when(client.getMachineDateByDate("cpap-9", "2026-05-20"))
                 .thenReturn("""
                         {"data":{"id":"1","type":"machine_date","attributes":{"time_offset":3605430137}}}
                         """);
@@ -47,7 +48,7 @@ class MachineDateTimeOffsetLoaderTest {
 
     @Test
     void loadForCpapDate_missingCpapMachineId_empty() {
-        loader = new MachineDateTimeOffsetLoader(cacheFacade, new ClinicalContextProperties("team-1", null, null, null));
+        loader = new MachineDateTimeOffsetLoader(client, new ClinicalContextProperties("team-1", null, null, null));
 
         assertThat(loader.loadForCpapDate("2026-05-20", null)).isEmpty();
     }

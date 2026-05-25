@@ -16,11 +16,11 @@ import java.util.OptionalInt;
 @Service
 public class MachineDateTimeOffsetLoader {
 
-    private final SleepHqCacheFacade cacheFacade;
+    private final SleepHqClient client;
     private final ClinicalContextProperties clinical;
 
-    public MachineDateTimeOffsetLoader(SleepHqCacheFacade cacheFacade, ClinicalContextProperties clinical) {
-        this.cacheFacade = cacheFacade;
+    public MachineDateTimeOffsetLoader(SleepHqClient client, ClinicalContextProperties clinical) {
+        this.client = client;
         this.clinical = clinical;
     }
 
@@ -36,7 +36,7 @@ public class MachineDateTimeOffsetLoader {
             return OptionalInt.empty();
         }
         try {
-            String raw = cacheFacade.getMachineDateByDate(cpapMid, date);
+            String raw = client.getMachineDateByDate(cpapMid, date);
             JsonNode doc = JsonApi.parse(raw);
             if (!JsonApi.hasSingleResourceData(doc)) {
                 return OptionalInt.empty();

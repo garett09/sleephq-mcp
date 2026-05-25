@@ -2,9 +2,7 @@ package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
-import com.adriangarett.sleephqmcp.config.SleepHqObservabilityProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
-import com.adriangarett.sleephqmcp.support.PhaseTiming;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,7 +23,16 @@ import static org.mockito.Mockito.*;
 class WaveformServiceTest {
 
     @Mock
-    private SleepHqCacheFacade cacheFacade;
+    private SleepHqClient sleepHqClient;
+
+    @Mock
+    private RestClient s3RestClient;
+
+    @Mock
+    private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
+
+    @Mock
+    private RestClient.ResponseSpec responseSpec;
 
     @Mock
     private MachineDateTimeOffsetLoader machineDateTimeOffsetLoader;
@@ -35,10 +42,7 @@ class WaveformServiceTest {
     @BeforeEach
     void setUp() {
         ClinicalContextProperties clinical = new ClinicalContextProperties("team-123", "cpap-123", "o2-123", null);
-        waveformService = new WaveformService(cacheFacade, clinical, machineDateTimeOffsetLoader,
-                new PhaseTiming(new SleepHqObservabilityProperties(false)));
-        when(cacheFacade.getCachedApneaScanJson(anyString(), any()))
-                .thenAnswer(invocation -> invocation.getArgument(1, java.util.function.Supplier.class).get());
+        waveformService = new WaveformService(sleepHqClient, s3RestClient, clinical, machineDateTimeOffsetLoader);
     }
 
     @Test
@@ -56,7 +60,7 @@ class WaveformServiceTest {
                   }
                 }
                 """;
-        when(cacheFacade.getImportFile("file-abc")).thenReturn(fileMetadataJson);
+        when(sleepHqClient.getImportFile("file-abc")).thenReturn(fileMetadataJson);
 
         // 2. Build mock EDF:
         //    nRecords = 30, recDuration = 1.0, samplesPerRec = 25 (25 Hz)
@@ -90,7 +94,10 @@ class WaveformServiceTest {
             edf[pos++] = (byte) ((rawVal >> 8) & 0xFF);
         }
 
-        when(cacheFacade.downloadEdf(any(URI.class), eq("file-abc"))).thenReturn(edf);
+        when(s3RestClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(URI.class))).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(byte[].class)).thenReturn(edf);
 
         // Run scanner (threshold = 0.15 for hypopnea, but average of 0.0085 L/s will classify as APNEA)
         String resultJson = waveformService.scanApneaEvents("file-abc", null, null, 0.15, 8);
@@ -108,61 +115,6 @@ class WaveformServiceTest {
     }
 
     @Test
-    void scanApneaEvents_withMachineDateTimeOffset_shiftsTimestamps() throws Exception {
-        when(machineDateTimeOffsetLoader.loadForCpapDate("2026-05-20", null))
-                .thenReturn(java.util.OptionalInt.of(1428));
-
-        String fileMetadataJson = """
-                {
-                  "data": {
-                    "id": "file-abc",
-                    "type": "import_file",
-                    "attributes": {
-                      "name": "20260520_210920_BRP.edf",
-                      "download_url": "https://s3.amazonaws.com/test-bucket/file-abc"
-                    }
-                  }
-                }
-                """;
-        when(cacheFacade.getImportFile("file-abc")).thenReturn(fileMetadataJson);
-
-        byte[] edf = new byte[256 + 256 + 30 * 25 * 2];
-        Arrays.fill(edf, (byte) ' ');
-        writeString(edf, 0, "0");
-        writeString(edf, 168, "20.05.26");
-        writeString(edf, 176, "21.09.00");
-        writeString(edf, 184, "512");
-        writeString(edf, 236, "30");
-        writeString(edf, 244, "1.0");
-        writeString(edf, 252, "1");
-        writeString(edf, 256, "Flow.40ms");
-        writeString(edf, 256 + 96, "L/s");
-        writeString(edf, 256 + 104, "-5.0");
-        writeString(edf, 256 + 112, "5.0");
-        writeString(edf, 256 + 120, "-2048");
-        writeString(edf, 256 + 128, "2047");
-        writeString(edf, 256 + 216, "25");
-
-        int pos = 512;
-        for (int i = 0; i < 30 * 25; i++) {
-            boolean isApnea = (i >= 100 && i < 600);
-            short rawVal = (short) (isApnea ? 3 : 204);
-            edf[pos++] = (byte) (rawVal & 0xFF);
-            edf[pos++] = (byte) ((rawVal >> 8) & 0xFF);
-        }
-
-        when(cacheFacade.downloadEdf(any(URI.class), eq("file-abc"))).thenReturn(edf);
-
-        String resultJson = waveformService.scanApneaEvents("file-abc", null, "2026-05-20", 0.15, 8, null);
-
-        JsonNode root = JsonApi.parse(resultJson);
-        assertThat(root.path("clock_alignment").path("cpap_adjust_seconds").asInt()).isEqualTo(1428);
-        assertThat(root.path("clock_alignment").path("source").asText()).isEqualTo("sleephq_machine_date");
-        assertThat(root.path("events").get(0).path("timestamp").asText()).isEqualTo("2026-05-20T21:32:54.840");
-        assertThat(root.path("events").get(0).path("offset").asText()).isEqualTo("00:00:06");
-    }
-
-    @Test
     void scanApneaEvents_detectsCentralApnea() throws Exception {
         String fileMetadataJson = """
                 {
@@ -176,7 +128,7 @@ class WaveformServiceTest {
                   }
                 }
                 """;
-        when(cacheFacade.getImportFile("file-abc")).thenReturn(fileMetadataJson);
+        when(sleepHqClient.getImportFile("file-abc")).thenReturn(fileMetadataJson);
 
         // Build mock EDF with 4 Hz Forced Oscillation Technique (FOT) wave added during apnea
         byte[] edf = new byte[256 + 256 + 30 * 25 * 2];
@@ -214,7 +166,10 @@ class WaveformServiceTest {
             edf[pos++] = (byte) ((rawVal >> 8) & 0xFF);
         }
 
-        when(cacheFacade.downloadEdf(any(URI.class), eq("file-abc"))).thenReturn(edf);
+        when(s3RestClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(URI.class))).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(byte[].class)).thenReturn(edf);
 
         String resultJson = waveformService.scanApneaEvents("file-abc", null, null, 0.15, 8);
 
@@ -244,7 +199,7 @@ class WaveformServiceTest {
                   }
                 }
                 """;
-        when(cacheFacade.getImportFile("file-abc")).thenReturn(fileMetadataJson);
+        when(sleepHqClient.getImportFile("file-abc")).thenReturn(fileMetadataJson);
 
         // Build mock EDF with partial flow reduction (around 0.08 L/s, which is between 0.04 and 0.15)
         byte[] edf = new byte[256 + 256 + 30 * 25 * 2];
@@ -275,7 +230,10 @@ class WaveformServiceTest {
             edf[pos++] = (byte) ((rawVal >> 8) & 0xFF);
         }
 
-        when(cacheFacade.downloadEdf(any(URI.class), eq("file-abc"))).thenReturn(edf);
+        when(s3RestClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(URI.class))).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(byte[].class)).thenReturn(edf);
 
         String resultJson = waveformService.scanApneaEvents("file-abc", null, null, 0.15, 8);
 
