@@ -1,6 +1,6 @@
 Apply ResMed titration rules to **{{date}}** and recommend a pressure decision.
 
-Resources: `sleephq://guidelines/resmed-therapy-handbook`, `sleephq://guidelines/resmed-titration`, `sleephq://device/current`, `sleephq://reference/normal-ranges`
+Resources: `get-device-context`, `sleephq://guidelines/resmed-therapy-handbook`, `sleephq://guidelines/resmed-titration`, `sleephq://reference/normal-ranges`
 
 Workflow:
 1. `get-combined-night-by-date(date="{{date}}")` — `ahi_summary` (OA/CA/H/RERA), `pressure_summary`, leak, usage.

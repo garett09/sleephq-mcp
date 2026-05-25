@@ -20,4 +20,4 @@
 ## Pressure (CPAP)
 
 - Typical range: 4–20 cmH2O
-- For Adrian: fixed 10.6 cmH2O (titrated to RDI 0.8/hr at 9 cmH2O on PSG)
+- For Adrian: live pressure/mode/EPR from **`get-device-context`**; PSG sweet spot RDI 0.8/hr at **9 cmH₂O** in `patient/baseline`

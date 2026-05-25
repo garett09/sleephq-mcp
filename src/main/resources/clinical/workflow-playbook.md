@@ -28,4 +28,4 @@ Payload caps and downsampled waveform **do not** lower confidence %. For deep ni
 
 ## Grounding at session start
 
-Read: `sleephq://patient/baseline`, `device/current`, `guidelines/resmed-titration`, `guidelines/resmed-therapy-handbook`, `reference/normal-ranges`, `playbook/workflows`, `playbook/data-sources`, `playbook/output-format`.
+Read: `get-device-context` (or `sleephq://device/context`), then `sleephq://patient/baseline`, guidelines, `reference/normal-ranges`, playbook resources.

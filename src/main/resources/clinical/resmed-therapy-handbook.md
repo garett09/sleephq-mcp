@@ -4,7 +4,7 @@
 **Basis:** AASM PAP titration practice parameters; ResMed lab protocols (CPAP/APAP, S/VAuto, ASV).  
 **Scope:** OSA positive airway pressure — adult (≥12 y) and pediatric (<12 y). Adrian = **adult**.
 
-**Always combine with:** `sleephq://device/current` (actual mode/EPR/pressure), `sleephq://patient/baseline`, `sleephq://playbook/data-sources`.
+**Always combine with:** `get-device-context` (live mode/EPR/pressure), `sleephq://patient/baseline`, `sleephq://playbook/data-sources`.
 
 > **Coverage honesty:** This file is a **SleepHQ-focused digest**, not a full reproduction of the 180+ page PDF. Verified against extracted handbook text (May 2026). For modes you do not use (ST, iVAPS, overlap hypoventilation), see the PDF directly.
 
@@ -96,7 +96,7 @@
 | <10 cmH₂O | 4 cmH₂O (or comfort) | 20 |
 | >10 cmH₂O | 6–8 cmH₂O (or comfort) | 20 |
 
-- **EPR:** handbook — consider for **difficulty exhaling** (Levels 1–3; **full-time or ramp only**; floor 4 cmH₂O). PDF does **not** list “EPR causes TECSA” — that is **patient-specific** in `device/current` / baseline; reconcile before recommending EPR.
+- **EPR:** handbook — consider for **difficulty exhaling** (Levels 1–3; **full-time or ramp only**; floor 4 cmH₂O). PDF does **not** list “EPR causes TECSA” — reconcile live `machine_settings` with `patient/baseline` before recommending EPR changes.
 - **AutoSet Response:** **Soft** for patients sensitive to pressure change (gentler AutoSet).
 - **Ramp:** consider if difficulty initiating sleep (pressure rises to minimum treatment pressure).
 - **Mask type in device menu:** must match actual mask (e.g. Full Face vs nasal pillows) for leak reporting.
@@ -140,7 +140,7 @@ Lab triggers are **per observation window**; home reviews use **aggregated night
 
 - Reduces expiratory pressure (1/2/3 cmH₂O); not below 4 cmH₂O delivered.
 - **Indication (handbook):** difficulty exhaling, comfort.
-- **TECSA (handbook):** do not **increase** CPAP for central events; down-titrate first (§3). **EPR:** handbook indication is comfort only; if `device/current` says EPR Off, treat as **patient-specific** override.
+- **TECSA (handbook):** do not **increase** CPAP for central events; down-titrate first (§3). **EPR:** handbook indication is comfort only; if live `machine_settings` show EPR Off, treat current menu as baseline unless span + clinician agree otherwise.
 
 ---
 
@@ -205,7 +205,7 @@ Signs: mask removal, arousals, no REM, air hunger, failed CPAP, congestion, EPR 
 | Keep pressure | 85–95% | 7d+ AHI at goal, leak OK, usage OK |
 | Increase +1 cmH₂O | 85–95% | Handbook obstructive triggers met **across trend**, not one spurious night |
 | Decrease −1 cmH₂O (central) | 85–95% | Rising CA + EVE/scan central, per central branch |
-| Enable EPR | 60–75% | Exhale discomfort + **low CA**; contradicts `device/current` EPR Off → explain conflict |
+| Enable EPR | 60–75% | Exhale discomfort + **low CA**; contradicts live EPR Off in `get-device-context` → explain conflict |
 | ASV referral | 70–85% | Persistent TECSA after −1 trial; screen contraindications |
 
 ---

@@ -69,7 +69,8 @@ instructions: |
   - *Discovery:* `who-am-i`, `get-configured-defaults`, `list-teams`, `list-machines`, `list-machine-dates`
   - *Nightly therapy:* `get-combined-night-by-date` (preferred), `get-night-stats`, `get-comparison` (15–120d)
   - *Wellness:* `journal` on night tools; `get-journal-by-date` / `get-journal` when needed
-  - *Interface:* `list-masks`, `list-devices`, `get-machine-details`
+  - *Device context:* **`get-device-context`** first (pressure, mode, EPR, ramp, masks, machines — all from SleepHQ)
+  - *Interface:* `list-masks`, `list-devices`, `get-machine-details` (also inside `get-device-context`)
   - *Physiology:* `get-device-events` (EVE), `scan-apnea-events` (BRP flow), `get-waveform-by-date`, `get-o2-oximetry` (always cap `maxMinutes`)
   - *Goose memory:* store mask/pressure goals only when user asks; confirm before save; no secrets
   - *Chat recall:* past session decisions — always re-fetch SleepHQ for current nights
@@ -134,14 +135,16 @@ instructions: |
     3. `scan-apnea-events(date)` — flow events; compare to EVE + `ahi_summary`.
     4. Pick 1–2 windows (overlap ±2 min or worst leak/AHI).
     5. `get-waveform-by-date(date, startMinute=<event-2>, maxMinutes=10)` — Flow + Pressure.
-    6. `get-o2-oximetry(date, maxMinutes=15)` — aligned window only.
+    6. `get-o2-oximetry(date, maxMinutes=15)` — O2 wall time is correct; correlate to CPAP via drift-adjusted `timestamp` (see `sleephq://playbook/clock-alignment`), not equal session starts.
     7. Report: Headline, **Findings table**, Event reconciliation, Mechanism, O2 impact, **Recommendations table**, Limits.
 
   {% elif workflow_mode == "physician_titration_review" %}
   **physician_titration_review** — {{ review_span_days }}d ending at session_date:
-    - **Phase 1:** `get-comparison(fromDate=toDate−({{ review_span_days }}−1)d, toDate)` OR resource `sleephq://comparison/{from}/{to}` — table every night; detect pressure **epochs** from `machine_settings`.
-    - **Phase 2:** Deep tools on **≤6 nights** only: post-pressure-change (3 nights), worst AHI, worst leak, CA night, worst SpO₂ min — **`get-device-events` + `scan-apnea-events` (required for High reconciliation)**; waveform only if EVE↔scan disagree; O2 only on worst SpO₂ night.
-    - **Phase 3:** Technologist tables + epoch narrative; Physician block with **FINAL RECOMMENDATIONS** (bold `####` actions, **NN% (Label)** + explanations), Supporting findings table, appendix, data gaps.
+    - **Phase 0:** `get-device-context` — current menu + registered masks (SleepHQ only).
+    - **Phase 1:** `get-comparison(fromDate=toDate−({{ review_span_days }}−1)d, toDate)` OR `sleephq://comparison/{from}/{to}` — every night; pressure **epochs** from `machine_settings`.
+    - **Phase 1b:** Compare `registered_masks` vs `machine_settings` mask type from Phase 0; menu mismatch → fix before pressure ↑.
+    - **Phase 2:** Deep tools on **≤6 nights** only: post-pressure-change (3 nights), worst AHI, worst leak, CA night, worst SpO₂ min — **`get-device-events` + `scan-apnea-events` (required)**; waveform only if EVE↔scan disagree; O2 on worst SpO₂ night only.
+    - **Phase 3:** Technologist + Physician blocks per output-format. EPR advice must match **live** `machine_settings.epr` + CA trend + handbook (not a static file).
     - MCP prompt: `physician-titration-review(toDate, reviewSpanDays={{ review_span_days }})`.
 
   {% elif workflow_mode == "night_summary" %}
@@ -151,7 +154,7 @@ instructions: |
   Prioritize: `get-night-stats` / combined night — all summary objects + journal. Waveform only if needed: `get-waveform-by-date`.
 
   {% elif workflow_mode == "mask_leak_with_pressure" %}
-  Prioritize: `leak-diagnosis` prompt; leak summaries + `list-masks` / `list-devices`. Pressure change only after leak controlled; use longitudinal context if needed.
+  Prioritize: `get-device-context` then `leak-diagnosis`; leak summaries. **Before pressure ↑:** menu mask type in `machine_settings` must match `registered_masks`. Pressure change only after leak controlled.
 
   {% elif workflow_mode == "longitudinal_30d" or workflow_mode == "longitudinal_90d" %}
   Span {% if workflow_mode == "longitudinal_90d" %}90{% else %}30{% endif %} days ending at session_date:
@@ -202,10 +205,13 @@ instructions: |
   ## Grounding protocol (1M context)
 
   At session start (especially **physician_technologist**, **physician_titration_review**, **clinical_deep_dive**):
-  1. Read static resources: `sleephq://patient/baseline`, `device/current`, `guidelines/resmed-titration`, `guidelines/resmed-therapy-handbook`, `reference/normal-ranges`, `playbook/workflows`, `playbook/data-sources`, `playbook/output-format`
-  2. Invoke the **default MCP prompt** for this workflow_mode (see above)
-  3. Call MCP **tools**; cite tool names in Evidence column
-  4. Optional: pin `sleephq://comparison/{from}/{to}` or `sleephq://machine_date/{id}` after discovery
+  1. **`get-device-context`** or `sleephq://device/context` — pressure, mode, EPR, ramp, mask type, machines, registered masks (no repo edits in production).
+  2. Read static resources: `sleephq://patient/baseline`, `guidelines/resmed-titration`, `guidelines/resmed-therapy-handbook`, `reference/normal-ranges`, `playbook/workflows`, `playbook/data-sources`, `playbook/output-format`
+  3. Invoke the **default MCP prompt** for this workflow_mode
+  4. Other MCP tools; cite tool names in Evidence
+  5. Optional: `sleephq://comparison/{from}/{to}` after date range known
+
+  Titration spans: epoch table from `get-comparison` → `machine_settings` per night. **Current menu** = newest night via `get-device-context` (magic uploader keeps SleepHQ current).
 
   Do not restate clinical thresholds from memory when a resource exists.
 
@@ -238,10 +244,10 @@ instructions: |
   Use numbered `####` headers. Each action:
 
   ```markdown
-  #### 1. **Re-enable EPR Level 2**
-  **Confidence: 90% (High)**
+  #### 1. **Set device mask type to Full Face (AirFit F40)**
+  **Confidence: 92% (High)**
 
-  Patient journal reports hard breathing with EPR off on 2026-05-17; device events included central apneas at ~11 cmH₂O. Re-enable per `sleephq://device/current` and recheck CA index in 7 nights.
+  `list-masks` shows F40 full face in use; `machine_settings` still report Pillows — leak and pressure algorithms mis-classify events. Fix menu before APAP retitration; recheck 95th leak and AHI over 7 nights.
   ```
 
   - **Bold** the action title inside `####`
@@ -283,9 +289,9 @@ instructions: |
 
   ## MCP index (sleephq)
 
-  **Tools (28)** — live `tools/list` is authoritative:
+  **Tools (29)** — live `tools/list` is authoritative:
     Auth: who-am-i, get-token-status, get-configured-defaults
-    Machines: list-teams, list-machines, get-machine-details, list-machine-dates, get-machine-date-by-date
+    Machines: get-device-context, list-teams, list-machines, get-machine-details, get-latest-device-settings (alias), list-machine-dates, get-machine-date-by-date
     Night: get-night-stats, get-combined-night-by-date
     Team: list-sleep-tests, list-journals, list-masks, list-devices, list-patients
     Imports/files: list-imports, get-import, list-import-files, get-import-file, list-files
@@ -295,7 +301,7 @@ instructions: |
 
   **Prompts (10):** morning-brief, nightly-review, weekly-trend, leak-diagnosis, titration-decision, o2-desat-review, central-apnea-investigation, clinical-deep-dive, physician-titration-review, event-reconciliation
 
-  **Resources:** static baseline, device/current, resmed-titration, resmed-therapy-handbook, normal-ranges, playbook/workflows, playbook/data-sources, playbook/output-format; dynamic team, machine, machine_date, comparison/{from}/{to}
+  **Resources:** static baseline, guidelines, normal-ranges, playbook/*; dynamic **device/context**, team, machine, machine_date, comparison/{from}/{to}
 
   Detail: `{{ recipe_dir }}/sleephq-mcp-capabilities.md`
 
@@ -308,14 +314,14 @@ instructions: |
 prompt: |
   Session: persona={{ persona }}, workflow={{ workflow_mode }}, review_span_days={{ review_span_days }}, session_date={{ session_date }}.
 
-  Start: read grounding resources → invoke workflow MCP prompt → discovery → analysis.
+  Start: get-device-context → grounding resources → workflow MCP prompt → analysis.
 
 activities:
   - |
     message: **SleepHQ MCP** — persona `{{ persona }}` · workflow `{{ workflow_mode }}` · span `{{ review_span_days }}`d · night `{{ session_date }}`
 
-    **Tools (28)** · **Prompts (10)** · **Resources (8 static + 4 dynamic)** — see `sleephq-mcp-capabilities.md`
-  - "Grounding pass: read all sleephq static resources, then run workflow for session_date={{ session_date }}."
+    **Tools (29)** · **Prompts (10)** · **Resources (7 static + 5 dynamic)** — see `sleephq-mcp-capabilities.md`
+  - "Grounding pass: get-device-context, then static resources, then workflow for session_date={{ session_date }}."
   - "Clinical deep dive: clinical-deep-dive prompt + tools for session_date={{ session_date }}."
   - "Physician titration review: {{ review_span_days }} days ending session_date={{ session_date }}."
   - "Morning brief: morning-brief → get-combined-night-by-date."
@@ -327,7 +333,7 @@ extensions:
   - type: streamable_http
     name: sleephq
     description: >
-      SleepHQ MCP: 28 tools, 10 prompts, clinical resources; EDF/EVE/BRP/O2 parsing; get-comparison up to 120d.
+      SleepHQ MCP: 29 tools, 10 prompts; live device/context from SleepHQ; get-comparison up to 120d.
     uri: http://localhost:8080/mcp
     timeout: 30
     headers:

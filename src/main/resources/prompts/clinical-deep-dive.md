@@ -1,6 +1,6 @@
 Full single-night clinical deep dive for **{{date}}** (RPSGT + physician).
 
-Resources (read first): `patient/baseline`, `device/current`, `guidelines/resmed-therapy-handbook`, `resmed-titration`, `normal-ranges`, `playbook/workflows`, `playbook/data-sources`, `output-format`
+Resources (read first): `get-device-context`, `patient/baseline`, guidelines, `normal-ranges`, playbook resources
 
 Workflow:
 1. `get-combined-night-by-date(date="{{date}}")` — anchor AHI, pressure, leak, usage, SpO₂, journal.

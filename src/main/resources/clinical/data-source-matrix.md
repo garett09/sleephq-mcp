@@ -2,14 +2,21 @@
 
 | Question | Authoritative tool | Confidence | Do not use alone |
 |----------|-------------------|------------|------------------|
+| Current pressure / mode / EPR / ramp / menu mask | `get-device-context` or `sleephq://device/context` (newest therapy night; magic uploader) | High | Static markdown or memory |
+| Registered masks vs menu | `get-device-context` (`registered_masks` + `machine_settings`) | High | Guessing mask type |
 | Nightly AHI / OA/CA/H index | `ahi_summary` on `get-combined-night-by-date` | High | `scan-apnea-events` count |
 | Device-flagged events | `get-device-events` (EVE.edf TAL) | High for labeled flags | May be sparse vs flow |
 | Flow-drop / hypopnea scan | `scan-apnea-events` (BRP, full-night server-side) | **High** when aligned with EVE + `ahi_summary` | As billing AHI alone |
 | Flow morphology (dispute only) | `get-waveform-by-date` (2–3 min, downsampled OK) | High in window; optional if EVE+scan agree | Full night without cap |
 | SpO₂ nightly min/avg | `spo2_summary` on combined night | High | — |
 | SpO₂ time series | `get-o2-oximetry` (O2Ring S 1 Hz, cap minutes) | Medium in aligned window | Uncapped full night in chat |
+| Wall-clock correlation (O2 / journal vs CPAP EDF) | `sleephq://playbook/clock-alignment`; CPAP tools apply `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS` | High when drift env set | Matching O2 session start to CPAP t=0 |
 | 7–120 day trends | `get-comparison` | High for per-night summaries | Guessing from one night |
 | Steps / sleep stages | `journal` on night tools | High when present | `movement_summary` as steps |
+
+## Clock drift (CPAP only)
+
+O2 ring and Apple Health sleep stages use **correct** wall time. ResMed EDF may be slow; set `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS` (e.g. 1428 = 23m48s). MCP adds that offset to CPAP `start_datetime` / `timestamp` only — **not** session-start alignment. See `sleephq://playbook/clock-alignment`.
 
 ## Reconciliation rule
 

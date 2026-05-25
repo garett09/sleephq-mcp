@@ -1,6 +1,6 @@
 Produce a morning brief for the most recent completed night.
 
-Resources: `sleephq://device/current`, `sleephq://reference/normal-ranges`
+Resources: `get-device-context`, `sleephq://reference/normal-ranges`
 
 Workflow:
 1. Discovery → resolve latest night date (or use user-provided date).

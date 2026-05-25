@@ -1,6 +1,6 @@
 Diagnose mask leak for **{{date}}**.
 
-Resources: `sleephq://device/current`, `sleephq://reference/normal-ranges`
+Resources: `get-device-context`, `sleephq://reference/normal-ranges`
 
 Workflow:
 1. `get-combined-night-by-date(date="{{date}}")` — `leak_rate_summary`, `large_leak`, usage, pressure.

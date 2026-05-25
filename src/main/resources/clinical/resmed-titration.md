@@ -3,7 +3,7 @@
 **Full handbook:** `sleephq://guidelines/resmed-therapy-handbook`  
 **PDF:** [10114280r1 ResMed Therapy Handbook v07](https://document.resmed.com/documents/us/10114280r1_ResMed_Therapy_Handbook_AMER_Eng_v07_cw_Interactive.pdf)
 
-**Patient device:** always read `sleephq://device/current` before pressure/EPR advice.
+**Patient device:** **`get-device-context`** (SleepHQ only — pressure, EPR, ramp, masks).
 
 ---
 
@@ -21,7 +21,7 @@
 - **−1 cmH₂O**, wait **20 min**, reassess.
 - Persistent TECSA after reduction → ASV evaluation (screen CHF LVEF ≤45% contraindication).
 - **Do not** increase pressure for central events.
-- **EPR:** handbook — comfort if difficulty exhaling; **this patient:** EPR Off in `device/current` (patient-specific; not a verbatim PDF line).
+- **EPR:** handbook — comfort if difficulty exhaling; **this patient:** read live EPR from `get-device-context` → `machine_settings`; TECSA watch in `patient/baseline`.
 
 ## Leak
 

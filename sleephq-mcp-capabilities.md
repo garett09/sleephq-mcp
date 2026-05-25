@@ -11,10 +11,12 @@ Update this file when you add or rename `@McpTool` in Java.
 |------|------|
 | `who-am-i` | `GET /api/v1/me` |
 | `get-token-status` | Cached OAuth token metadata (no extra SleepHQ GET) |
-| `get-configured-defaults` | Non-secret env defaults (`SLEEPHQ_TEAM_ID`, CPAP/O2 machine ids) |
+| `get-configured-defaults` | Non-secret env defaults (`SLEEPHQ_TEAM_ID`, CPAP/O2 machine ids, `cpap_clock_adjust_seconds` when set) |
 | `list-teams` | `GET /api/v1/teams` |
 | `list-machines` | `GET /api/v1/teams/{team_id}/machines` |
 | `get-machine-details` | `GET /api/v1/machines/{id}` |
+| `get-device-context` | Live context: `machine_settings`, CPAP/O2 machines, `registered_masks`, env ids |
+| `get-latest-device-settings` | Alias for `get-device-context` |
 | `list-machine-dates` | `GET /api/v1/machines/{machine_id}/machine_dates` |
 | `get-machine-date-by-date` | `GET /api/v1/machines/{machine_id}/machine_dates/{date}` |
 | `get-night-stats` | `GET /api/v1/machine_dates/{id}` — `{ data: machine_date, journal?: wellness }` with `sleep_stages_summary` (minutes_by_stage, Apple Health stage_type legend) |
@@ -31,10 +33,10 @@ Update this file when you add or rename `@McpTool` in Java.
 | `list-import-files` | `GET /api/v1/imports/{import_id}/files` — files attached to a specific import |
 | `list-files` | `GET /api/v1/teams/{team_id}/files` — all uploaded raw files for a team |
 | `get-import-file` | `GET /api/v1/imports/files/{id}` — single file metadata + signed `download_url` (expires 5 min) |
-| `get-waveform` | Downloads and parses an EDF device file by `fileId`. Returns `filename`, `start_datetime`, `duration_seconds`, and `channels[]` with `label`, `sample_rate`, `unit`, `samples`. Capped at `maxMinutes` (default 10, max 30). Supports `startMinute` offset to chunk full recordings. |
-| `get-waveform-by-date` | Date-based auto-correlation wrapper. Resolves the correct BRP.edf file ID for a YYYY-MM-DD date and retrieves the specified waveform segment. |
-| `scan-apnea-events` | Downloads the BRP.edf file for a file ID or date and runs an in-process sliding-window envelope apnea detector on the full respiration flow channel. Returns a structured JSON list of detected apnea event offsets, timestamps, and durations. |
-| `get-device-events` | Downloads ResMed `EVE.edf` (by `fileId` or calendar `date`) and parses **device-reported** respiratory events from EDF+ annotations (OA, CA, H, A, FL, etc.). Not the same as `scan-apnea-events`. |
+| `get-waveform` | Downloads and parses an EDF device file by `fileId`. Returns `filename`, `start_datetime` (CPAP drift-adjusted when `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS` set), `duration_seconds`, and `channels[]`. Optional `cpapClockAdjustSeconds` override. |
+| `get-waveform-by-date` | Resolves BRP.edf for `YYYY-MM-DD`; same as `get-waveform` including optional CPAP clock drift on wall times. |
+| `scan-apnea-events` | Full-night flow apnea scan; `timestamp` drift-adjusted on CPAP clock. Optional `cpapClockAdjustSeconds`. |
+| `get-device-events` | ResMed `EVE.edf` device events; `timestamp` drift-adjusted on CPAP clock. Optional `cpapClockAdjustSeconds`. Not `scan-apnea-events`. |
 | `get-o2-oximetry` | Downloads a **Viatom O2 Ring** binary session via `list-imports` (by `fileId` or `date` + `SLEEPHQ_O2_MACHINE_ID`). Supports **O2Ring S** (`0x0301`, 1 s samples) and classic **VLD3** (~4 s). Not EDF. Nightly averages: `get-combined-night-by-date`. |
 | `get-comparison` | **Local range aggregate:** `fromDate`, `toDate` (YYYY-MM-DD), optional `machineId` (CPAP). `nights[]` rows include `data`, optional `journal`, or `skipped` + `reason` |
 
@@ -57,13 +59,13 @@ Templates: `src/main/resources/prompts/*.md`
 
 ## MCP resources
 
-**Static (Markdown):** `sleephq://patient/baseline`, `device/current`, `guidelines/resmed-titration`, `guidelines/resmed-therapy-handbook`, `reference/normal-ranges`, `playbook/workflows`, `playbook/data-sources`, `playbook/output-format`
+**Static (Markdown):** `sleephq://patient/baseline`, `guidelines/*`, `reference/normal-ranges`, `playbook/*` (no static device file — use live context)
 
-**Dynamic (JSON):** `sleephq://team/{teamId}`, `machine/{machineId}`, `machine_date/{machineDateId}`, `comparison/{fromDate}/{toDate}`
+**Dynamic (JSON):** `device/context`, `team/{teamId}`, `machine/{machineId}`, `machine_date/{machineDateId}`, `comparison/{fromDate}/{toDate}`
 
 ## Goose workflow
 
-See [goose-recipe.yaml](goose-recipe.yaml). Grounding: read static resources → invoke workflow prompt → tools.
+See [goose-recipe.yaml](goose-recipe.yaml). Grounding: `get-device-context` → static resources → workflow prompt → tools.
 
 | Workflow | Default prompt |
 |----------|----------------|

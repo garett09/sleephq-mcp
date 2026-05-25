@@ -32,11 +32,23 @@ Outbound URLs are composed only from paths in [https://sleephq.com/api/swagger.j
 ```bash
 cp .env.example .env
 # edit .env: SleepHQ OAuth credentials, SLEEPHQ_MCP_API_KEY (or SLEEPHQ_MCP_ALLOW_ANONYMOUS=true for local-only)
-./mvnw package
 ./run.sh
 ```
 
+`./run.sh` stops any old JVM on port 8080, rebuilds, copies the jar to `dist/`, and starts a single fresh process (avoids `NoClassDefFoundError` from stale servers). Wait for log line `Classpath sanity OK` before connecting Goose.
+
+**CPAP clock drift:** Date-based EDF tools (`get-device-events`, `get-waveform-by-date`, `scan-apnea-events` with `date`) read `time_offset` from the CPAP `machine_date` API. Optional env fallback: `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS`. O2 and journal are never shifted. See `sleephq://playbook/clock-alignment`.
+
 Server listens on `http://localhost:8080/mcp` (Streamable HTTP). Health at `/actuator/health`.
+
+### Performance tuning
+
+| Property | Default | Purpose |
+|----------|---------|---------|
+| `sleephq.fetch.parallelism` | `8` | Parallel per-day fetches in `get-comparison`; parallel CPAP+O2 per night |
+| `sleephq.cache.enabled` | `true` | Set `false` to force live SleepHQ on every call |
+| `sleephq.cache.historical-ttl` | `6h` | Cache past calendar dates (today is never cached) |
+| `sleephq.observability.phase-timing` | `false` | Debug logs: `journal_ms`, `fetch_ms`, `download_ms`, `parse_ms` |
 
 ## Hook up Goose
 

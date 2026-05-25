@@ -1,6 +1,6 @@
 Physician titration review for **{{reviewSpanDays}}** days ending **{{toDate}}**.
 
-Resources: baseline, device/current, resmed-titration, resmed-therapy-handbook, normal-ranges, playbook/workflows, playbook/data-sources, playbook/output-format
+Resources: get-device-context, patient/baseline, resmed-titration, resmed-therapy-handbook, normal-ranges, playbook/workflows, playbook/data-sources, playbook/output-format
 
 Apply pressure/central/leak rules from `sleephq://guidelines/resmed-therapy-handbook` §5 (home adaptation) — not single-night lab cookbook.
 
@@ -8,7 +8,8 @@ Phase 1 — All nights (one call):
 1. `fromDate` = {{toDate}} minus ({{reviewSpanDays}} − 1) calendar days.
 2. `get-comparison(fromDate, toDate={{toDate}})` — build **Titration period table** for every night in `nights[]`.
 3. Detect **pressure epochs** when `machine_settings` change across nights.
-4. Trend narrative per epoch (AHI, leak, usage, SpO₂).
+4. Reconcile epochs with `get-device-context` (`machine_settings` vs `registered_masks`).
+5. Trend narrative per epoch (AHI, leak, usage, SpO₂).
 
 Phase 2 — Deep dives (max 5–6 nights total, not every night):
 - First 3 nights after each pressure change
