@@ -45,6 +45,10 @@ public final class JournalOverlaySupport {
                 out.set(key, v.deepCopy());
             }
         }
+        if (out.path("feeling_score").isNumber()) {
+            int score = out.path("feeling_score").asInt();
+            JournalFeelingScore.labelFor(score).ifPresent(label -> out.put("feeling_label", label));
+        }
         JsonNode stages = journalAttributes.path("sleep_stages");
         if (stages.isTextual()) {
             JsonNode parsed = JournalSleepStagesParser.tryParse(stages.asText());

@@ -170,7 +170,7 @@ public class TeamDataTools {
     }
 
     @McpTool(name = "get-journal-by-date",
-            description = "Find the team journal row for a calendar date (YYYY-MM-DD). Returns { journal: { step_count, sleep_stages_summary?, sleep_stages_parsed?, active_energy_joules?, feeling_score, weight_grams, notes } } or { journal: null }. sleep_stages_summary includes stage_type_legend (Apple Health: 2=awake, 3=core, 4=deep, 5=rem) and minutes_by_stage. teamId defaults to SLEEPHQ_TEAM_ID.")
+            description = "Find the team journal row for a calendar date (YYYY-MM-DD). Returns { journal: { step_count, sleep_stages_summary?, sleep_stages_parsed?, active_energy_joules?, feeling_score, feeling_label (Awful..Great), weight_grams, notes } } or { journal: null }. sleep_stages_summary includes stage_type_legend (Apple Health: 2=awake, 3=core, 4=deep, 5=rem) and minutes_by_stage. teamId defaults to SLEEPHQ_TEAM_ID.")
     public String getJournalByDate(
             @McpToolParam(description = "Calendar date YYYY-MM-DD", required = true) String date,
             @McpToolParam(description = "Team ID from list-teams. Defaults to SLEEPHQ_TEAM_ID.", required = false) String teamId) {

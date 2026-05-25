@@ -25,6 +25,19 @@ public final class JournalSleepStageType {
         return LEGEND.getOrDefault(stageType, "unknown_" + stageType);
     }
 
+    /** User-facing label for reports (`core` = Apple Health light sleep). */
+    public static String displayLabelFor(String internalLabel) {
+        if (internalLabel == null) {
+            return "";
+        }
+        return switch (internalLabel) {
+            case "core" -> "light";
+            case "asleep_unspecified" -> "asleep";
+            case "in_bed" -> "in bed";
+            default -> internalLabel;
+        };
+    }
+
     /**
      * When segments overlap in time, the higher priority label wins for that interval (awake > deep > rem > core).
      */

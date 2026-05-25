@@ -18,6 +18,8 @@ class JournalOverlaySupportTest {
         ObjectNode wellness = JournalOverlaySupport.buildWellnessObject(attrs);
 
         assertThat(wellness.path("step_count").asInt()).isEqualTo(8421);
+        assertThat(wellness.path("feeling_score").asInt()).isEqualTo(4);
+        assertThat(wellness.path("feeling_label").asText()).isEqualTo("Good");
         assertThat(wellness.path("active_energy_joules").asLong()).isEqualTo(1234000L);
         assertThat(wellness.path("sleep_stages_parsed").path("stages").isArray()).isTrue();
     }
