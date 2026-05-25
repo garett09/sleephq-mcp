@@ -38,9 +38,9 @@ Update this file when you add or rename `@McpTool` in Java.
 | `scan-apnea-events` | Full-night flow apnea scan; `timestamp` drift-adjusted on CPAP clock. Optional `cpapClockAdjustSeconds`. |
 | `get-device-events` | ResMed `EVE.edf` device events; `timestamp` drift-adjusted on CPAP clock. Optional `cpapClockAdjustSeconds`. Not `scan-apnea-events`. |
 | `get-o2-oximetry` | Downloads a **Viatom O2 Ring** binary session via `list-imports` (by `fileId` or `date` + `SLEEPHQ_O2_MACHINE_ID`). Supports **O2Ring S** (`0x0301`, 1 s samples) and classic **VLD3** (~4 s). Not EDF. Nightly averages: `get-combined-night-by-date`. |
-| `get-comparison` | **Local range aggregate:** `fromDate`, `toDate` (YYYY-MM-DD), optional `machineId` (CPAP). `nights[]` rows include `data`, optional `journal`, or `skipped` + `reason` |
+| `get-comparison` | **Local range aggregate:** `fromDate`, `toDate` (YYYY-MM-DD), optional `machineId` (CPAP). `nights[]` with `table_display` (`osa_cell`, `csa_cell`, `ahi_cell`, …), root **`apnea_trends`** (OA/CA means, rising, `pressure_signals`), or `skipped` + `reason` |
 
-## MCP prompts (10)
+## MCP prompts (11)
 
 | Name | Use |
 |------|-----|
@@ -51,6 +51,7 @@ Update this file when you add or rename `@McpTool` in Java.
 | `titration-decision` | Single-night ResMed ±1 cmH₂O rules |
 | `o2-desat-review` | SpO₂ summary + capped oximetry series |
 | `central-apnea-investigation` | 14d CA trend + focal night waveform |
+| `obstructive-residual-investigation` | 14d OA trend + EVE/scan on focal night |
 | `clinical-deep-dive` | EVE + scan + waveform + O2 one night |
 | `physician-titration-review` | 15/30/60/90d comparison + selective deep nights |
 | `event-reconciliation` | Device vs flow vs `ahi_summary` |

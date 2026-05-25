@@ -37,6 +37,14 @@ public class AnalysisPrompts {
         return factory.build("central-apnea-investigation", "Central apnea investigation", Map.of("date", d));
     }
 
+    @McpPrompt(name = "obstructive-residual-investigation",
+            description = "14-night OA trend via get-comparison apnea_trends; EVE + scan on focal date.")
+    public McpSchema.GetPromptResult obstructiveResidualInvestigation(
+            @McpArg(name = "date", description = "Night date YYYY-MM-DD", required = true) String date) {
+        String d = SleepHqPathParams.requireCalendarDate(date, "date");
+        return factory.build("obstructive-residual-investigation", "Obstructive residual investigation", Map.of("date", d));
+    }
+
     @McpPrompt(name = "weekly-trend",
             description = "7-day get-comparison vs prior week; rolling table and regressions.")
     public McpSchema.GetPromptResult weeklyTrend(
@@ -84,7 +92,7 @@ public class AnalysisPrompts {
     }
 
     @McpPrompt(name = "physician-titration-review",
-            description = "15–90d get-comparison epoch review + selective deep nights (max 6).")
+            description = "15–90d titration visit: device context, apnea_trends decision support, full per-night table, explicit HOLD/+1/−1/mask recommendation (max 6 deep nights).")
     public McpSchema.GetPromptResult physicianTitrationReview(
             @McpArg(name = "toDate", description = "Window end date YYYY-MM-DD", required = true) String toDate,
             @McpArg(name = "reviewSpanDays", description = "Span length 15, 30, 60, or 90", required = true) int reviewSpanDays) {
