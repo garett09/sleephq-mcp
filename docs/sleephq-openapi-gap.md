@@ -15,6 +15,8 @@ This MCP server issues HTTP requests only to paths that appear in the published 
 - **`get-waveform`**, **`get-waveform-by-date`**, **`scan-apnea-events`** — EDF parse/detect on `BRP.edf` (and other EDF uploads) via `get-import-file` + S3.
 - **`get-journal-by-date`** — Paged `list-journals` + local date index (no upstream find-by-date route).
 - **Journal overlay on night tools** — `get-night-stats`, `get-combined-night-by-date`, and `get-comparison` attach top-level `journal` from team journals (not from `machine_date`).
+- **MCP prompts (10)** — Markdown playbooks under `src/main/resources/prompts/`; reduce hallucinated tool names and workflows.
+- **MCP resources** — Static clinical context (`clinical/*.md`) + dynamic `sleephq://comparison/{from}/{to}` for multi-night JSON in context.
 
 ## Journal vs machine_date vs O2 tools
 

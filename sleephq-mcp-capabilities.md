@@ -38,6 +38,41 @@ Update this file when you add or rename `@McpTool` in Java.
 | `get-o2-oximetry` | Downloads a **Viatom O2 Ring** binary session via `list-imports` (by `fileId` or `date` + `SLEEPHQ_O2_MACHINE_ID`). Supports **O2Ring S** (`0x0301`, 1 s samples) and classic **VLD3** (~4 s). Not EDF. Nightly averages: `get-combined-night-by-date`. |
 | `get-comparison` | **Local range aggregate:** `fromDate`, `toDate` (YYYY-MM-DD), optional `machineId` (CPAP). `nights[]` rows include `data`, optional `journal`, or `skipped` + `reason` |
 
+## MCP prompts (10)
+
+| Name | Use |
+|------|-----|
+| `morning-brief` | Last night 3–4 line brief |
+| `nightly-review` | Single night + 7d comparison |
+| `weekly-trend` | 7d vs prior week (`balanced`) |
+| `leak-diagnosis` | Mask/leak troubleshooting |
+| `titration-decision` | Single-night ResMed ±1 cmH₂O rules |
+| `o2-desat-review` | SpO₂ summary + capped oximetry series |
+| `central-apnea-investigation` | 14d CA trend + focal night waveform |
+| `clinical-deep-dive` | EVE + scan + waveform + O2 one night |
+| `physician-titration-review` | 15/30/60/90d comparison + selective deep nights |
+| `event-reconciliation` | Device vs flow vs `ahi_summary` |
+
+Templates: `src/main/resources/prompts/*.md`
+
+## MCP resources
+
+**Static (Markdown):** `sleephq://patient/baseline`, `device/current`, `guidelines/resmed-titration`, `guidelines/resmed-therapy-handbook`, `reference/normal-ranges`, `playbook/workflows`, `playbook/data-sources`, `playbook/output-format`
+
+**Dynamic (JSON):** `sleephq://team/{teamId}`, `machine/{machineId}`, `machine_date/{machineDateId}`, `comparison/{fromDate}/{toDate}`
+
+## Goose workflow
+
+See [goose-recipe.yaml](goose-recipe.yaml). Grounding: read static resources → invoke workflow prompt → tools.
+
+| Workflow | Default prompt |
+|----------|----------------|
+| `balanced` | `weekly-trend` |
+| `clinical_deep_dive` | `clinical-deep-dive` |
+| `physician_titration_review` | `physician-titration-review` |
+
+**O2:** always `get-o2-oximetry(maxMinutes=10–15)` in chat unless exporting full night.
+
 ## Goose note
 
-Goose loads tools from the live MCP session. This file and the recipe opening **message** activity duplicate the tool list so you can scan without hunting panels.
+Goose loads tools, prompts, and resources from the live MCP session. This file and the recipe opening banner duplicate the index.
