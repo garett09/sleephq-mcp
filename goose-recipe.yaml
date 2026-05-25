@@ -287,9 +287,11 @@ instructions: |
 
   **CPAP + O2:** prefer `get-combined-night-by-date` when both machines configured.
 
+  **CPAP EDF clock:** date-based EDF tools use `machine_date.time_offset` when present; optional env `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS` fallback. See `sleephq://playbook/clock-alignment`. O2 and journal timestamps are never shifted.
+
   ## MCP index (sleephq)
 
-  **Tools (29)** — live `tools/list` is authoritative:
+  **Tools (30)** — live `tools/list` is authoritative:
     Auth: who-am-i, get-token-status, get-configured-defaults
     Machines: get-device-context, list-teams, list-machines, get-machine-details, get-latest-device-settings (alias), list-machine-dates, get-machine-date-by-date
     Night: get-night-stats, get-combined-night-by-date
@@ -320,7 +322,7 @@ activities:
   - |
     message: **SleepHQ MCP** — persona `{{ persona }}` · workflow `{{ workflow_mode }}` · span `{{ review_span_days }}`d · night `{{ session_date }}`
 
-    **Tools (29)** · **Prompts (10)** · **Resources (7 static + 5 dynamic)** — see `sleephq-mcp-capabilities.md`
+    **Tools (30)** · **Prompts (10)** · **Resources (7 static + 5 dynamic)** — see `sleephq-mcp-capabilities.md`
   - "Grounding pass: get-device-context, then static resources, then workflow for session_date={{ session_date }}."
   - "Clinical deep dive: clinical-deep-dive prompt + tools for session_date={{ session_date }}."
   - "Physician titration review: {{ review_span_days }} days ending session_date={{ session_date }}."
@@ -333,7 +335,7 @@ extensions:
   - type: streamable_http
     name: sleephq
     description: >
-      SleepHQ MCP: 29 tools, 10 prompts; live device/context from SleepHQ; get-comparison up to 120d.
+      SleepHQ MCP: 30 tools, 10 prompts; live device/context from SleepHQ; get-comparison up to 120d (sequential per-day fetches).
     uri: http://localhost:8080/mcp
     timeout: 30
     headers:

@@ -5,7 +5,7 @@ Update this file when you add or rename `@McpTool` in Java.
 
 **Official OpenAPI:** [sleephq.com/api/swagger.json](https://sleephq.com/api/swagger.json). All outbound HTTP paths match that spec. A **404** on `get-machine-date-by-date` / `get-combined-night-by-date` usually means no `machine_date` row for that machine and calendar date (not a missing MCP route).
 
-## Tools (27)
+## Tools (30)
 
 | Name | Role |
 |------|------|
@@ -77,4 +77,6 @@ See [goose-recipe.yaml](goose-recipe.yaml). Grounding: `get-device-context` → 
 
 ## Goose note
 
-Goose loads tools, prompts, and resources from the live MCP session. This file and the recipe opening banner duplicate the index.
+Goose loads tools, prompts, and resources from the live MCP session. This file and [goose-recipe.yaml](goose-recipe.yaml) are the workflow “skill” for this repo (there is no separate `SKILL.md`).
+
+**Runtime:** services call `SleepHqClient` + `BinaryDownloadSupport` directly; `get-comparison` walks dates sequentially. Only `get-night-stats` uses Spring `@Cacheable("nightStats")` (6h Caffeine). No `sleephq.cache.*` / parallel fetch executor properties.

@@ -24,7 +24,7 @@ Outbound URLs are composed only from paths in [https://sleephq.com/api/swagger.j
 
 ## MCP surface
 
-- **27 tools** — Auth, machines, night (`get-night-stats`, `get-combined-night-by-date` with journal wellness overlay), team data, imports/files, journals (`get-journal`, `get-journal-by-date`), waveform, O2, `get-comparison`. See [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md).
+- **30 tools** — Auth, machines, night (`get-night-stats`, `get-combined-night-by-date` with journal wellness overlay), team data, imports/files, journals (`get-journal`, `get-journal-by-date`), waveform, O2, `get-comparison`. See [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md).
 - **OpenAPI contract** — [docs/sleephq-openapi-gap.md](docs/sleephq-openapi-gap.md) (how `get-comparison` / `get-combined-night-by-date` relate to documented routes).
 
 ## Setup
@@ -40,15 +40,6 @@ cp .env.example .env
 **CPAP clock drift:** Date-based EDF tools (`get-device-events`, `get-waveform-by-date`, `scan-apnea-events` with `date`) read `time_offset` from the CPAP `machine_date` API. Optional env fallback: `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS`. O2 and journal are never shifted. See `sleephq://playbook/clock-alignment`.
 
 Server listens on `http://localhost:8080/mcp` (Streamable HTTP). Health at `/actuator/health`.
-
-### Performance tuning
-
-| Property | Default | Purpose |
-|----------|---------|---------|
-| `sleephq.fetch.parallelism` | `8` | Parallel per-day fetches in `get-comparison`; parallel CPAP+O2 per night |
-| `sleephq.cache.enabled` | `true` | Set `false` to force live SleepHQ on every call |
-| `sleephq.cache.historical-ttl` | `6h` | Cache past calendar dates (today is never cached) |
-| `sleephq.observability.phase-timing` | `false` | Debug logs: `journal_ms`, `fetch_ms`, `download_ms`, `parse_ms` |
 
 ## Hook up Goose
 
