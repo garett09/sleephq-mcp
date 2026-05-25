@@ -164,8 +164,8 @@ instructions: |
     2. `get-device-events(date)` — EVE flags; ignore "Recording starts".
     3. `scan-apnea-events(date)` — flow events; compare to EVE + `ahi_summary`.
     4. Pick 1–2 windows (overlap ±2 min or worst leak/AHI).
-    5. `get-waveform-by-date(date, startMinute=<event-2>, maxMinutes=10)` — Flow + Pressure + Leak when leak/desat mechanism matters.
-    6. `get-o2-oximetry(date, maxMinutes=15)` — SpO₂ + **pulse_bpm**; correlate to CPAP via drift-adjusted `timestamp` (see `sleephq://playbook/clock-alignment`), not equal session starts.
+    5. `get-waveform-by-date(date, startMinute=<event-5>, maxMinutes=15)` — Flow + Pressure + Leak when leak/desat mechanism matters.
+    6. `get-o2-oximetry(date, maxMinutes=45)` — SpO₂ + **pulse_bpm**; correlate to CPAP via drift-adjusted `timestamp` (see `sleephq://playbook/clock-alignment`), not equal session starts.
     7. Report: Headline, **Findings table**, Event reconciliation, Mechanism, O2 impact, **Recommendations table**, Limits.
 
   {% elif workflow_mode == "physician_titration_review" %}
@@ -174,7 +174,7 @@ instructions: |
     - **Phase 1:** `get-comparison(fromDate=toDate−({{ review_span_days }}−1)d, toDate)` — mandatory. Publish **`### Apnea trends (span)`** from `apnea_trends.titration_decision_support.span_summary_bullets` + `suggested_pressure_action` + `pressure_signals`.
     - **Phase 1 table:** every night, all cells: `usage_cell`, `settings_cell`, `pressure_cell`, `epap_cell`, **`apnea_indices_cell`** (`!` = elevated OSA/CSA), `leak_cell`, `resp_rate_cell`, `flow_limit_cell`, `spo2_cell`, `pulse_cell`, `sleep_cell`, `journal_cell`. **`### Data completeness`** required.
     - **Phase 1b:** Masks vs menu — F40 + Pillows can be valid; mask change only with leak/fit evidence.
-    - **Phase 2:** ≤6 deep nights: post-change (3), worst AHI, worst OSA!/CSA! night, worst leak (waveform **required**), worst SpO₂ — EVE + scan each deep night.
+    - **Phase 2:** ≤**8** deep nights: post-change (3), worst AHI, worst OSA!/CSA! night, worst leak (waveform **required** `maxMinutes=15–30`), worst SpO₂ (`get-o2-oximetry` **`maxMinutes=45`**) — **EVE + scan event lists** each deep night (see `mcp_payload_hints`).
     - **Phase 3:** **FINAL RECOMMENDATIONS** must state **HOLD | +1 | −1 | mask-first | EPR | refer** with confidence; OSA vs CSA rationale explicit. EPR from live settings + CA trend.
     - MCP prompt: `physician-titration-review(toDate, reviewSpanDays={{ review_span_days }})`.
 
@@ -211,7 +211,7 @@ instructions: |
   **waveform_dive** (segment focus):
     - `get-combined-night-by-date` or journal for context.
     - `get-device-events(date)` then `scan-apnea-events(date)`.
-    - `get-waveform-by-date` on 1–2 event windows (maxMinutes=10).
+    - `get-waveform-by-date` on 1–2 event windows (`maxMinutes=15–30` per `mcp_payload_hints`).
     - For full O2 + summary + confidence tables → use **clinical_deep_dive** instead.
 
   {% else %}
@@ -240,7 +240,7 @@ instructions: |
 
   At session start (especially **physician_technologist**, **physician_titration_review**, **clinical_deep_dive**):
   1. **`get-device-context`** or `sleephq://device/context` — pressure, mode, EPR, ramp, mask type, machines, registered masks (no repo edits in production).
-  2. Read static resources: `sleephq://patient/baseline`, `guidelines/resmed-titration`, `guidelines/resmed-therapy-handbook`, `reference/normal-ranges`, `playbook/workflows`, `playbook/data-sources`, `playbook/output-format`
+  2. Read static resources: `sleephq://patient/baseline`, `guidelines/resmed-titration`, `guidelines/resmed-therapy-handbook`, `reference/normal-ranges`, `playbook/workflows`, `playbook/payload-budget`, `playbook/data-sources`, `playbook/output-format`
   3. Invoke the **default MCP prompt** for this workflow_mode
   4. Other MCP tools; cite tool names in Evidence
   5. Optional: `sleephq://comparison/{from}/{to}` after date range known
@@ -304,16 +304,21 @@ instructions: |
   - Skipping waveform or using downsampled `get-waveform-by-date` does **not** lower confidence by itself.
   - **High (85–95%)** for mechanism/reconciliation when `ahi_summary` + `get-device-events` + `scan-apnea-events` agree on a focal night (titration: deep nights only).
   - **High** for span decisions from `get-comparison` + resources — waveform optional.
-  - Call waveform only for **disputed** EVE↔scan mechanism (2–3 min, event `startMinute`); downsampling is transport-only, not weaker physiology.
+  - Waveform/O2 windows: follow **`mcp_payload_hints`** on `get-comparison` (or `sleephq://playbook/payload-budget`). Downsampling is transport-only, not weaker physiology.
   - **Downgrade % only when:** no tool cited for claim, usage &lt;4h on usage narrative, **unexplained** EVE↔scan conflict, or pure inference.
 
-  ## Payload budget
+  ## Payload budget (large context — you have ~1M tokens)
 
-  | Tool | Default |
-  |------|---------|
-  | `get-o2-oximetry` | `maxMinutes=10–15` (full night ≈ 2M chars) |
-  | `get-waveform-by-date` | `maxMinutes=2–3`, `startMinute` at event; prefer `scan-apnea-events` (no raw arrays) |
-  | `get-device-events` / `scan-apnea-events` | full night OK |
+  After **`get-comparison`**, read root **`mcp_payload_hints`** and use these targets while context stays **&lt;~800k** used:
+
+  | Tool | Target |
+  |------|--------|
+  | `get-o2-oximetry` | `maxMinutes=45` on deep/desat nights (not 10–15) |
+  | `get-waveform-by-date` | Deep nights: **`maxMinutes=15–30`**, `startMinute` at event/leak − 5 min; up to **2 windows** per night if disputed |
+  | `get-device-events` / `scan-apnea-events` | Full night — **paste event tables/lists** in Deep-night appendix, not summary counts only |
+  | `get-comparison` | Full span table every night (already compact) |
+
+  **physician_titration_review:** Phase 2 up to **8** deep nights; every deep night **EVE + scan lists**; worst leak waveform **15–30 min**; worst SpO₂ **45 min** O2.
 
   ## Data and tools
 
