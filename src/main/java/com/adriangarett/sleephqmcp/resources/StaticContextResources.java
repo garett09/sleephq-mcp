@@ -57,6 +57,14 @@ public class StaticContextResources {
         return content.load("workflow-playbook.md", "sleephq://playbook/workflows");
     }
 
+    @McpResource(uri = "sleephq://playbook/payload-budget",
+            name = "Payload budget (large context)",
+            description = "Waveform/O2 window defaults and Goose guidance when session context is large (e.g. 1M).",
+            mimeType = "text/markdown")
+    public McpSchema.ReadResourceResult payloadBudget() {
+        return content.load("payload-budget.md", "sleephq://playbook/payload-budget");
+    }
+
     @McpResource(uri = "sleephq://playbook/data-sources",
             name = "Data source matrix",
             description = "Which MCP tool to trust for AHI, events, O2, trends; reconciliation rules.",
