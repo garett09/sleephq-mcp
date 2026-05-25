@@ -33,10 +33,14 @@ public final class McpResponses {
                         "Could not assemble JSON response",
                         Map.of("kind", "json")));
             }
-            log.warn("MCP call failed: {}", Encode.forJava(String.valueOf(e.getMessage())), e);
             String message = e.getMessage() != null && !e.getMessage().isBlank()
                     ? e.getMessage()
                     : "Upstream request failed";
+            if (isExpectedMissingNight(message)) {
+                log.warn("MCP call failed: {}", Encode.forJava(message));
+            } else {
+                log.warn("MCP call failed: {}", Encode.forJava(message), e);
+            }
             return errorJson(McpError.fatal(message,
                     Map.of("kind", "remote", "exception", e.getClass().getSimpleName())));
         } catch (Exception e) {
@@ -45,6 +49,11 @@ public final class McpResponses {
                     "Upstream request failed",
                     Map.of("kind", "remote", "exception", e.getClass().getSimpleName())));
         }
+    }
+
+    private static boolean isExpectedMissingNight(String message) {
+        return message.startsWith("No CPAP machine_date for date=")
+                || message.startsWith("No O2 machine_date for date=");
     }
 
     public static String errorJson(McpError error) {
