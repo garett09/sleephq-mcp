@@ -4,13 +4,12 @@ import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
 /**
- * Per-night data. Machine_date JSON is cached; journal wellness is merged on each read by calendar date.
+ * Per-night data. Journal wellness is merged on each read by calendar date.
  */
 @Service
 public class NightService {
@@ -24,12 +23,7 @@ public class NightService {
     }
 
     public String getNightStats(String machineDateId) {
-        return enrichWithJournal(fetchMachineDateJson(machineDateId));
-    }
-
-    @Cacheable(value = "nightStats", key = "#machineDateId")
-    String fetchMachineDateJson(String machineDateId) {
-        return client.getMachineDate(machineDateId);
+        return enrichWithJournal(client.getMachineDate(machineDateId));
     }
 
     private String enrichWithJournal(String envelopeJson) {
