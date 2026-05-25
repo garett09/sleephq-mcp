@@ -2,6 +2,8 @@ package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,6 +66,32 @@ class DeviceEventServiceTest {
         assertThat(json).contains("\"source\":\"device_eve\"");
         assertThat(json).contains("\"code\":\"H\"");
         assertThat(json).contains("Hypopnea");
+    }
+
+    @Test
+    void getDeviceEvents_withMachineDateTimeOffset_shiftsWallClockTimestamps() {
+        byte[] edf = buildMinimalEveEdf();
+        when(sleepHqClient.getImportFile("file-1")).thenReturn("""
+                {
+                  "data": {
+                    "attributes": {
+                      "name": "20260512_EVE.edf",
+                      "download_url": "https://s3.example.com/eve.edf?sig=1"
+                    }
+                  }
+                }
+                """);
+        when(s3RestClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(URI.class))).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(byte[].class)).thenReturn(edf);
+
+        JsonNode root = JsonApi.parse(deviceEventService.getDeviceEvents("file-1", null, java.util.OptionalInt.of(1428)));
+        assertThat(root.path("start_datetime").asText()).isEqualTo("2026-05-12T23:23:48");
+        assertThat(root.path("events").get(0).path("timestamp").asText()).isEqualTo("2026-05-12T23:23:58");
+        assertThat(root.path("events").get(0).path("offset").asText()).isEqualTo("00:00:10");
+        assertThat(root.path("clock_alignment").path("cpap_adjust_seconds").asInt()).isEqualTo(1428);
+        assertThat(root.path("clock_alignment").path("source").asText()).isEqualTo("sleephq_machine_date");
     }
 
     private static byte[] buildMinimalEveEdf() {
