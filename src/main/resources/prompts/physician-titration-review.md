@@ -1,6 +1,6 @@
 Physician titration review for **{{reviewSpanDays}}** days ending **{{toDate}}**.
 
-Resources: get-device-context, patient/baseline, resmed-titration, resmed-therapy-handbook, normal-ranges, playbook/workflows, playbook/data-sources, playbook/output-format
+Resources: get-device-context, patient/baseline, resmed-titration, resmed-therapy-handbook, normal-ranges, playbook/workflows, playbook/payload-budget, playbook/data-sources, playbook/output-format
 
 Apply pressure/central/leak rules from `sleephq://guidelines/resmed-therapy-handbook` §5 (home adaptation) — not single-night lab cookbook.
 
@@ -21,7 +21,7 @@ Publish **in this order** so titration decisions are scannable:
 ## Phase 1 — All nights (one call)
 
 1. `fromDate` = {{toDate}} minus ({{reviewSpanDays}} − 1) calendar days.
-2. `get-comparison(fromDate, toDate={{toDate}})` — **mandatory** before any table or pressure advice.
+2. `get-comparison(fromDate, toDate={{toDate}})` — **mandatory** before any table or pressure advice. Read root **`mcp_payload_hints`** for waveform/O2 window targets.
 3. Read **`apnea_trends`** + **`titration_decision_support`** — decide leak → usage → CSA → OSA → pressure **before** writing recommendations.
 4. Build **Titration Configuration** — one row per calendar night from `nights[]` **`table_display` only** (never invent). **Never merge** nights into date ranges.
 5. Reconcile menu vs masks (`get-device-context`) — separate bullet, not in table rows.
@@ -33,7 +33,7 @@ Publish **in this order** so titration decisions are scannable:
 
 ---
 
-## Phase 2 — Deep dives (max 5–6 nights)
+## Phase 2 — Deep dives (max 8 nights; large-context sessions)
 
 - First **3 nights** after each pressure/settings change
 - Worst **AHI** night (and worst **OSA!** or **CSA!** night if different)
@@ -43,9 +43,10 @@ Publish **in this order** so titration decisions are scannable:
 - Worst **SpO₂ min** night
 
 Per deep night (`nights[].date` only):
-- `get-device-events` + `scan-apnea-events` (**required**)
-- Worst leak: `get-waveform-by-date` (Flow + Press + Leak, `maxMinutes=5`)
-- Worst SpO₂: `get-o2-oximetry(maxMinutes=15)` with pulse summary
+- `get-device-events` + `scan-apnea-events` (**required**) — publish **event lists** (time, label, duration), not counts-only summaries
+- Worst leak: `get-waveform-by-date` (Flow + Press + Leak, `maxMinutes=15–30`, `startMinute` at cluster − 5)
+- Worst SpO₂: `get-o2-oximetry(maxMinutes=45)` with pulse summary (or `mcp_payload_hints.o2_recommended_max_minutes`)
+- Disputed EVE↔scan: second waveform window (`maxMinutes=10–15`) at event `startMinute − 2`
 
 ---
 

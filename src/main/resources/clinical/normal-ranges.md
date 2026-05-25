@@ -7,6 +7,7 @@
 | Mask leak (ResMed) | < 24 L/min | — | — | — |
 | SpO2 average | ≥ 95% | 92–94% | 88–91% | < 88% |
 | SpO2 nadir | ≥ 90% | 85–89% | 80–84% | < 80% |
+| Heart rate (sleep, O2 ring) | 50–90 bpm typical | — | sustained <45 or >100 | — |
 | Wake periods / night | ≤ 5 | 6–10 | 11–15 | > 15 |
 | Therapy usage | ≥ 7 h/night | 4–7 | 1–3 | < 1 |
 
