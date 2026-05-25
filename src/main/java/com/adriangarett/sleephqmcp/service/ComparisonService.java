@@ -12,7 +12,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Period "comparison" is computed locally: each calendar day uses documented
@@ -27,12 +31,14 @@ public class ComparisonService {
     private final CombinedNightService combinedNightService;
     private final JournalLookupService journalLookup;
     private final ClinicalContextProperties clinical;
+    private final ExecutorService sleepHqFetchExecutor;
 
     public ComparisonService(CombinedNightService combinedNightService, JournalLookupService journalLookup,
-                             ClinicalContextProperties clinical) {
+                             ClinicalContextProperties clinical, ExecutorService sleepHqFetchExecutor) {
         this.combinedNightService = combinedNightService;
         this.journalLookup = journalLookup;
         this.clinical = clinical;
+        this.sleepHqFetchExecutor = sleepHqFetchExecutor;
     }
 
     /**
@@ -66,31 +72,20 @@ public class ComparisonService {
 
         Map<String, JsonNode> journalByDate = loadJournalMapSafely(start, end);
 
-        ArrayNode nights = root.putArray("nights");
-        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+        List<LocalDate> days = start.datesUntil(end.plusDays(1)).toList();
+        List<CompletableFuture<ObjectNode>> rowFutures = new ArrayList<>(days.size());
+        for (LocalDate d : days) {
             String day = d.toString();
-            ObjectNode row = JsonApi.mapper().createObjectNode();
-            row.put("date", day);
-            JsonNode journalAttrs = journalByDate.get(day);
-            if (journalAttrs != null) {
-                ObjectNode journalOut = JournalOverlaySupport.buildWellnessObject(journalAttrs);
-                if (journalOut != null) {
-                    row.set("journal", journalOut);
-                }
-            }
-            try {
-                String envelope = combinedNightService.combineForCalendarDateWithJournalMap(day, cpap, null, journalByDate);
-                JsonNode parsed = JsonApi.parse(envelope);
-                row.set("data", parsed.path("data"));
-                if (parsed.has("journal") && !row.has("journal")) {
-                    row.set("journal", parsed.get("journal").deepCopy());
-                }
-            } catch (RuntimeException e) {
-                row.put("skipped", true);
-                String msg = e.getMessage();
-                row.put("reason", msg != null ? msg : e.getClass().getSimpleName());
-            }
-            nights.add(row);
+            Map<String, JsonNode> journalSnapshot = journalByDate;
+            rowFutures.add(CompletableFuture.supplyAsync(
+                    () -> buildNightRow(day, cpap, journalSnapshot),
+                    sleepHqFetchExecutor));
+        }
+        CompletableFuture.allOf(rowFutures.toArray(CompletableFuture[]::new)).join();
+
+        ArrayNode nights = root.putArray("nights");
+        for (CompletableFuture<ObjectNode> future : rowFutures) {
+            nights.add(future.join());
         }
 
         try {
@@ -98,6 +93,31 @@ public class ComparisonService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to serialize comparison", e);
         }
+    }
+
+    private ObjectNode buildNightRow(String day, String cpap, Map<String, JsonNode> journalByDate) {
+        ObjectNode row = JsonApi.mapper().createObjectNode();
+        row.put("date", day);
+        JsonNode journalAttrs = journalByDate.get(day);
+        if (journalAttrs != null) {
+            ObjectNode journalOut = JournalOverlaySupport.buildWellnessObject(journalAttrs);
+            if (journalOut != null) {
+                row.set("journal", journalOut);
+            }
+        }
+        try {
+            String envelope = combinedNightService.combineForCalendarDateWithJournalMap(day, cpap, null, journalByDate);
+            JsonNode parsed = JsonApi.parse(envelope);
+            row.set("data", parsed.path("data"));
+            if (parsed.has("journal") && !row.has("journal")) {
+                row.set("journal", parsed.get("journal").deepCopy());
+            }
+        } catch (RuntimeException e) {
+            row.put("skipped", true);
+            String msg = e.getMessage();
+            row.put("reason", msg != null ? msg : e.getClass().getSimpleName());
+        }
+        return row;
     }
 
     private Map<String, JsonNode> loadJournalMapSafely(LocalDate start, LocalDate end) {

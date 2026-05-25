@@ -10,13 +10,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -30,11 +32,13 @@ class ComparisonServiceTest {
     private JournalLookupService journalLookup;
 
     private ComparisonService service;
+    private ExecutorService executor;
 
     @BeforeEach
     void setUp() {
         ClinicalContextProperties clinical = new ClinicalContextProperties("team-1", "cpap-default", "o2-default", null);
-        service = new ComparisonService(combinedNightService, journalLookup, clinical);
+        executor = Executors.newSingleThreadExecutor();
+        service = new ComparisonService(combinedNightService, journalLookup, clinical, executor);
     }
 
     @Test
@@ -113,7 +117,7 @@ class ComparisonServiceTest {
     @Test
     void compare_noO2InMeta_whenClinicalO2Unset() {
         ClinicalContextProperties clinical = new ClinicalContextProperties(null, "x", null, null);
-        ComparisonService bare = new ComparisonService(combinedNightService, journalLookup, clinical);
+        ComparisonService bare = new ComparisonService(combinedNightService, journalLookup, clinical, executor);
 
         when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
         when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))
