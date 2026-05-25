@@ -2,6 +2,8 @@ package com.adriangarett.sleephqmcp.tools;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.service.JournalLookupService;
+import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.McpResponses;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -18,10 +20,13 @@ public class TeamDataTools {
 
     private final SleepHqClient client;
     private final ClinicalContextProperties clinical;
+    private final JournalLookupService journalLookup;
 
-    public TeamDataTools(SleepHqClient client, ClinicalContextProperties clinical) {
+    public TeamDataTools(SleepHqClient client, ClinicalContextProperties clinical,
+                         JournalLookupService journalLookup) {
         this.client = client;
         this.clinical = clinical;
+        this.journalLookup = journalLookup;
     }
 
     @McpTool(name = "list-sleep-tests",
@@ -148,10 +153,37 @@ public class TeamDataTools {
     }
 
     @McpTool(name = "get-journal",
-            description = "Retrieve a single journal entry by ID. Returns date, feeling_score, weight_grams, step_count, sleep_stages, and notes.")
+            description = "Retrieve a single journal entry by ID. Returns date, feeling_score, weight_grams, step_count, sleep_stages, active_energy_joules (when API returns it), and notes.")
     public String getJournal(
             @McpToolParam(description = "Journal ID from list-journals", required = true) String journalId) {
         return McpResponses.safe(() -> client.getJournal(journalId));
+    }
+
+    @McpTool(name = "get-journal-by-date",
+            description = "Find the team journal row for a calendar date (YYYY-MM-DD). Returns { journal: { step_count, sleep_stages_summary?, sleep_stages_parsed?, active_energy_joules?, feeling_score, weight_grams, notes } } or { journal: null }. sleep_stages_summary includes stage_type_legend (Apple Health: 2=awake, 3=core, 4=deep, 5=rem) and minutes_by_stage. teamId defaults to SLEEPHQ_TEAM_ID.")
+    public String getJournalByDate(
+            @McpToolParam(description = "Calendar date YYYY-MM-DD", required = true) String date,
+            @McpToolParam(description = "Team ID from list-teams. Defaults to SLEEPHQ_TEAM_ID.", required = false) String teamId) {
+        return McpResponses.safe(() -> {
+            String resolvedTeam = firstNonBlank(teamId, clinical.defaultTeamId());
+            var attrs = journalLookup.findAttributesByDate(resolvedTeam, date);
+            ObjectNode result = JsonApi.mapper().createObjectNode();
+            if (attrs.isPresent()) {
+                ObjectNode wellness = JournalOverlaySupport.buildWellnessObject(attrs.get());
+                if (wellness != null) {
+                    result.set("journal", wellness);
+                } else {
+                    result.putNull("journal");
+                }
+            } else {
+                result.putNull("journal");
+            }
+            try {
+                return JsonApi.mapper().writeValueAsString(result);
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to serialize journal-by-date", e);
+            }
+        });
     }
 
     private static String firstNonBlank(String... values) {

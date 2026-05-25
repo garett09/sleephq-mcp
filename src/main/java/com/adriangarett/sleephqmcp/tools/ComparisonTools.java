@@ -19,7 +19,7 @@ public class ComparisonTools {
     }
 
     @McpTool(name = "get-comparison",
-            description = "Multi-night therapy view without SleepHQ /comparisons. For each calendar day from fromDate to toDate (inclusive), fetches CPAP machine_date via GET .../machines/{id}/machine_dates/{date} and merges O2 summaries when SLEEPHQ_O2_MACHINE_ID is set (same logic as get-combined-night-by-date). Returns JSON: meta + nights[] (each { date, data } or { date, skipped, reason }). machineId defaults to SLEEPHQ_CPAP_MACHINE_ID. Max 120 days.")
+            description = "Multi-night view without SleepHQ /comparisons. For each calendar day, merges CPAP + O2 machine_date and team journal wellness (steps, sleep_stages, active_energy_joules when present). Returns meta + nights[] ({ date, data?, journal?, skipped?, reason? }). machineId defaults to SLEEPHQ_CPAP_MACHINE_ID. Max 120 days.")
     public String getComparison(
             @McpToolParam(description = "Range start YYYY-MM-DD", required = true) String fromDate,
             @McpToolParam(description = "Range end YYYY-MM-DD", required = true) String toDate,
