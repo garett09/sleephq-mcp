@@ -1,6 +1,5 @@
 package com.adriangarett.sleephqmcp.client;
 
-import com.adriangarett.sleephqmcp.domain.WaveformChannel;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -76,12 +75,6 @@ public class SleepHqClient {
                 .build(id));
     }
 
-    public String listPatients(String teamId, Integer page, Integer perPage) {
-        String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
-        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/teams/{teamId}/patients"), page, perPage)
-                .build(id));
-    }
-
     public String listSleepTests(String teamId, String bucket, Integer page, Integer perPage) {
         String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
         String b = SleepHqPathParams.optionalQueryToken(bucket, "bucket");
@@ -105,35 +98,43 @@ public class SleepHqClient {
         return get(uriBuilder -> uriBuilder.path("/api/v1/devices").build());
     }
 
-    // --- undocumented but live (probed) ---
-
-    public String getNightWaveform(String machineDateId, String channelPathSegment) {
-        String md = SleepHqPathParams.requireResourceId(machineDateId, "machineDateId");
-        String seg = WaveformChannel.requireKnownPathSegment(channelPathSegment);
-        return get(uriBuilder -> uriBuilder
-                .path("/api/v1/machine_dates/{machineDateId}/{segment}")
-                .build(md, seg));
-    }
-
-    public String getNightSessions(String machineDateId) {
-        String id = SleepHqPathParams.requireResourceId(machineDateId, "machineDateId");
-        return get(uriBuilder -> uriBuilder
-                .path("/api/v1/machine_dates/{machineDateId}/sessions")
+    public String listPatients(String teamId, Integer page, Integer perPage) {
+        String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
+        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/teams/{teamId}/patients"), page, perPage)
                 .build(id));
     }
 
-    public String getNightEvents(String machineDateId) {
-        String id = SleepHqPathParams.requireResourceId(machineDateId, "machineDateId");
-        return get(uriBuilder -> uriBuilder
-                .path("/api/v1/machine_dates/{machineDateId}/events_data")
+    public String listImports(String teamId, Integer page, Integer perPage) {
+        String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
+        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/teams/{teamId}/imports"), page, perPage)
                 .build(id));
     }
 
-    public String getShareDashboard(String shareLinkToken) {
-        String token = SleepHqPathParams.requireResourceId(shareLinkToken, "shareLinkToken");
-        return get(uriBuilder -> uriBuilder
-                .path("/api/v1/share_links/{token}/dashboard")
-                .build(token));
+    public String listTeamFiles(String teamId, Integer page, Integer perPage) {
+        String id = SleepHqPathParams.requireResourceId(teamId, "teamId");
+        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/teams/{teamId}/files"), page, perPage)
+                .build(id));
+    }
+
+    public String getImport(String importId) {
+        String id = SleepHqPathParams.requireResourceId(importId, "importId");
+        return get(uriBuilder -> uriBuilder.path("/api/v1/imports/{importId}").build(id));
+    }
+
+    public String listImportFiles(String importId, Integer page, Integer perPage) {
+        String id = SleepHqPathParams.requireResourceId(importId, "importId");
+        return get(uriBuilder -> appendPageParams(uriBuilder.path("/api/v1/imports/{importId}/files"), page, perPage)
+                .build(id));
+    }
+
+    public String getImportFile(String fileId) {
+        String id = SleepHqPathParams.requireResourceId(fileId, "fileId");
+        return get(uriBuilder -> uriBuilder.path("/api/v1/imports/files/{fileId}").build(id));
+    }
+
+    public String getJournal(String journalId) {
+        String id = SleepHqPathParams.requireResourceId(journalId, "journalId");
+        return get(uriBuilder -> uriBuilder.path("/api/v1/journals/{journalId}").build(id));
     }
 
     // --- helpers ---
