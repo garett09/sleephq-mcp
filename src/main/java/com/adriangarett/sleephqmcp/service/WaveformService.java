@@ -6,14 +6,15 @@ import com.adriangarett.sleephqmcp.domain.ApneaEvent;
 import com.adriangarett.sleephqmcp.domain.ApneaScanResult;
 import com.adriangarett.sleephqmcp.domain.WaveformChannel;
 import com.adriangarett.sleephqmcp.domain.WaveformResult;
+import com.adriangarett.sleephqmcp.support.BinaryDownloadSupport;
 import com.adriangarett.sleephqmcp.support.EdfParser;
 import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.adriangarett.sleephqmcp.support.TeamFileResolver;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
 
 import java.net.URI;
 import java.time.LocalDateTime;
@@ -53,7 +54,7 @@ public class WaveformService {
 
         // 2. Download EDF binary — use URI.create() so signed URL query params are not template variables
         URI uri = URI.create(downloadUrl);
-        byte[] edfBytes = downloadEdf(uri, fileId);
+        byte[] edfBytes = BinaryDownloadSupport.download(s3RestClient, uri, fileId);
 
         // 3. Parse EDF and attach filename from metadata
         WaveformResult parsed = EdfParser.parse(edfBytes, startSeconds, maxSeconds);
@@ -76,7 +77,7 @@ public class WaveformService {
         if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
             throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
         }
-        String fileId = resolveFileIdByDate(resolvedTeamId, date);
+        String fileId = TeamFileResolver.resolveByDate(sleepHqClient, resolvedTeamId, date, "brp.edf");
         return getWaveform(fileId, startSeconds, maxSeconds);
     }
 
@@ -90,7 +91,7 @@ public class WaveformService {
             if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
                 throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
             }
-            targetFileId = resolveFileIdByDate(resolvedTeamId, date);
+            targetFileId = TeamFileResolver.resolveByDate(sleepHqClient, resolvedTeamId, date, "brp.edf");
         }
 
         // 1. Fetch file metadata to get download URL
@@ -105,7 +106,7 @@ public class WaveformService {
 
         // 2. Download full EDF file
         URI uri = URI.create(downloadUrl);
-        byte[] edfBytes = downloadEdf(uri, targetFileId);
+        byte[] edfBytes = BinaryDownloadSupport.download(s3RestClient, uri, targetFileId);
 
         // 3. Parse full file (use a large duration like 12 hours = 43200 seconds)
         int twelveHours = 12 * 3600;
@@ -243,52 +244,6 @@ public class WaveformService {
         } else {
             return "APNEA_OBSTRUCTIVE";
         }
-    }
-
-    private byte[] downloadEdf(URI uri, String fileId) {
-        try {
-            byte[] edfBytes = s3RestClient.get()
-                    .uri(uri)
-                    .retrieve()
-                    .body(byte[].class);
-            if (edfBytes == null || edfBytes.length == 0) {
-                throw new IllegalStateException("Downloaded empty file for fileId " + fileId);
-            }
-            return edfBytes;
-        } catch (RestClientResponseException e) {
-            throw new IllegalStateException(
-                    "Download failed for file " + fileId + " (HTTP " + e.getStatusCode().value() +
-                    ") — the signed URL may have expired (5-minute TTL)", e);
-        }
-    }
-
-    private String resolveFileIdByDate(String teamId, String date) {
-        String cleanDate = date.replace("-", "").trim();
-        if (cleanDate.length() != 8) {
-            throw new IllegalArgumentException("Invalid date format: " + date + ". Expected YYYY-MM-DD.");
-        }
-
-        int pageNum = 1;
-        while (pageNum <= 5) {
-            String filesJson = sleepHqClient.listTeamFiles(teamId, pageNum, 100);
-            JsonNode root = JsonApi.parse(filesJson);
-            JsonNode data = root.path("data");
-            if (!data.isArray() || data.isEmpty()) {
-                break;
-            }
-            for (JsonNode item : data) {
-                String name = item.path("attributes").path("name").asText("");
-                String lowerName = name.toLowerCase(Locale.ROOT);
-                if (lowerName.contains(cleanDate) && lowerName.contains("brp.edf")) {
-                    return item.path("id").asText();
-                }
-            }
-            if (data.size() < 100) {
-                break;
-            }
-            pageNum++;
-        }
-        throw new IllegalArgumentException("No BRP.edf file found for date " + date + " (teamId: " + teamId + ")");
     }
 
     private ApneaEvent createEvent(String startDatetimeStr, double startSec, double durationSec, String classification) {

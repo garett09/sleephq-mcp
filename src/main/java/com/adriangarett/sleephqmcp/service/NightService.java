@@ -1,25 +1,47 @@
 package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
+import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
+import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 /**
- * Per-night data. {@link #getNightStats(String)} is cached because the underlying machine_date
- * record is immutable once SleepHQ has imported the file — within a conversation the LLM
- * often re-asks the same night repeatedly.
+ * Per-night data. Machine_date JSON is cached; journal wellness is merged on each read by calendar date.
  */
 @Service
 public class NightService {
 
     private final SleepHqClient client;
+    private final JournalLookupService journalLookup;
 
-    public NightService(SleepHqClient client) {
+    public NightService(SleepHqClient client, JournalLookupService journalLookup) {
         this.client = client;
+        this.journalLookup = journalLookup;
+    }
+
+    public String getNightStats(String machineDateId) {
+        return enrichWithJournal(fetchMachineDateJson(machineDateId));
     }
 
     @Cacheable(value = "nightStats", key = "#machineDateId")
-    public String getNightStats(String machineDateId) {
+    String fetchMachineDateJson(String machineDateId) {
         return client.getMachineDate(machineDateId);
+    }
+
+    private String enrichWithJournal(String envelopeJson) {
+        JsonNode envelope = JsonApi.parse(envelopeJson);
+        String date = JournalOverlaySupport.resolveCalendarDate(envelope);
+        if (date == null) {
+            return envelopeJson;
+        }
+        Optional<JsonNode> journal = journalLookup.findAttributesByDate(null, date);
+        if (journal.isEmpty()) {
+            return envelopeJson;
+        }
+        return JournalOverlaySupport.enrichEnvelopeJson(envelopeJson, journal.get());
     }
 }

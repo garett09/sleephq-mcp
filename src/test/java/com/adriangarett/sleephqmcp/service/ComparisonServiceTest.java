@@ -2,6 +2,8 @@ package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,9 +12,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -22,19 +26,23 @@ class ComparisonServiceTest {
     @Mock
     private CombinedNightService combinedNightService;
 
+    @Mock
+    private JournalLookupService journalLookup;
+
     private ComparisonService service;
 
     @BeforeEach
     void setUp() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties(null, "cpap-default", "o2-default");
-        service = new ComparisonService(combinedNightService, clinical);
+        ClinicalContextProperties clinical = new ClinicalContextProperties("team-1", "cpap-default", "o2-default");
+        service = new ComparisonService(combinedNightService, journalLookup, clinical);
     }
 
     @Test
     void compare_twoDays_aggregatesNightsAndMeta() {
-        when(combinedNightService.combineForCalendarDate(eq("2026-05-01"), eq("cpap-1"), isNull()))
+        when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
+        when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))
                 .thenReturn("{\"data\":{\"id\":\"a\",\"type\":\"machine_date\",\"attributes\":{}}}");
-        when(combinedNightService.combineForCalendarDate(eq("2026-05-02"), eq("cpap-1"), isNull()))
+        when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-02"), eq("cpap-1"), isNull(), any()))
                 .thenReturn("{\"data\":{\"id\":\"b\",\"type\":\"machine_date\",\"attributes\":{}}}");
 
         String json = service.compare("cpap-1", "2026-05-01", "2026-05-02");
@@ -51,14 +59,32 @@ class ComparisonServiceTest {
         assertThat(root.path("nights").get(0).path("data").path("id").asText()).isEqualTo("a");
         assertThat(root.path("nights").get(1).path("data").path("id").asText()).isEqualTo("b");
 
-        verify(combinedNightService).combineForCalendarDate("2026-05-01", "cpap-1", null);
-        verify(combinedNightService).combineForCalendarDate("2026-05-02", "cpap-1", null);
+        verify(combinedNightService).combineForCalendarDateWithJournalMap("2026-05-01", "cpap-1", null, java.util.Map.of());
+        verify(combinedNightService).combineForCalendarDateWithJournalMap("2026-05-02", "cpap-1", null, java.util.Map.of());
         verifyNoMoreInteractions(combinedNightService);
     }
 
     @Test
+    void compare_includesJournalOnSkippedNightWhenNoMachineDate() {
+        ObjectNode journalAttrs = JsonApi.mapper().createObjectNode();
+        journalAttrs.put("date", "2026-05-01");
+        journalAttrs.put("step_count", 3000);
+        when(journalLookup.loadByDateRange(isNull(), any(), any()))
+                .thenReturn(java.util.Map.of("2026-05-01", journalAttrs));
+        when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))
+                .thenThrow(new IllegalStateException("No CPAP machine_date for date=2026-05-01 (HTTP 404)"));
+
+        String json = service.compare("cpap-1", "2026-05-01", "2026-05-01");
+        var row = JsonApi.parse(json).path("nights").get(0);
+
+        assertThat(row.path("skipped").asBoolean()).isTrue();
+        assertThat(row.path("journal").path("step_count").asInt()).isEqualTo(3000);
+    }
+
+    @Test
     void compare_skippedDay_setsReasonWithoutData() {
-        when(combinedNightService.combineForCalendarDate(eq("2026-05-01"), eq("cpap-1"), isNull()))
+        when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
+        when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))
                 .thenThrow(new IllegalStateException("No CPAP machine_date for date=2026-05-01 (HTTP 404)"));
 
         String json = service.compare("cpap-1", "2026-05-01", "2026-05-01");
@@ -87,9 +113,10 @@ class ComparisonServiceTest {
     @Test
     void compare_noO2InMeta_whenClinicalO2Unset() {
         ClinicalContextProperties clinical = new ClinicalContextProperties(null, "x", null);
-        ComparisonService bare = new ComparisonService(combinedNightService, clinical);
+        ComparisonService bare = new ComparisonService(combinedNightService, journalLookup, clinical);
 
-        when(combinedNightService.combineForCalendarDate(eq("2026-05-01"), eq("cpap-1"), isNull()))
+        when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
+        when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))
                 .thenReturn("{\"data\":{\"id\":\"a\",\"type\":\"machine_date\"}}");
 
         String json = bare.compare("cpap-1", "2026-05-01", "2026-05-01");
