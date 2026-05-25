@@ -1,6 +1,5 @@
 package com.adriangarett.sleephqmcp.service;
 
-import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -26,7 +25,7 @@ import static org.mockito.Mockito.when;
 class CombinedNightServiceTest {
 
     @Mock
-    private SleepHqClient client;
+    private SleepHqCacheFacade cacheFacade;
 
     @Mock
     private JournalLookupService journalLookup;
@@ -35,16 +34,16 @@ class CombinedNightServiceTest {
 
     @BeforeEach
     void setUp() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties("team-1", "cpap-1", "o2-1");
-        service = new CombinedNightService(client, clinical, journalLookup);
+        ClinicalContextProperties clinical = new ClinicalContextProperties("team-1", "cpap-1", "o2-1", null);
+        service = new CombinedNightService(cacheFacade, clinical, journalLookup);
     }
 
     @Test
     void combineForCalendarDate_overlaysO2SummariesWhenCpapMissingThem() {
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-23")))
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-05-23")))
                 .thenReturn("{\"data\":{\"id\":\"md-cpap\",\"type\":\"machine_date\",\"attributes\":{\"usage\":1,"
                         + "\"spo2_summary\":null},\"relationships\":{}}}");
-        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-23")))
+        when(cacheFacade.getMachineDateByDate(eq("o2-1"), eq("2026-05-23")))
                 .thenReturn("{\"data\":{\"id\":\"md-o2\",\"type\":\"machine_date\",\"attributes\":{"
                         + "\"spo2_summary\":{\"av\":97},\"pulse_rate_summary\":{\"av\":56},"
                         + "\"movement_summary\":{\"av\":0.1}}}}");
@@ -62,10 +61,10 @@ class CombinedNightServiceTest {
 
     @Test
     void combineForCalendarDate_o2Missing_cpapOnly() {
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-20")))
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-05-20")))
                 .thenReturn("{\"data\":{\"id\":\"9\",\"type\":\"machine_date\",\"attributes\":{\"usage\":3},"
                         + "\"relationships\":{}}}");
-        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-20")))
+        when(cacheFacade.getMachineDateByDate(eq("o2-1"), eq("2026-05-20")))
                 .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
                         "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
 
@@ -79,7 +78,7 @@ class CombinedNightServiceTest {
 
     @Test
     void combineForCalendarDate_cpapMissing_throws() {
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-19")))
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-05-19")))
                 .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
                         "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
 
@@ -90,7 +89,7 @@ class CombinedNightServiceTest {
 
     @Test
     void combineForCalendarDate_cpapResponseMissingData_throwsNotFoundStyleMessage() {
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-20")))
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-05-20")))
                 .thenReturn("{}");
 
         assertThatThrownBy(() -> service.combineForCalendarDate("2026-05-20", null, null))
@@ -101,7 +100,7 @@ class CombinedNightServiceTest {
 
     @Test
     void combineForCalendarDate_cpapEmptyDataArray_throwsNotFoundStyleMessage() {
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-21")))
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-05-21")))
                 .thenReturn("{\"data\":[]}");
 
         assertThatThrownBy(() -> service.combineForCalendarDate("2026-05-21", null, null))
@@ -112,10 +111,10 @@ class CombinedNightServiceTest {
 
     @Test
     void combineForCalendarDate_o2ResponseMissingData_cpapOnly() {
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-25")))
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-05-25")))
                 .thenReturn("{\"data\":{\"id\":\"md-cpap\",\"type\":\"machine_date\",\"attributes\":{\"usage\":1},"
                         + "\"relationships\":{}}}");
-        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-25")))
+        when(cacheFacade.getMachineDateByDate(eq("o2-1"), eq("2026-05-25")))
                 .thenReturn("{}");
 
         String json = service.combineForCalendarDate("2026-05-25", null, null);
@@ -131,10 +130,10 @@ class CombinedNightServiceTest {
 
     @Test
     void combineForCalendarDate_attachesJournalWhenPresent() {
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-23")))
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-05-23")))
                 .thenReturn("{\"data\":{\"id\":\"md-cpap\",\"type\":\"machine_date\",\"attributes\":{\"date\":\"2026-05-23\"},"
                         + "\"relationships\":{}}}");
-        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-23")))
+        when(cacheFacade.getMachineDateByDate(eq("o2-1"), eq("2026-05-23")))
                 .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
                         "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
         var journalAttrs = JsonApi.mapper().createObjectNode();
@@ -149,8 +148,8 @@ class CombinedNightServiceTest {
 
     @Test
     void combineForCalendarDate_missingDefaults_throws() {
-        CombinedNightService bare = new CombinedNightService(client,
-                new ClinicalContextProperties(null, null, null), journalLookup);
+        CombinedNightService bare = new CombinedNightService(cacheFacade,
+                new ClinicalContextProperties(null, null, null, null), journalLookup);
         assertThatThrownBy(() -> bare.combineForCalendarDate("2026-05-20", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cpapMachineId");
@@ -158,9 +157,9 @@ class CombinedNightServiceTest {
 
     @Test
     void combineForCalendarDate_cpapOnly_noO2Configured_doesNotFetchSecondMachine() {
-        CombinedNightService cpapOnly = new CombinedNightService(client,
-                new ClinicalContextProperties(null, "cpap-1", null), journalLookup);
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-06-01")))
+        CombinedNightService cpapOnly = new CombinedNightService(cacheFacade,
+                new ClinicalContextProperties(null, "cpap-1", null, null), journalLookup);
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-06-01")))
                 .thenReturn("{\"data\":{\"id\":\"md-1\",\"type\":\"machine_date\",\"attributes\":{\"usage\":2},"
                         + "\"relationships\":{}}}");
 
@@ -168,16 +167,16 @@ class CombinedNightServiceTest {
         var root = JsonApi.parse(json);
 
         assertThat(root.path("data").path("id").asText()).isEqualTo("md-1");
-        verify(client).getMachineDateByDate(eq("cpap-1"), eq("2026-06-01"));
-        verifyNoMoreInteractions(client);
+        verify(cacheFacade).getMachineDateByDate(eq("cpap-1"), eq("2026-06-01"));
+        verifyNoMoreInteractions(cacheFacade);
     }
 
     @Test
     void combineForCalendarDate_cpapDataAsArray_normalizes() {
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-24")))
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-05-24")))
                 .thenReturn("{\"data\":[{\"id\":\"md-arr\",\"type\":\"machine_date\",\"attributes\":{\"usage\":4},"
                         + "\"relationships\":{}}]}");
-        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-24")))
+        when(cacheFacade.getMachineDateByDate(eq("o2-1"), eq("2026-05-24")))
                 .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
                         "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
 
@@ -187,11 +186,11 @@ class CombinedNightServiceTest {
 
     @Test
     void combineForCalendarDate_cpapFlatSummariesOnData_hoistsToAttributes() {
-        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-22")))
+        when(cacheFacade.getMachineDateByDate(eq("cpap-1"), eq("2026-05-22")))
                 .thenReturn("{\"data\":{\"id\":\"md-flat\",\"type\":\"machine_date\",\"usage\":5,"
                         + "\"ahi_summary\":{\"av\":2.0}}}");
 
-        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-22")))
+        when(cacheFacade.getMachineDateByDate(eq("o2-1"), eq("2026-05-22")))
                 .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
                         "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
 

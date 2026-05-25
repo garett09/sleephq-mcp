@@ -1,6 +1,5 @@
 package com.adriangarett.sleephqmcp.service;
 
-import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
@@ -14,6 +13,8 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * Builds one JSON:API {@code machine_date} document for a calendar night: CPAP is the primary
@@ -28,13 +29,13 @@ public class CombinedNightService {
     private static final List<String> O2_OVERLAY_ATTRIBUTE_KEYS = List.of(
             "spo2_summary", "pulse_rate_summary", "movement_summary");
 
-    private final SleepHqClient client;
+    private final SleepHqCacheFacade cacheFacade;
     private final ClinicalContextProperties clinical;
     private final JournalLookupService journalLookup;
 
-    public CombinedNightService(SleepHqClient client, ClinicalContextProperties clinical,
+    public CombinedNightService(SleepHqCacheFacade cacheFacade, ClinicalContextProperties clinical,
                                 JournalLookupService journalLookup) {
-        this.client = client;
+        this.cacheFacade = cacheFacade;
         this.clinical = clinical;
         this.journalLookup = journalLookup;
     }
@@ -75,9 +76,17 @@ public class CombinedNightService {
                 "SLEEPHQ_CPAP_MACHINE_ID");
         String o2Mid = resolveO2MachineIdOptional(o2MachineId);
 
-        JsonNode cpapDoc = requireCpapDocument(() -> client.getMachineDateByDate(cpapMid, date), date);
+        // Use default (ForkJoin) pool — not sleepHqFetchExecutor. ComparisonService already
+        // parallelizes days on that executor; nesting the same pool causes deadlock (join blocks all workers).
+        CompletableFuture<JsonNode> cpapFuture = CompletableFuture.supplyAsync(
+                () -> requireCpapDocument(() -> cacheFacade.getMachineDateByDate(cpapMid, date), date));
+        CompletableFuture<JsonNode> o2Future = o2Mid == null
+                ? CompletableFuture.completedFuture(null)
+                : CompletableFuture.supplyAsync(() -> loadO2AttributesOrNull(o2Mid, date));
+
+        JsonNode cpapDoc = joinOrRethrow(cpapFuture);
         JsonNode cpapData = requireSingleResource(cpapDoc, "CPAP", date, cpapMid);
-        JsonNode o2Attrs = o2Mid == null ? null : loadO2AttributesOrNull(o2Mid, date);
+        JsonNode o2Attrs = joinOrRethrow(o2Future);
 
         ObjectNode mergedAttrs = mergeAttributes((ObjectNode) cpapData.path("attributes").deepCopy(), o2Attrs);
 
@@ -151,7 +160,7 @@ public class CombinedNightService {
     private JsonNode loadO2AttributesOrNull(String o2MachineId, String date) {
         final String raw;
         try {
-            raw = client.getMachineDateByDate(o2MachineId, date);
+            raw = cacheFacade.getMachineDateByDate(o2MachineId, date);
         } catch (RestClientException e) {
             if (e instanceof RestClientResponseException rre && rre.getStatusCode().value() == 404) {
                 return null;
@@ -214,5 +223,17 @@ public class CombinedNightService {
             return true;
         }
         return n.isObject() && n.isEmpty();
+    }
+
+    private static <T> T joinOrRethrow(CompletableFuture<T> future) {
+        try {
+            return future.join();
+        } catch (CompletionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw e;
+        }
     }
 }

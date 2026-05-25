@@ -26,7 +26,7 @@ class TeamDataToolsTest {
 
     @Test
     void listSleepTests_blankTeamAndNoDefault_throws() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties(null, null, null);
+        ClinicalContextProperties clinical = new ClinicalContextProperties(null, null, null, null);
         TeamDataTools tools = new TeamDataTools(client, clinical, journalLookup);
 
         assertThatThrownBy(() -> tools.listSleepTests(null, null, null, null))
@@ -36,7 +36,7 @@ class TeamDataToolsTest {
 
     @Test
     void listSleepTests_blankTeam_usesConfiguredDefault() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties("team-99", null, null);
+        ClinicalContextProperties clinical = new ClinicalContextProperties("team-99", null, null, null);
         TeamDataTools tools = new TeamDataTools(client, clinical, journalLookup);
         when(client.listSleepTests(eq("team-99"), isNull(), isNull(), isNull())).thenReturn("{}");
 
@@ -48,7 +48,7 @@ class TeamDataToolsTest {
 
     @Test
     void listJournals_explicitTeamId_passesThrough() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties("ignored", null, null);
+        ClinicalContextProperties clinical = new ClinicalContextProperties("ignored", null, null, null);
         TeamDataTools tools = new TeamDataTools(client, clinical, journalLookup);
         when(client.listJournals(eq("team-2"), isNull(), isNull())).thenReturn("[]");
 
@@ -58,7 +58,7 @@ class TeamDataToolsTest {
 
     @Test
     void listTeamFiles_noFilter_delegatesToClient() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties("team-default", null, null);
+        ClinicalContextProperties clinical = new ClinicalContextProperties("team-default", null, null, null);
         TeamDataTools tools = new TeamDataTools(client, clinical, journalLookup);
         when(client.listTeamFiles("team-default", 1, 10)).thenReturn("{\"data\":[]}");
 
@@ -70,7 +70,7 @@ class TeamDataToolsTest {
 
     @Test
     void listTeamFiles_withFilter_filtersMatchingFiles() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties("team-default", null, null);
+        ClinicalContextProperties clinical = new ClinicalContextProperties("team-default", null, null, null);
         TeamDataTools tools = new TeamDataTools(client, clinical, journalLookup);
 
         String pageJson = """

@@ -28,10 +28,13 @@ public class JournalLookupService {
 
     private final SleepHqClient client;
     private final ClinicalContextProperties clinical;
+    private final SleepHqCacheFacade cacheFacade;
 
-    public JournalLookupService(SleepHqClient client, ClinicalContextProperties clinical) {
+    public JournalLookupService(SleepHqClient client, ClinicalContextProperties clinical,
+                                SleepHqCacheFacade cacheFacade) {
         this.client = client;
         this.clinical = clinical;
+        this.cacheFacade = cacheFacade;
     }
 
     public String requireTeamId(String teamIdOverride) {
@@ -47,9 +50,10 @@ public class JournalLookupService {
 
     public Optional<JsonNode> findAttributesByDate(String teamId, String calendarDate) {
         String date = SleepHqPathParams.requireCalendarDate(calendarDate, "date");
-        LocalDate day = LocalDate.parse(date);
-        Map<String, JsonNode> map = loadByDateRange(teamId, day, day);
-        return Optional.ofNullable(map.get(date));
+        String resolvedTeamId = requireTeamId(teamId);
+        JsonNode cached = cacheFacade.getJournalAttributesByDate(resolvedTeamId, date,
+                () -> loadByDateRange(teamId, LocalDate.parse(date), LocalDate.parse(date)).get(date));
+        return Optional.ofNullable(cached);
     }
 
     public Map<String, JsonNode> loadByDateRange(String teamIdOverride, LocalDate from, LocalDate to) {

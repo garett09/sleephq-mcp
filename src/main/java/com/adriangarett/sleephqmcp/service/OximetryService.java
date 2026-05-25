@@ -3,16 +3,13 @@ package com.adriangarett.sleephqmcp.service;
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.domain.OximetryResult;
-import com.adriangarett.sleephqmcp.support.BinaryDownloadSupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.O2ImportResolver;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
 import com.adriangarett.sleephqmcp.support.ViatomSessionParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import java.net.URI;
 
@@ -20,25 +17,24 @@ import java.net.URI;
 public class OximetryService {
 
     private final SleepHqClient sleepHqClient;
-    private final RestClient s3RestClient;
+    private final SleepHqCacheFacade cacheFacade;
     private final ClinicalContextProperties clinical;
 
-    public OximetryService(SleepHqClient sleepHqClient,
-                           @Qualifier("s3RestClient") RestClient s3RestClient,
+    public OximetryService(SleepHqClient sleepHqClient, SleepHqCacheFacade cacheFacade,
                            ClinicalContextProperties clinical) {
         this.sleepHqClient = sleepHqClient;
-        this.s3RestClient = s3RestClient;
+        this.cacheFacade = cacheFacade;
         this.clinical = clinical;
     }
 
     public String getOximetry(String fileId, int maxSeconds) {
-        String fileJson = sleepHqClient.getImportFile(fileId);
+        String fileJson = cacheFacade.getImportFile(fileId);
         JsonNode attrs = JsonApi.attributes(JsonApi.parse(fileJson));
         String downloadUrl = requireDownloadUrl(attrs, fileId);
         String filename = attrs.path("name").asText("");
 
         URI uri = URI.create(downloadUrl);
-        byte[] bytes = BinaryDownloadSupport.download(s3RestClient, uri, fileId);
+        byte[] bytes = cacheFacade.downloadEdf(uri, fileId);
         OximetryResult result = ViatomSessionParser.parse(bytes, filename, maxSeconds);
         return serialize(result);
     }

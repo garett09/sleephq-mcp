@@ -44,7 +44,9 @@ public class WaveformTools {
             @McpToolParam(description = "Start minute within the night (default 0)", required = false)
             Integer startMinute,
             @McpToolParam(description = "Max minutes of samples to return per channel (default 10, max 30)", required = false)
-            Integer maxMinutes) {
+            Integer maxMinutes,
+            @McpToolParam(description = "Seconds added to CPAP EDF wall-clock timestamps (overrides SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS)", required = false)
+            Integer cpapClockAdjustSeconds) {
         return McpResponses.safe(() -> {
             String id = SleepHqPathParams.requireResourceId(fileId, "fileId");
             int startMin = startMinute == null ? 0 : startMinute;
@@ -55,7 +57,7 @@ public class WaveformTools {
             if (minutes < 1 || minutes > MAX_MAX_MINUTES) {
                 throw new IllegalArgumentException("maxMinutes must be between 1 and " + MAX_MAX_MINUTES);
             }
-            return waveformService.getWaveform(id, startMin * 60, minutes * 60);
+            return waveformService.getWaveform(id, startMin * 60, minutes * 60, cpapClockAdjustSeconds);
         });
     }
 
@@ -73,7 +75,9 @@ public class WaveformTools {
             @McpToolParam(description = "Max minutes of samples to return per channel (default 10, max 30)", required = false)
             Integer maxMinutes,
             @McpToolParam(description = "Team ID. Defaults to SLEEPHQ_TEAM_ID.", required = false)
-            String teamId) {
+            String teamId,
+            @McpToolParam(description = "Seconds added to CPAP EDF wall-clock timestamps (overrides SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS)", required = false)
+            Integer cpapClockAdjustSeconds) {
         return McpResponses.safe(() -> {
             String cleanDate = SleepHqPathParams.requireCalendarDate(date, "date");
             int startMin = startMinute == null ? 0 : startMinute;
@@ -84,7 +88,7 @@ public class WaveformTools {
             if (minutes < 1 || minutes > MAX_MAX_MINUTES) {
                 throw new IllegalArgumentException("maxMinutes must be between 1 and " + MAX_MAX_MINUTES);
             }
-            return waveformService.getWaveformByDate(teamId, cleanDate, startMin * 60, minutes * 60);
+            return waveformService.getWaveformByDate(teamId, cleanDate, startMin * 60, minutes * 60, cpapClockAdjustSeconds);
         });
     }
 
@@ -107,7 +111,9 @@ public class WaveformTools {
             @McpToolParam(description = "Flow rate envelope threshold (L/s) to classify apnea (default 0.08)", required = false)
             Double threshold,
             @McpToolParam(description = "Minimum duration in seconds to classify as apnea (default 10)", required = false)
-            Integer minDurationSeconds) {
+            Integer minDurationSeconds,
+            @McpToolParam(description = "Seconds added to CPAP EDF wall-clock timestamps (overrides SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS)", required = false)
+            Integer cpapClockAdjustSeconds) {
         return McpResponses.safe(() -> {
             String cleanDate = date != null && !date.isBlank() ? SleepHqPathParams.requireCalendarDate(date, "date") : null;
             String cleanFileId = fileId != null && !fileId.isBlank() ? SleepHqPathParams.requireResourceId(fileId, "fileId") : null;
@@ -120,7 +126,8 @@ public class WaveformTools {
             if (minDurationSeconds != null && minDurationSeconds < 5) {
                 throw new IllegalArgumentException("minDurationSeconds must be at least 5");
             }
-            return waveformService.scanApneaEvents(cleanFileId, teamId, cleanDate, threshold, minDurationSeconds);
+            return waveformService.scanApneaEvents(cleanFileId, teamId, cleanDate, threshold, minDurationSeconds,
+                    cpapClockAdjustSeconds);
         });
     }
 
@@ -136,7 +143,9 @@ public class WaveformTools {
             @McpToolParam(description = "Calendar date (YYYY-MM-DD). Optional if fileId is provided.", required = false)
             String date,
             @McpToolParam(description = "Team ID. Defaults to SLEEPHQ_TEAM_ID.", required = false)
-            String teamId) {
+            String teamId,
+            @McpToolParam(description = "Seconds added to CPAP EDF wall-clock timestamps (overrides SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS)", required = false)
+            Integer cpapClockAdjustSeconds) {
         return McpResponses.safe(() -> {
             String cleanDate = date != null && !date.isBlank() ? SleepHqPathParams.requireCalendarDate(date, "date") : null;
             String cleanFileId = fileId != null && !fileId.isBlank() ? SleepHqPathParams.requireResourceId(fileId, "fileId") : null;
@@ -144,9 +153,9 @@ public class WaveformTools {
                 throw new IllegalArgumentException("Either fileId or date must be provided");
             }
             if (cleanFileId != null) {
-                return deviceEventService.getDeviceEvents(cleanFileId);
+                return deviceEventService.getDeviceEvents(cleanFileId, cpapClockAdjustSeconds);
             }
-            return deviceEventService.getDeviceEventsByDate(teamId, cleanDate);
+            return deviceEventService.getDeviceEventsByDate(teamId, cleanDate, cpapClockAdjustSeconds);
         });
     }
 

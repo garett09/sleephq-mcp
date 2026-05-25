@@ -1,46 +1,67 @@
 package com.adriangarett.sleephqmcp.service;
 
-import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.domain.ApneaEvent;
 import com.adriangarett.sleephqmcp.domain.ApneaScanResult;
 import com.adriangarett.sleephqmcp.domain.WaveformChannel;
 import com.adriangarett.sleephqmcp.domain.WaveformResult;
-import com.adriangarett.sleephqmcp.support.BinaryDownloadSupport;
+import com.adriangarett.sleephqmcp.support.CpapClockAlignment;
 import com.adriangarett.sleephqmcp.support.EdfParser;
 import com.adriangarett.sleephqmcp.support.JsonApi;
-import com.adriangarett.sleephqmcp.support.TeamFileResolver;
+import com.adriangarett.sleephqmcp.support.PhaseTiming;
 import com.adriangarett.sleephqmcp.support.WaveformDownsampler;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
+import java.util.OptionalInt;
 
 @Service
 public class WaveformService {
 
-    private final SleepHqClient sleepHqClient;
-    private final RestClient s3RestClient;
+    private final SleepHqCacheFacade cacheFacade;
     private final ClinicalContextProperties clinical;
+    private final MachineDateTimeOffsetLoader machineDateTimeOffsetLoader;
+    private final PhaseTiming phaseTiming;
 
-    public WaveformService(SleepHqClient sleepHqClient,
-                           @Qualifier("s3RestClient") RestClient s3RestClient,
-                           ClinicalContextProperties clinical) {
-        this.sleepHqClient = sleepHqClient;
-        this.s3RestClient  = s3RestClient;
-        this.clinical      = clinical;
+    public WaveformService(SleepHqCacheFacade cacheFacade, ClinicalContextProperties clinical,
+                           MachineDateTimeOffsetLoader machineDateTimeOffsetLoader, PhaseTiming phaseTiming) {
+        this.cacheFacade = cacheFacade;
+        this.clinical = clinical;
+        this.machineDateTimeOffsetLoader = machineDateTimeOffsetLoader;
+        this.phaseTiming = phaseTiming;
     }
 
     public String getWaveform(String fileId, int startSeconds, int maxSeconds) {
-        // 1. Fetch file metadata from SleepHQ
-        String fileJson = sleepHqClient.getImportFile(fileId);
+        return getWaveform(fileId, startSeconds, maxSeconds, null);
+    }
+
+    public String getWaveform(String fileId, int startSeconds, int maxSeconds, Integer cpapClockAdjustSeconds) {
+        return getWaveform(fileId, startSeconds, maxSeconds, cpapClockAdjustSeconds, OptionalInt.empty());
+    }
+
+    public String getWaveformByDate(String teamId, String date, int startSeconds, int maxSeconds) {
+        return getWaveformByDate(teamId, date, startSeconds, maxSeconds, null);
+    }
+
+    public String getWaveformByDate(String teamId, String date, int startSeconds, int maxSeconds,
+                                    Integer cpapClockAdjustSeconds) {
+        String resolvedTeamId = teamId != null && !teamId.isBlank() ? teamId : clinical.defaultTeamId();
+        if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
+            throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
+        }
+        String fileId = cacheFacade.resolveTeamFileByDate(resolvedTeamId, date, "brp.edf");
+        OptionalInt machineDateOffset = machineDateTimeOffsetLoader.loadForCpapDate(date, null);
+        return getWaveform(fileId, startSeconds, maxSeconds, cpapClockAdjustSeconds, machineDateOffset);
+    }
+
+    public String getWaveform(String fileId, int startSeconds, int maxSeconds, Integer cpapClockAdjustSeconds,
+                              OptionalInt machineDateOffset) {
+        String fileJson = cacheFacade.getImportFile(fileId);
         JsonNode attrs  = JsonApi.attributes(JsonApi.parse(fileJson));
 
         String downloadUrl = attrs.path("download_url").asText(null);
@@ -53,11 +74,9 @@ public class WaveformService {
             throw new IllegalArgumentException("download_url is not HTTPS for file " + fileId);
         }
 
-        // 2. Download EDF binary — use URI.create() so signed URL query params are not template variables
         URI uri = URI.create(downloadUrl);
-        byte[] edfBytes = BinaryDownloadSupport.download(s3RestClient, uri, fileId);
+        byte[] edfBytes = cacheFacade.downloadEdf(uri, fileId);
 
-        // 3. Parse EDF and attach filename from metadata
         WaveformResult parsed = EdfParser.parse(edfBytes, startSeconds, maxSeconds);
         WaveformResult result = WaveformDownsampler.compact(new WaveformResult(
                 filename != null ? filename : "",
@@ -66,23 +85,22 @@ public class WaveformService {
                 parsed.channels()
         ));
 
-        try {
-            return JsonApi.mapper().writeValueAsString(result);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize waveform result", e);
-        }
+        CpapClockAlignment.CpapClockAdjustResolution resolution =
+                CpapClockAlignment.resolveAdjust(clinical, cpapClockAdjustSeconds, machineDateOffset);
+        return serializeAlignedWaveform(result, resolution);
     }
 
-    public String getWaveformByDate(String teamId, String date, int startSeconds, int maxSeconds) {
-        String resolvedTeamId = teamId != null && !teamId.isBlank() ? teamId : clinical.defaultTeamId();
-        if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
-            throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
-        }
-        String fileId = TeamFileResolver.resolveByDate(sleepHqClient, resolvedTeamId, date, "brp.edf");
-        return getWaveform(fileId, startSeconds, maxSeconds);
+    private String serializeAlignedWaveform(WaveformResult result, CpapClockAlignment.CpapClockAdjustResolution resolution) {
+        return CpapClockAlignment.serializeWithAlignment(
+                CpapClockAlignment.alignWaveform(result, resolution.adjustSeconds()), resolution);
     }
 
     public String scanApneaEvents(String fileId, String teamId, String date, Double threshold, Integer minDurationSeconds) {
+        return scanApneaEvents(fileId, teamId, date, threshold, minDurationSeconds, null);
+    }
+
+    public String scanApneaEvents(String fileId, String teamId, String date, Double threshold, Integer minDurationSeconds,
+                                 Integer cpapClockAdjustSeconds) {
         String targetFileId = fileId;
         if (targetFileId == null || targetFileId.isBlank()) {
             if (date == null || date.isBlank()) {
@@ -92,49 +110,62 @@ public class WaveformService {
             if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
                 throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
             }
-            targetFileId = TeamFileResolver.resolveByDate(sleepHqClient, resolvedTeamId, date, "brp.edf");
+            targetFileId = cacheFacade.resolveTeamFileByDate(resolvedTeamId, date, "brp.edf");
         }
+        final String resolvedFileId = targetFileId;
 
-        // 1. Fetch file metadata to get download URL
-        String fileJson = sleepHqClient.getImportFile(targetFileId);
-        JsonNode attrs  = JsonApi.attributes(JsonApi.parse(fileJson));
+        double hypopneaLimit = threshold != null ? threshold : 0.15;
+        int minDuration = minDurationSeconds != null ? minDurationSeconds : 10;
+        String cacheKey = resolvedFileId + "|" + hypopneaLimit + "|" + minDuration + "|" + cpapClockAdjustSeconds
+                + "|" + date;
+        Map<String, Long> phases = PhaseTiming.newPhaseMap();
+        String json = cacheFacade.getCachedApneaScanJson(cacheKey,
+                () -> scanApneaEventsUncached(resolvedFileId, date, hypopneaLimit, minDuration, cpapClockAdjustSeconds, phases));
+        phaseTiming.logSummary("scan-apnea-events", phases);
+        return json;
+    }
+
+    private String scanApneaEventsUncached(String targetFileId, String date, double hypopneaLimit, int minDurationSeconds,
+                                           Integer cpapClockAdjustSeconds, Map<String, Long> phases) {
+        String fileJson;
+        try (PhaseTiming.Scope ignored = phaseTiming.start("scan-apnea-events", "metadata")) {
+            fileJson = cacheFacade.getImportFile(targetFileId);
+            phases.put("metadata_ms", ignored.elapsedMillis());
+        }
+        JsonNode attrs = JsonApi.attributes(JsonApi.parse(fileJson));
         String downloadUrl = attrs.path("download_url").asText(null);
-        String filename    = attrs.path("name").asText("");
+        String filename = attrs.path("name").asText("");
 
         if (downloadUrl == null || downloadUrl.isBlank()) {
             throw new IllegalArgumentException("download_url missing for file " + targetFileId);
         }
 
-        // 2. Download full EDF file
         URI uri = URI.create(downloadUrl);
-        byte[] edfBytes = BinaryDownloadSupport.download(s3RestClient, uri, targetFileId);
-
-        // 3. Parse full file (use a large duration like 12 hours = 43200 seconds)
-        int twelveHours = 12 * 3600;
-        WaveformResult fullResult = EdfParser.parse(edfBytes, 0, twelveHours);
-
-        // 4. Find Flow channel
-        WaveformChannel flowChannel = null;
-        for (WaveformChannel ch : fullResult.channels()) {
-            String lbl = ch.label().toLowerCase(Locale.ROOT);
-            if (lbl.startsWith("flow")) {
-                flowChannel = ch;
-                break;
-            }
+        byte[] edfBytes;
+        try (PhaseTiming.Scope ignored = phaseTiming.start("scan-apnea-events", "download")) {
+            edfBytes = cacheFacade.downloadEdf(uri, targetFileId);
+            phases.put("download_ms", ignored.elapsedMillis());
         }
 
+        int twelveHours = 12 * 3600;
+        WaveformResult fullResult;
+        try (PhaseTiming.Scope ignored = phaseTiming.start("scan-apnea-events", "parse")) {
+            fullResult = EdfParser.parseFlowChannel(edfBytes, 0, twelveHours);
+            phases.put("parse_ms", ignored.elapsedMillis());
+        }
+
+        WaveformChannel flowChannel = fullResult.channels().getFirst();
         if (flowChannel == null) {
             throw new IllegalArgumentException("No flow respiration channel found in file " + filename);
         }
 
-        // 5. Run apnea/hypopnea detection algorithm
+        // Run apnea/hypopnea detection algorithm
         double Fs = flowChannel.sampleRate();
         List<Double> samples = flowChannel.samples();
         int totalSamples = samples.size();
 
-        double hypopneaLimit = threshold != null ? threshold : 0.15;
         double apneaLimit = 0.04;
-        int minSamples = (int) Math.round((minDurationSeconds != null ? minDurationSeconds : 10) * Fs);
+        int minSamples = (int) Math.round(minDurationSeconds * Fs);
 
         // Compute 4-second smoothing window size
         int windowSize = (int) Math.round(4.0 * Fs);
@@ -195,11 +226,18 @@ public class WaveformService {
                 events
         );
 
-        try {
-            return JsonApi.mapper().writeValueAsString(scanResult);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize apnea scan result", e);
+        OptionalInt machineDateOffset = resolveMachineDateOffsetForScan(date);
+        CpapClockAlignment.CpapClockAdjustResolution resolution =
+                CpapClockAlignment.resolveAdjust(clinical, cpapClockAdjustSeconds, machineDateOffset);
+        return CpapClockAlignment.serializeWithAlignment(
+                CpapClockAlignment.alignApneaScan(scanResult, resolution.adjustSeconds()), resolution);
+    }
+
+    private OptionalInt resolveMachineDateOffsetForScan(String calendarDate) {
+        if (calendarDate == null || calendarDate.isBlank()) {
+            return OptionalInt.empty();
         }
+        return machineDateTimeOffsetLoader.loadForCpapDate(calendarDate, null);
     }
 
     private String classifyEvent(List<Double> samples, int startIdx, int endIdx, double Fs, double apneaLimit) {

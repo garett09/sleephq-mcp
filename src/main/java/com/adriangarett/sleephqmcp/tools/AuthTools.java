@@ -1,7 +1,7 @@
 package com.adriangarett.sleephqmcp.tools;
 
 import com.adriangarett.sleephqmcp.auth.TokenManager;
-import com.adriangarett.sleephqmcp.client.SleepHqClient;
+import com.adriangarett.sleephqmcp.service.SleepHqCacheFacade;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.config.ClinicalDefaultsSupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
@@ -16,12 +16,12 @@ import java.util.Map;
 @Component
 public class AuthTools {
 
-    private final SleepHqClient client;
+    private final SleepHqCacheFacade cacheFacade;
     private final TokenManager tokenManager;
     private final ClinicalContextProperties clinical;
 
-    public AuthTools(SleepHqClient client, TokenManager tokenManager, ClinicalContextProperties clinical) {
-        this.client = client;
+    public AuthTools(SleepHqCacheFacade cacheFacade, TokenManager tokenManager, ClinicalContextProperties clinical) {
+        this.cacheFacade = cacheFacade;
         this.tokenManager = tokenManager;
         this.clinical = clinical;
     }
@@ -29,7 +29,7 @@ public class AuthTools {
     @McpTool(name = "who-am-i",
             description = "Return the authenticated SleepHQ user (GET /api/v1/me). Use this to verify credentials are wired up.")
     public String whoAmI() {
-        return McpResponses.safe(client::getMe);
+        return McpResponses.safe(cacheFacade::getMe);
     }
 
     @McpTool(name = "get-configured-defaults",
