@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "id": "101",
+      "type": "journal",
+      "attributes": {
+        "id": 101,
+        "team_id": 1,
+        "date": "2026-05-23",
+        "step_count": 8421,
+        "weight_grams": 78000,
+        "feeling_score": 4,
+        "active_energy_joules": 1234000,
+        "sleep_stages": "{\"stages\":[{\"stage\":\"deep\",\"minutes\":90},{\"stage\":\"rem\",\"minutes\":120}]}",
+        "notes": "felt rested"
+      }
+    },
+    {
+      "id": "102",
+      "type": "journal",
+      "attributes": {
+        "id": 102,
+        "team_id": 1,
+        "date": "2026-05-24",
+        "step_count": 6100,
+        "feeling_score": 3,
+        "sleep_stages": "Light sleep most of night.",
+        "notes": null
+      }
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 100
+  }
+}
