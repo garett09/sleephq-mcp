@@ -1,62 +1,253 @@
 package com.adriangarett.sleephqmcp.service;
 
-import com.adriangarett.sleephqmcp.domain.WaveformSample;
+import com.adriangarett.sleephqmcp.client.SleepHqClient;
+import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.client.RestClient;
 
-import java.time.LocalTime;
-import java.util.List;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class WaveformServiceTest {
 
-    @Test
-    void extractSamples_flatNumericArray() {
-        JsonNode node = JsonApi.parse("{\"data\":[1.0, 2.0, 3.0, 4.0]}");
-        List<WaveformSample> samples = WaveformService.extractSamples(node, 25.0);
-        assertThat(samples).hasSize(4);
-        assertThat(samples.get(0).v()).isEqualTo(1.0);
-        assertThat(samples.get(0).t()).isEqualTo(0.0);
-        assertThat(samples.get(1).t()).isCloseTo(0.04, org.assertj.core.data.Offset.offset(1e-9));
+    @Mock
+    private SleepHqClient sleepHqClient;
+
+    @Mock
+    private RestClient s3RestClient;
+
+    @Mock
+    private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
+
+    @Mock
+    private RestClient.ResponseSpec responseSpec;
+
+    private WaveformService waveformService;
+
+    @BeforeEach
+    void setUp() {
+        ClinicalContextProperties clinical = new ClinicalContextProperties("team-123", "cpap-123", "o2-123");
+        waveformService = new WaveformService(sleepHqClient, s3RestClient, clinical);
     }
 
     @Test
-    void extractSamples_arrayOfTVPairs() {
-        JsonNode node = JsonApi.parse("{\"data\":[{\"t\":0,\"v\":5.0},{\"t\":1,\"v\":6.0}]}");
-        List<WaveformSample> samples = WaveformService.extractSamples(node, 1.0);
-        assertThat(samples).hasSize(2);
-        assertThat(samples.get(1).v()).isEqualTo(6.0);
-        assertThat(samples.get(1).t()).isEqualTo(1.0);
+    void scanApneaEvents_detectsObstructiveApnea() throws Exception {
+        // 1. Mock file info response
+        String fileMetadataJson = """
+                {
+                  "data": {
+                    "id": "file-abc",
+                    "type": "import_file",
+                    "attributes": {
+                      "name": "20260520_210920_BRP.edf",
+                      "download_url": "https://s3.amazonaws.com/test-bucket/file-abc"
+                    }
+                  }
+                }
+                """;
+        when(sleepHqClient.getImportFile("file-abc")).thenReturn(fileMetadataJson);
+
+        // 2. Build mock EDF:
+        //    nRecords = 30, recDuration = 1.0, samplesPerRec = 25 (25 Hz)
+        //    Record 0 to 3: normal flow (around 0.5)
+        //    Record 4 to 23: obstructive apnea flow (around 0.01 L/s, no 4Hz)
+        //    Record 24 to 29: normal flow (around 0.5)
+        byte[] edf = new byte[256 + 256 + 30 * 25 * 2];
+        Arrays.fill(edf, (byte) ' ');
+
+        writeString(edf, 0, "0");
+        writeString(edf, 168, "20.05.26");
+        writeString(edf, 176, "21.09.00");
+        writeString(edf, 184, "512");
+        writeString(edf, 236, "30");
+        writeString(edf, 244, "1.0");
+        writeString(edf, 252, "1");
+
+        writeString(edf, 256, "Flow.40ms");
+        writeString(edf, 256 + 96, "L/s");
+        writeString(edf, 256 + 104, "-5.0");
+        writeString(edf, 256 + 112, "5.0");
+        writeString(edf, 256 + 120, "-2048");
+        writeString(edf, 256 + 128, "2047");
+        writeString(edf, 256 + 216, "25");
+
+        int pos = 512;
+        for (int i = 0; i < 30 * 25; i++) {
+            boolean isApnea = (i >= 100 && i < 600);
+            short rawVal = (short) (isApnea ? 3 : 204); // 3 -> ~0.0085 L/s (Apnea), 204 -> ~0.499 L/s (Normal)
+            edf[pos++] = (byte) (rawVal & 0xFF);
+            edf[pos++] = (byte) ((rawVal >> 8) & 0xFF);
+        }
+
+        when(s3RestClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(URI.class))).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(byte[].class)).thenReturn(edf);
+
+        // Run scanner (threshold = 0.15 for hypopnea, but average of 0.0085 L/s will classify as APNEA)
+        String resultJson = waveformService.scanApneaEvents("file-abc", null, null, 0.15, 8);
+
+        JsonNode root = JsonApi.parse(resultJson);
+        JsonNode events = root.path("events");
+        assertThat(events).hasSize(1);
+
+        JsonNode event = events.get(0);
+        assertThat(event.path("classification").asText()).isEqualTo("APNEA_OBSTRUCTIVE");
+        assertThat(event.path("duration_seconds").asDouble()).isEqualTo(18.28);
+        assertThat(event.path("start_seconds").asDouble()).isEqualTo(6.84);
+        assertThat(event.path("offset").asText()).isEqualTo("00:00:06");
+        assertThat(event.path("timestamp").asText()).isEqualTo("2026-05-20T21:09:06.840");
     }
 
     @Test
-    void extractSamples_jsonApiEnvelopeWithValues() {
-        JsonNode node = JsonApi.parse("{\"data\":{\"attributes\":{\"values\":[10,20,30],\"interval_seconds\":0.04}}}");
-        List<WaveformSample> samples = WaveformService.extractSamples(node, 25.0);
-        assertThat(samples).hasSize(3);
-        assertThat(samples.get(2).v()).isEqualTo(30.0);
-        assertThat(samples.get(2).t()).isCloseTo(0.08, org.assertj.core.data.Offset.offset(1e-9));
+    void scanApneaEvents_detectsCentralApnea() throws Exception {
+        String fileMetadataJson = """
+                {
+                  "data": {
+                    "id": "file-abc",
+                    "type": "import_file",
+                    "attributes": {
+                      "name": "20260520_210920_BRP.edf",
+                      "download_url": "https://s3.amazonaws.com/test-bucket/file-abc"
+                    }
+                  }
+                }
+                """;
+        when(sleepHqClient.getImportFile("file-abc")).thenReturn(fileMetadataJson);
+
+        // Build mock EDF with 4 Hz Forced Oscillation Technique (FOT) wave added during apnea
+        byte[] edf = new byte[256 + 256 + 30 * 25 * 2];
+        Arrays.fill(edf, (byte) ' ');
+
+        writeString(edf, 0, "0");
+        writeString(edf, 168, "20.05.26");
+        writeString(edf, 176, "21.09.00");
+        writeString(edf, 184, "512");
+        writeString(edf, 236, "30");
+        writeString(edf, 244, "1.0");
+        writeString(edf, 252, "1");
+
+        writeString(edf, 256, "Flow.40ms");
+        writeString(edf, 256 + 96, "L/s");
+        writeString(edf, 256 + 104, "-5.0");
+        writeString(edf, 256 + 112, "5.0");
+        writeString(edf, 256 + 120, "-2048");
+        writeString(edf, 256 + 128, "2047");
+        writeString(edf, 256 + 216, "25");
+
+        int pos = 512;
+        for (int i = 0; i < 30 * 25; i++) {
+            boolean isApnea = (i >= 100 && i < 600);
+            double physVal;
+            if (isApnea) {
+                // Add a strong 4 Hz sinusoidal wave: amplitude = 0.008 L/s
+                physVal = 0.008 * Math.sin(2.0 * Math.PI * 4.0 * (i - 100) / 25.0);
+            } else {
+                physVal = 0.5;
+            }
+            // Scale to digital raw
+            short rawVal = (short) Math.round((physVal + 5.0) * 4095.0 / 10.0 - 2048.0);
+            edf[pos++] = (byte) (rawVal & 0xFF);
+            edf[pos++] = (byte) ((rawVal >> 8) & 0xFF);
+        }
+
+        when(s3RestClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(URI.class))).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(byte[].class)).thenReturn(edf);
+
+        String resultJson = waveformService.scanApneaEvents("file-abc", null, null, 0.15, 8);
+
+        JsonNode root = JsonApi.parse(resultJson);
+        JsonNode events = root.path("events");
+        assertThat(events).hasSize(1);
+
+        JsonNode event = events.get(0);
+        assertThat(event.path("classification").asText()).isEqualTo("APNEA_CENTRAL");
+        assertThat(event.path("duration_seconds").asDouble()).isEqualTo(18.36);
+        assertThat(event.path("start_seconds").asDouble()).isEqualTo(6.8);
+        assertThat(event.path("offset").asText()).isEqualTo("00:00:06");
+        assertThat(event.path("timestamp").asText()).isEqualTo("2026-05-20T21:09:06.800");
     }
 
     @Test
-    void extractSamples_unknownShapeReturnsNull() {
-        JsonNode node = JsonApi.parse("{\"unexpected\":\"shape\"}");
-        assertThat(WaveformService.extractSamples(node, 25.0)).isNull();
+    void scanApneaEvents_detectsHypopnea() throws Exception {
+        String fileMetadataJson = """
+                {
+                  "data": {
+                    "id": "file-abc",
+                    "type": "import_file",
+                    "attributes": {
+                      "name": "20260520_210920_BRP.edf",
+                      "download_url": "https://s3.amazonaws.com/test-bucket/file-abc"
+                    }
+                  }
+                }
+                """;
+        when(sleepHqClient.getImportFile("file-abc")).thenReturn(fileMetadataJson);
+
+        // Build mock EDF with partial flow reduction (around 0.08 L/s, which is between 0.04 and 0.15)
+        byte[] edf = new byte[256 + 256 + 30 * 25 * 2];
+        Arrays.fill(edf, (byte) ' ');
+
+        writeString(edf, 0, "0");
+        writeString(edf, 168, "20.05.26");
+        writeString(edf, 176, "21.09.00");
+        writeString(edf, 184, "512");
+        writeString(edf, 236, "30");
+        writeString(edf, 244, "1.0");
+        writeString(edf, 252, "1");
+
+        writeString(edf, 256, "Flow.40ms");
+        writeString(edf, 256 + 96, "L/s");
+        writeString(edf, 256 + 104, "-5.0");
+        writeString(edf, 256 + 112, "5.0");
+        writeString(edf, 256 + 120, "-2048");
+        writeString(edf, 256 + 128, "2047");
+        writeString(edf, 256 + 216, "25");
+
+        int pos = 512;
+        for (int i = 0; i < 30 * 25; i++) {
+            boolean isHypopnea = (i >= 100 && i < 600);
+            double physVal = isHypopnea ? 0.08 : 0.5; // 0.08 L/s is Hypopnea
+            short rawVal = (short) Math.round((physVal + 5.0) * 4095.0 / 10.0 - 2048.0);
+            edf[pos++] = (byte) (rawVal & 0xFF);
+            edf[pos++] = (byte) ((rawVal >> 8) & 0xFF);
+        }
+
+        when(s3RestClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(URI.class))).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(byte[].class)).thenReturn(edf);
+
+        String resultJson = waveformService.scanApneaEvents("file-abc", null, null, 0.15, 8);
+
+        JsonNode root = JsonApi.parse(resultJson);
+        JsonNode events = root.path("events");
+        assertThat(events).hasSize(1);
+
+        JsonNode event = events.get(0);
+        assertThat(event.path("classification").asText()).isEqualTo("HYPOPNEA");
+        assertThat(event.path("duration_seconds").asDouble()).isEqualTo(17.32);
+        assertThat(event.path("start_seconds").asDouble()).isEqualTo(7.32);
+        assertThat(event.path("offset").asText()).isEqualTo("00:00:07");
+        assertThat(event.path("timestamp").asText()).isEqualTo("2026-05-20T21:09:07.320");
     }
 
-    @Test
-    void sliceByWindow_inclusiveOnBothEnds() {
-        List<WaveformSample> samples = List.of(
-                new WaveformSample(0, 1),
-                new WaveformSample(3600, 2),     // 01:00:00
-                new WaveformSample(7200, 3),     // 02:00:00
-                new WaveformSample(10800, 4));   // 03:00:00
-        List<WaveformSample> sliced = WaveformService.sliceByWindow(
-                samples, LocalTime.of(1, 0, 0), LocalTime.of(2, 0, 0));
-        assertThat(sliced).hasSize(2);
-        assertThat(sliced.get(0).v()).isEqualTo(2);
-        assertThat(sliced.get(1).v()).isEqualTo(3);
+    private void writeString(byte[] buf, int offset, String s) {
+        byte[] bytes = s.getBytes(StandardCharsets.US_ASCII);
+        System.arraycopy(bytes, 0, buf, offset, bytes.length);
     }
 }

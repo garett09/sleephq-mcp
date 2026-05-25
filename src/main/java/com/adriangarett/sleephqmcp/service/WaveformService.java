@@ -1,131 +1,311 @@
 package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
+import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.domain.ApneaEvent;
+import com.adriangarett.sleephqmcp.domain.ApneaScanResult;
 import com.adriangarett.sleephqmcp.domain.WaveformChannel;
-import com.adriangarett.sleephqmcp.domain.WaveformResponse;
-import com.adriangarett.sleephqmcp.domain.WaveformSample;
-import com.adriangarett.sleephqmcp.domain.WaveformStats;
+import com.adriangarett.sleephqmcp.domain.WaveformResult;
+import com.adriangarett.sleephqmcp.support.EdfParser;
 import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.springframework.lang.Nullable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
-import java.time.LocalTime;
+import java.net.URI;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
-/**
- * Implements the two-mode waveform contract: no window → stats only;
- * with window → raw native-rate samples for that window only. Never silently decimates.
- */
 @Service
 public class WaveformService {
 
-    private final SleepHqClient client;
+    private final SleepHqClient sleepHqClient;
+    private final RestClient s3RestClient;
+    private final ClinicalContextProperties clinical;
 
-    public WaveformService(SleepHqClient client) {
-        this.client = client;
+    public WaveformService(SleepHqClient sleepHqClient,
+                           @Qualifier("s3RestClient") RestClient s3RestClient,
+                           ClinicalContextProperties clinical) {
+        this.sleepHqClient = sleepHqClient;
+        this.s3RestClient  = s3RestClient;
+        this.clinical      = clinical;
     }
 
-    public WaveformResponse fetch(WaveformChannel channel, String machineDateId,
-                                  @Nullable LocalTime from, @Nullable LocalTime to) {
-        String rawJson = client.getNightWaveform(machineDateId, channel.pathSegment());
-        JsonNode node;
+    public String getWaveform(String fileId, int startSeconds, int maxSeconds) {
+        // 1. Fetch file metadata from SleepHQ
+        String fileJson = sleepHqClient.getImportFile(fileId);
+        JsonNode attrs  = JsonApi.attributes(JsonApi.parse(fileJson));
+
+        String downloadUrl = attrs.path("download_url").asText(null);
+        String filename    = attrs.path("name").asText(null);
+
+        if (downloadUrl == null || downloadUrl.isBlank()) {
+            throw new IllegalArgumentException("download_url missing for file " + fileId);
+        }
+        if (!downloadUrl.startsWith("https://")) {
+            throw new IllegalArgumentException("download_url is not HTTPS for file " + fileId);
+        }
+
+        // 2. Download EDF binary — use URI.create() so signed URL query params are not template variables
+        URI uri = URI.create(downloadUrl);
+        byte[] edfBytes = downloadEdf(uri, fileId);
+
+        // 3. Parse EDF and attach filename from metadata
+        WaveformResult parsed = EdfParser.parse(edfBytes, startSeconds, maxSeconds);
+        WaveformResult result = new WaveformResult(
+                filename != null ? filename : "",
+                parsed.startDatetime(),
+                parsed.durationSeconds(),
+                parsed.channels()
+        );
+
         try {
-            node = JsonApi.parse(rawJson);
-        } catch (Exception e) {
-            return new WaveformResponse.Passthrough(channel, rawJson,
-                    "Response was not valid JSON; returned raw body for inspection.");
+            return JsonApi.mapper().writeValueAsString(result);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize waveform result", e);
         }
-
-        List<WaveformSample> samples = extractSamples(node, channel.nativeSampleRateHz());
-        if (samples == null) {
-            return new WaveformResponse.Passthrough(channel, rawJson,
-                    "Could not parse waveform shape automatically; returned raw payload. "
-                            + "Inspect and adjust WaveformService.extractSamples to match.");
-        }
-
-        if (from == null && to == null) {
-            double[] values = samples.stream().mapToDouble(WaveformSample::v).toArray();
-            return new WaveformResponse.Stats(channel,
-                    WaveformStats.from(values, channel.nativeSampleRateHz()));
-        }
-
-        List<WaveformSample> window = sliceByWindow(samples, from, to);
-        return new WaveformResponse.Raw(channel, from, to, window);
     }
 
-    /**
-     * Heuristically extract a numeric sample list from common SleepHQ payload shapes.
-     * Returns {@code null} if no recognized shape matched — caller should pass through.
-     */
-    static List<WaveformSample> extractSamples(JsonNode root, double sampleRateHz) {
-        // 1) Flat numeric array under `data`
-        JsonNode data = root.path("data");
-        if (data.isArray() && data.size() > 0 && data.get(0).isNumber()) {
-            return numericArrayToSamples(data, sampleRateHz);
+    public String getWaveformByDate(String teamId, String date, int startSeconds, int maxSeconds) {
+        String resolvedTeamId = teamId != null && !teamId.isBlank() ? teamId : clinical.defaultTeamId();
+        if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
+            throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
         }
+        String fileId = resolveFileIdByDate(resolvedTeamId, date);
+        return getWaveform(fileId, startSeconds, maxSeconds);
+    }
 
-        // 2) Array of {t, v} objects under `data`
-        if (data.isArray() && data.size() > 0 && data.get(0).isObject()
-                && data.get(0).has("t") && data.get(0).has("v")) {
-            List<WaveformSample> out = new ArrayList<>(data.size());
-            for (JsonNode element : data) {
-                out.add(new WaveformSample(element.path("t").asDouble(), element.path("v").asDouble()));
+    public String scanApneaEvents(String fileId, String teamId, String date, Double threshold, Integer minDurationSeconds) {
+        String targetFileId = fileId;
+        if (targetFileId == null || targetFileId.isBlank()) {
+            if (date == null || date.isBlank()) {
+                throw new IllegalArgumentException("Either fileId or date must be provided");
             }
-            return out;
-        }
-
-        // 3) JSON:API envelope: data.attributes.{values | data}
-        JsonNode attributes = data.path("attributes");
-        if (attributes.isObject()) {
-            JsonNode values = firstArray(attributes, "values", "data", "samples", "points");
-            if (values != null && values.size() > 0 && values.get(0).isNumber()) {
-                double intervalSeconds = attributes.path("interval_seconds").asDouble(1.0 / sampleRateHz);
-                double rate = intervalSeconds > 0 ? 1.0 / intervalSeconds : sampleRateHz;
-                return numericArrayToSamples(values, rate);
+            String resolvedTeamId = teamId != null && !teamId.isBlank() ? teamId : clinical.defaultTeamId();
+            if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
+                throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
             }
+            targetFileId = resolveFileIdByDate(resolvedTeamId, date);
         }
 
-        return null;
-    }
+        // 1. Fetch file metadata to get download URL
+        String fileJson = sleepHqClient.getImportFile(targetFileId);
+        JsonNode attrs  = JsonApi.attributes(JsonApi.parse(fileJson));
+        String downloadUrl = attrs.path("download_url").asText(null);
+        String filename    = attrs.path("name").asText("");
 
-    private static List<WaveformSample> numericArrayToSamples(JsonNode array, double sampleRateHz) {
-        double interval = sampleRateHz > 0 ? 1.0 / sampleRateHz : 1.0;
-        List<WaveformSample> out = new ArrayList<>(array.size());
-        for (int i = 0; i < array.size(); i++) {
-            out.add(new WaveformSample(i * interval, array.get(i).asDouble()));
+        if (downloadUrl == null || downloadUrl.isBlank()) {
+            throw new IllegalArgumentException("download_url missing for file " + targetFileId);
         }
-        return out;
-    }
 
-    private static JsonNode firstArray(JsonNode parent, String... keys) {
-        for (String key : keys) {
-            JsonNode child = parent.path(key);
-            if (child.isArray()) return child;
-        }
-        return null;
-    }
+        // 2. Download full EDF file
+        URI uri = URI.create(downloadUrl);
+        byte[] edfBytes = downloadEdf(uri, targetFileId);
 
-    static List<WaveformSample> sliceByWindow(List<WaveformSample> samples,
-                                              @Nullable LocalTime from, @Nullable LocalTime to) {
-        if (samples.isEmpty()) return samples;
-        // Samples carry seconds-from-start. Convert HH:MM:SS to seconds-from-midnight and
-        // assume the recording starts at midnight unless the data tells us otherwise.
-        // (SleepHQ wraps midnight-spanning sessions; if the agent supplies a window the
-        //  data is already keyed to that night's clock.)
-        double fromSec = from == null ? samples.get(0).t() : from.toSecondOfDay();
-        double toSec = to == null ? samples.get(samples.size() - 1).t() : to.toSecondOfDay();
-        if (toSec < fromSec) {
-            // window crosses midnight — wrap by adding 24h to the end
-            toSec += 24 * 3600;
-        }
-        List<WaveformSample> out = new ArrayList<>();
-        for (WaveformSample sample : samples) {
-            if (sample.t() >= fromSec && sample.t() <= toSec) {
-                out.add(sample);
+        // 3. Parse full file (use a large duration like 12 hours = 43200 seconds)
+        int twelveHours = 12 * 3600;
+        WaveformResult fullResult = EdfParser.parse(edfBytes, 0, twelveHours);
+
+        // 4. Find Flow channel
+        WaveformChannel flowChannel = null;
+        for (WaveformChannel ch : fullResult.channels()) {
+            String lbl = ch.label().toLowerCase(Locale.ROOT);
+            if (lbl.startsWith("flow")) {
+                flowChannel = ch;
+                break;
             }
         }
-        return out;
+
+        if (flowChannel == null) {
+            throw new IllegalArgumentException("No flow respiration channel found in file " + filename);
+        }
+
+        // 5. Run apnea/hypopnea detection algorithm
+        double Fs = flowChannel.sampleRate();
+        List<Double> samples = flowChannel.samples();
+        int totalSamples = samples.size();
+
+        double hypopneaLimit = threshold != null ? threshold : 0.15;
+        double apneaLimit = 0.04;
+        int minSamples = (int) Math.round((minDurationSeconds != null ? minDurationSeconds : 10) * Fs);
+
+        // Compute 4-second smoothing window size
+        int windowSize = (int) Math.round(4.0 * Fs);
+        if (windowSize <= 0) windowSize = 1;
+
+        // Precompute moving average of absolute flow (flow envelope)
+        double[] envelope = new double[totalSamples];
+        double sum = 0.0;
+        for (int i = 0; i < totalSamples; i++) {
+            sum += Math.abs(samples.get(i));
+            if (i >= windowSize) {
+                sum -= Math.abs(samples.get(i - windowSize));
+            }
+            int denom = Math.min(i + 1, windowSize);
+            envelope[i] = sum / denom;
+        }
+
+        // Detect contiguous blocks where envelope < hypopneaLimit
+        List<ApneaEvent> events = new ArrayList<>();
+        boolean inEvent = false;
+        int eventStartIdx = -1;
+
+        for (int i = 0; i < totalSamples; i++) {
+            boolean belowLimit = envelope[i] < hypopneaLimit;
+            if (belowLimit && !inEvent) {
+                inEvent = true;
+                eventStartIdx = i;
+            } else if (!belowLimit && inEvent) {
+                inEvent = false;
+                int durationSamples = i - eventStartIdx;
+                if (durationSamples >= minSamples) {
+                    double startSec = eventStartIdx / Fs;
+                    double durationSec = durationSamples / Fs;
+                    String classification = classifyEvent(samples, eventStartIdx, i, Fs, apneaLimit);
+                    events.add(createEvent(fullResult.startDatetime(), startSec, durationSec, classification));
+                }
+            }
+        }
+
+        // Handle event at the very end
+        if (inEvent) {
+            int durationSamples = totalSamples - eventStartIdx;
+            if (durationSamples >= minSamples) {
+                double startSec = eventStartIdx / Fs;
+                double durationSec = durationSamples / Fs;
+                String classification = classifyEvent(samples, eventStartIdx, totalSamples, Fs, apneaLimit);
+                events.add(createEvent(fullResult.startDatetime(), startSec, durationSec, classification));
+            }
+        }
+
+        // 6. Serialize and return response
+        ApneaScanResult scanResult = new ApneaScanResult(
+                filename,
+                fullResult.startDatetime(),
+                fullResult.durationSeconds(),
+                flowChannel.label(),
+                hypopneaLimit,
+                events
+        );
+
+        try {
+            return JsonApi.mapper().writeValueAsString(scanResult);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize apnea scan result", e);
+        }
+    }
+
+    private String classifyEvent(List<Double> samples, int startIdx, int endIdx, double Fs, double apneaLimit) {
+        int N = endIdx - startIdx;
+        double sumAbs = 0.0;
+        for (int i = startIdx; i < endIdx; i++) {
+            sumAbs += Math.abs(samples.get(i));
+        }
+        double avgEnvelope = sumAbs / N;
+
+        if (avgEnvelope >= apneaLimit) {
+            return "HYPOPNEA";
+        }
+
+        // For Apneas, check for 4 Hz Forced Oscillation Technique (FOT) oscillations
+        // Use the middle 50% of the event to avoid edge leakage from transition lags
+        int cropStart = startIdx + N / 4;
+        int cropEnd = endIdx - N / 4;
+        int cropN = cropEnd - cropStart;
+
+        if (cropN < 25) { // too short, fallback to full window
+            cropStart = startIdx;
+            cropEnd = endIdx;
+            cropN = N;
+        }
+
+        if (cropN < 10) {
+            return "APNEA_OBSTRUCTIVE";
+        }
+
+        double cosSum = 0.0;
+        double sinSum = 0.0;
+        for (int i = cropStart; i < cropEnd; i++) {
+            double angle = 2.0 * Math.PI * 4.0 * (i - cropStart) / Fs;
+            cosSum += samples.get(i) * Math.cos(angle);
+            sinSum += samples.get(i) * Math.sin(angle);
+        }
+        double amp4Hz = Math.sqrt(Math.pow(cosSum * 2.0 / cropN, 2) + Math.pow(sinSum * 2.0 / cropN, 2));
+
+        // Threshold for FOT 4Hz amplitude detection
+        if (amp4Hz >= 0.003) {
+            return "APNEA_CENTRAL";
+        } else {
+            return "APNEA_OBSTRUCTIVE";
+        }
+    }
+
+    private byte[] downloadEdf(URI uri, String fileId) {
+        try {
+            byte[] edfBytes = s3RestClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(byte[].class);
+            if (edfBytes == null || edfBytes.length == 0) {
+                throw new IllegalStateException("Downloaded empty file for fileId " + fileId);
+            }
+            return edfBytes;
+        } catch (RestClientResponseException e) {
+            throw new IllegalStateException(
+                    "Download failed for file " + fileId + " (HTTP " + e.getStatusCode().value() +
+                    ") — the signed URL may have expired (5-minute TTL)", e);
+        }
+    }
+
+    private String resolveFileIdByDate(String teamId, String date) {
+        String cleanDate = date.replace("-", "").trim();
+        if (cleanDate.length() != 8) {
+            throw new IllegalArgumentException("Invalid date format: " + date + ". Expected YYYY-MM-DD.");
+        }
+
+        int pageNum = 1;
+        while (pageNum <= 5) {
+            String filesJson = sleepHqClient.listTeamFiles(teamId, pageNum, 100);
+            JsonNode root = JsonApi.parse(filesJson);
+            JsonNode data = root.path("data");
+            if (!data.isArray() || data.isEmpty()) {
+                break;
+            }
+            for (JsonNode item : data) {
+                String name = item.path("attributes").path("name").asText("");
+                String lowerName = name.toLowerCase(Locale.ROOT);
+                if (lowerName.contains(cleanDate) && lowerName.contains("brp.edf")) {
+                    return item.path("id").asText();
+                }
+            }
+            if (data.size() < 100) {
+                break;
+            }
+            pageNum++;
+        }
+        throw new IllegalArgumentException("No BRP.edf file found for date " + date + " (teamId: " + teamId + ")");
+    }
+
+    private ApneaEvent createEvent(String startDatetimeStr, double startSec, double durationSec, String classification) {
+        LocalDateTime baseTime = LocalDateTime.parse(startDatetimeStr);
+        LocalDateTime eventTime = baseTime.plusNanos((long) (startSec * 1_000_000_000L));
+
+        long hr = (long) (startSec / 3600);
+        long min = (long) ((startSec % 3600) / 60);
+        long sec = (long) (startSec % 60);
+        String offsetStr = String.format("%02d:%02d:%02d", hr, min, sec);
+
+        return new ApneaEvent(
+                offsetStr,
+                startSec,
+                durationSec,
+                eventTime.toString(),
+                classification
+        );
     }
 }
