@@ -11,18 +11,23 @@ import java.util.List;
  */
 public final class WaveformDownsampler {
 
-    /** ~2 min at 25 Hz — safe for chat/API context limits. */
+    /** Legacy default when no {@link com.adriangarett.sleephqmcp.config.SleepHqPayloadProperties} is wired. */
     public static final int MAX_SAMPLES_PER_CHANNEL = 500;
 
     private WaveformDownsampler() {
     }
 
     public static WaveformResult compact(WaveformResult result) {
+        return compact(result, MAX_SAMPLES_PER_CHANNEL);
+    }
+
+    public static WaveformResult compact(WaveformResult result, int maxSamplesPerChannel) {
+        int cap = Math.max(100, maxSamplesPerChannel);
         List<WaveformChannel> channels = new ArrayList<>();
         boolean anyDownsampled = false;
         for (WaveformChannel channel : result.channels()) {
             int original = channel.samples().size();
-            if (original <= MAX_SAMPLES_PER_CHANNEL) {
+            if (original <= cap) {
                 channels.add(channel);
                 continue;
             }
@@ -31,9 +36,9 @@ public final class WaveformDownsampler {
                     channel.label(),
                     channel.sampleRate(),
                     channel.unit(),
-                    decimate(channel.samples(), MAX_SAMPLES_PER_CHANNEL),
+                    decimate(channel.samples(), cap),
                     original,
-                    stepFor(original, MAX_SAMPLES_PER_CHANNEL)
+                    stepFor(original, cap)
             ));
         }
         if (!anyDownsampled) {

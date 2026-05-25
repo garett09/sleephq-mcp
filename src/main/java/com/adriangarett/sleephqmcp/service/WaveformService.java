@@ -2,6 +2,7 @@ package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.config.SleepHqPayloadProperties;
 import com.adriangarett.sleephqmcp.domain.ApneaEvent;
 import com.adriangarett.sleephqmcp.domain.ApneaScanResult;
 import com.adriangarett.sleephqmcp.domain.WaveformChannel;
@@ -30,15 +31,18 @@ public class WaveformService {
     private final RestClient s3RestClient;
     private final ClinicalContextProperties clinical;
     private final MachineDateTimeOffsetLoader machineDateTimeOffsetLoader;
+    private final SleepHqPayloadProperties payload;
 
     public WaveformService(SleepHqClient sleepHqClient,
                            @Qualifier("s3RestClient") RestClient s3RestClient,
                            ClinicalContextProperties clinical,
-                           MachineDateTimeOffsetLoader machineDateTimeOffsetLoader) {
+                           MachineDateTimeOffsetLoader machineDateTimeOffsetLoader,
+                           SleepHqPayloadProperties payload) {
         this.sleepHqClient = sleepHqClient;
         this.s3RestClient = s3RestClient;
         this.clinical = clinical;
         this.machineDateTimeOffsetLoader = machineDateTimeOffsetLoader;
+        this.payload = payload;
     }
 
     public String getWaveform(String fileId, int startSeconds, int maxSeconds) {
@@ -88,7 +92,7 @@ public class WaveformService {
                 parsed.startDatetime(),
                 parsed.durationSeconds(),
                 parsed.channels()
-        ));
+        ), payload.waveformMaxSamplesPerChannel());
 
         CpapClockAlignment.CpapClockAdjustResolution resolution =
                 CpapClockAlignment.resolveAdjust(clinical, cpapClockAdjustSeconds, machineDateOffset);

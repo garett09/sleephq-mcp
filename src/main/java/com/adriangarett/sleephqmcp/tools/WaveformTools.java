@@ -1,5 +1,6 @@
 package com.adriangarett.sleephqmcp.tools;
 
+import com.adriangarett.sleephqmcp.config.SleepHqPayloadProperties;
 import com.adriangarett.sleephqmcp.service.DeviceEventService;
 import com.adriangarett.sleephqmcp.service.OximetryService;
 import com.adriangarett.sleephqmcp.service.WaveformService;
@@ -12,19 +13,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class WaveformTools {
 
-    private static final int DEFAULT_MAX_MINUTES = 3;
-    private static final int MAX_MAX_MINUTES     = 30;
-
     private final WaveformService waveformService;
     private final DeviceEventService deviceEventService;
     private final OximetryService oximetryService;
+    private final SleepHqPayloadProperties payload;
 
     public WaveformTools(WaveformService waveformService,
                          DeviceEventService deviceEventService,
-                         OximetryService oximetryService) {
+                         OximetryService oximetryService,
+                         SleepHqPayloadProperties payload) {
         this.waveformService = waveformService;
         this.deviceEventService = deviceEventService;
         this.oximetryService = oximetryService;
+        this.payload = payload;
     }
 
     @McpTool(
@@ -34,8 +35,8 @@ public class WaveformTools {
                     "Returns: filename, start_datetime (ISO-8601), duration_seconds (full recording), and channels[] " +
                     "each with label, sample_rate (Hz), unit, and samples[]. " +
                     "ResMed PLD.edf channels: Flow, Pressure, Leak, Snore, FlowLimitation at 25 Hz. " +
-                    "Sample count is capped at maxMinutes × 60 × sampleRate per channel (default 3 min, max 30 min). " +
-                    "Arrays are auto-downsampled to ≤500 points/channel for LLM safety (see sample_count_original). " +
+                    "Sample window capped at maxMinutes (server default from sleephq.mcp.payload.waveform-default-max-minutes). " +
+                    "Arrays downsampled per sleephq.mcp.payload.waveform-max-samples-per-channel (see sample_count_original). " +
                     "Prefer scan-apnea-events for event lists. Supports startMinute offset."
     )
     public String getWaveform(
@@ -43,7 +44,7 @@ public class WaveformTools {
             String fileId,
             @McpToolParam(description = "Start minute within the night (default 0)", required = false)
             Integer startMinute,
-            @McpToolParam(description = "Max minutes of samples to return per channel (default 10, max 30)", required = false)
+            @McpToolParam(description = "Max minutes of samples per channel (server default when omitted)", required = false)
             Integer maxMinutes,
             @McpToolParam(description = "Seconds added to CPAP EDF wall-clock timestamps (overrides SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS)", required = false)
             Integer cpapClockAdjustSeconds) {
@@ -53,10 +54,7 @@ public class WaveformTools {
             if (startMin < 0) {
                 throw new IllegalArgumentException("startMinute must be non-negative");
             }
-            int minutes = maxMinutes == null ? DEFAULT_MAX_MINUTES : maxMinutes;
-            if (minutes < 1 || minutes > MAX_MAX_MINUTES) {
-                throw new IllegalArgumentException("maxMinutes must be between 1 and " + MAX_MAX_MINUTES);
-            }
+            int minutes = resolveWaveformMaxMinutes(maxMinutes);
             return waveformService.getWaveform(id, startMin * 60, minutes * 60, cpapClockAdjustSeconds);
         });
     }
@@ -65,14 +63,14 @@ public class WaveformTools {
             name = "get-waveform-by-date",
             description = "Resolves the BRP.edf file ID for a calendar date, downloads and parses it, and returns the segment's channel data. " +
                     "Avoids file ID hunting. Returns the same structure as get-waveform. " +
-                    "Date format YYYY-MM-DD. Default maxMinutes=3; samples downsampled to ≤500/channel. Prefer scan-apnea-events for titration."
+                    "Date format YYYY-MM-DD. Default maxMinutes from server payload config. Prefer scan-apnea-events for titration."
     )
     public String getWaveformByDate(
             @McpToolParam(description = "Calendar date (YYYY-MM-DD)", required = true)
             String date,
             @McpToolParam(description = "Start minute within the night (default 0)", required = false)
             Integer startMinute,
-            @McpToolParam(description = "Max minutes of samples to return per channel (default 10, max 30)", required = false)
+            @McpToolParam(description = "Max minutes of samples per channel (server default when omitted)", required = false)
             Integer maxMinutes,
             @McpToolParam(description = "Team ID. Defaults to SLEEPHQ_TEAM_ID.", required = false)
             String teamId,
@@ -84,12 +82,18 @@ public class WaveformTools {
             if (startMin < 0) {
                 throw new IllegalArgumentException("startMinute must be non-negative");
             }
-            int minutes = maxMinutes == null ? DEFAULT_MAX_MINUTES : maxMinutes;
-            if (minutes < 1 || minutes > MAX_MAX_MINUTES) {
-                throw new IllegalArgumentException("maxMinutes must be between 1 and " + MAX_MAX_MINUTES);
-            }
+            int minutes = resolveWaveformMaxMinutes(maxMinutes);
             return waveformService.getWaveformByDate(teamId, cleanDate, startMin * 60, minutes * 60, cpapClockAdjustSeconds);
         });
+    }
+
+    private int resolveWaveformMaxMinutes(Integer maxMinutes) {
+        int minutes = maxMinutes == null ? payload.waveformDefaultMaxMinutes() : maxMinutes;
+        int cap = payload.waveformMaxMinutesCap();
+        if (minutes < 1 || minutes > cap) {
+            throw new IllegalArgumentException("maxMinutes must be between 1 and " + cap);
+        }
+        return minutes;
     }
 
     @McpTool(
@@ -162,8 +166,9 @@ public class WaveformTools {
     @McpTool(
             name = "get-o2-oximetry",
             description = "Downloads a Viatom O2 Ring binary session via list-imports (not EDF). "
-                    + "O2Ring S (0x0301): 1 s samples; classic VLD3: ~4 s. Always set maxMinutes in chat "
-                    + "(full night can exceed 1M chars). Nightly averages: get-combined-night-by-date."
+                    + "O2Ring S (0x0301): 1 s samples; classic VLD3: ~4 s. Recommended maxMinutes from "
+                    + "get-comparison mcp_payload_hints.o2_recommended_max_minutes (full night can exceed 1M chars). "
+                    + "Nightly averages: get-combined-night-by-date."
     )
     public String getO2Oximetry(
             @McpToolParam(description = "File ID from list-import-files. Optional if date is provided.", required = false)

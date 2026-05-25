@@ -42,7 +42,8 @@ class WaveformServiceTest {
     @BeforeEach
     void setUp() {
         ClinicalContextProperties clinical = new ClinicalContextProperties("team-123", "cpap-123", "o2-123", null);
-        waveformService = new WaveformService(sleepHqClient, s3RestClient, clinical, machineDateTimeOffsetLoader);
+        waveformService = new WaveformService(sleepHqClient, s3RestClient, clinical, machineDateTimeOffsetLoader,
+                new com.adriangarett.sleephqmcp.config.SleepHqPayloadProperties(10, 60, 4000, 45, null));
     }
 
     @Test
