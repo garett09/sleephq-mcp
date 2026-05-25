@@ -1,6 +1,5 @@
 package com.adriangarett.sleephqmcp.service;
 
-import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,17 +20,14 @@ import static org.mockito.Mockito.when;
 class ComparisonServiceTest {
 
     @Mock
-    private SleepHqClient client;
-
-    @Mock
     private CombinedNightService combinedNightService;
 
     private ComparisonService service;
 
     @BeforeEach
     void setUp() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties(null, "cpap-default", "o2-default", null);
-        service = new ComparisonService(client, combinedNightService, clinical);
+        ClinicalContextProperties clinical = new ClinicalContextProperties(null, "cpap-default", "o2-default");
+        service = new ComparisonService(combinedNightService, clinical);
     }
 
     @Test
@@ -90,8 +86,8 @@ class ComparisonServiceTest {
 
     @Test
     void compare_noO2InMeta_whenClinicalO2Unset() {
-        ClinicalContextProperties clinical = new ClinicalContextProperties(null, "x", null, null);
-        ComparisonService bare = new ComparisonService(client, combinedNightService, clinical);
+        ClinicalContextProperties clinical = new ClinicalContextProperties(null, "x", null);
+        ComparisonService bare = new ComparisonService(combinedNightService, clinical);
 
         when(combinedNightService.combineForCalendarDate(eq("2026-05-01"), eq("cpap-1"), isNull()))
                 .thenReturn("{\"data\":{\"id\":\"a\",\"type\":\"machine_date\"}}");

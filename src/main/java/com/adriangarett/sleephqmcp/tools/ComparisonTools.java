@@ -28,13 +28,4 @@ public class ComparisonTools {
                 ? machineId : clinical.defaultCpapMachineId();
         return McpResponses.safe(() -> service.compare(resolved, fromDate, toDate));
     }
-
-    @McpTool(name = "get-share-dashboard",
-            description = "Get the public share-link dashboard for a date. shareLinkToken defaults to SLEEPHQ_SHARE_LINK if omitted.")
-    public String getShareDashboard(
-            @McpToolParam(description = "Share link token; defaults to SLEEPHQ_SHARE_LINK", required = false) String shareLinkToken) {
-        String resolved = (shareLinkToken != null && !shareLinkToken.isBlank())
-                ? shareLinkToken : clinical.defaultShareLinkToken();
-        return McpResponses.safe(() -> service.shareDashboard(resolved));
-    }
 }

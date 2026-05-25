@@ -1,6 +1,5 @@
 package com.adriangarett.sleephqmcp.service;
 
-import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
@@ -22,15 +21,10 @@ public class ComparisonService {
 
     private static final int MAX_RANGE_DAYS = 120;
 
-    private final SleepHqClient client;
     private final CombinedNightService combinedNightService;
     private final ClinicalContextProperties clinical;
 
-    public ComparisonService(
-            SleepHqClient client,
-            CombinedNightService combinedNightService,
-            ClinicalContextProperties clinical) {
-        this.client = client;
+    public ComparisonService(CombinedNightService combinedNightService, ClinicalContextProperties clinical) {
         this.combinedNightService = combinedNightService;
         this.clinical = clinical;
     }
@@ -72,7 +66,7 @@ public class ComparisonService {
             try {
                 String envelope = combinedNightService.combineForCalendarDate(day, cpap, null);
                 row.set("data", JsonApi.parse(envelope).path("data"));
-            } catch (IllegalArgumentException | IllegalStateException e) {
+            } catch (RuntimeException e) {
                 row.put("skipped", true);
                 String msg = e.getMessage();
                 row.put("reason", msg != null ? msg : e.getClass().getSimpleName());
@@ -85,9 +79,5 @@ public class ComparisonService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to serialize comparison", e);
         }
-    }
-
-    public String shareDashboard(String shareLinkToken) {
-        return client.getShareDashboard(shareLinkToken);
     }
 }
