@@ -125,6 +125,9 @@ public class WaveformService {
         if (downloadUrl == null || downloadUrl.isBlank()) {
             throw new IllegalArgumentException("download_url missing for file " + targetFileId);
         }
+        if (!downloadUrl.startsWith("https://")) {
+            throw new IllegalArgumentException("download_url is not HTTPS for file " + targetFileId);
+        }
 
         URI uri = URI.create(downloadUrl);
         byte[] edfBytes = BinaryDownloadSupport.download(s3RestClient, uri, targetFileId);
