@@ -71,6 +71,16 @@ class JournalLookupServiceTest {
     }
 
     @Test
+    void findAttributesByDate_hitOnFirstPage_doesNotFetchSecondPage() {
+        when(client.listJournals(eq("team-1"), eq(1), eq(100))).thenReturn(sampleListJson);
+
+        service.findAttributesByDate("team-1", "2026-05-23");
+
+        org.mockito.Mockito.verify(client).listJournals("team-1", 1, 100);
+        org.mockito.Mockito.verifyNoMoreInteractions(client);
+    }
+
+    @Test
     void requireTeamId_missingConfigured_throws() {
         JournalLookupService bare = new JournalLookupService(client, new ClinicalContextProperties(null, null, null, null));
         assertThatThrownBy(() -> bare.findAttributesByDate(null, "2026-05-23"))

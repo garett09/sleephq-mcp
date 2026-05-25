@@ -5,6 +5,7 @@ import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.owasp.encoder.Encode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -47,9 +48,31 @@ public class JournalLookupService {
 
     public Optional<JsonNode> findAttributesByDate(String teamId, String calendarDate) {
         String date = SleepHqPathParams.requireCalendarDate(calendarDate, "date");
-        LocalDate day = LocalDate.parse(date);
-        Map<String, JsonNode> map = loadByDateRange(teamId, day, day);
-        return Optional.ofNullable(map.get(date));
+        String resolvedTeamId = requireTeamId(teamId);
+
+        int page = 1;
+        while (page <= MAX_PAGES) {
+            String raw = client.listJournals(resolvedTeamId, page, PER_PAGE);
+            JsonNode data = JsonApi.parse(raw).path("data");
+            if (!data.isArray() || data.isEmpty()) {
+                break;
+            }
+            for (JsonNode item : data) {
+                JsonNode attrs = item.path("attributes");
+                if (!attrs.isObject()) {
+                    continue;
+                }
+                String dateStr = attrs.path("date").asText(null);
+                if (date.equals(dateStr)) {
+                    return Optional.of(attrs.deepCopy());
+                }
+            }
+            if (data.size() < PER_PAGE) {
+                break;
+            }
+            page++;
+        }
+        return Optional.empty();
     }
 
     public Map<String, JsonNode> loadByDateRange(String teamIdOverride, LocalDate from, LocalDate to) {
@@ -90,14 +113,14 @@ public class JournalLookupService {
         try {
             journalDate = LocalDate.parse(dateStr);
         } catch (Exception e) {
-            log.debug("Skipping journal with unparseable date: {}", dateStr);
+            log.debug("Skipping journal with unparseable date: {}", Encode.forJava(dateStr));
             return;
         }
         if (journalDate.isBefore(from) || journalDate.isAfter(to)) {
             return;
         }
         if (byDate.containsKey(dateStr)) {
-            log.debug("Duplicate journal for date={}; keeping first entry", dateStr);
+            log.debug("Duplicate journal for date={}; keeping first entry", Encode.forJava(dateStr));
             return;
         }
         byDate.put(dateStr, attrs.deepCopy());
