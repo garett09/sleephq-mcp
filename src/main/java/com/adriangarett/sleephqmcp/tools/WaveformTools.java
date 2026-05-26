@@ -101,7 +101,7 @@ public class WaveformTools {
             description = "Downloads a BRP.edf file (by file ID or calendar date) and runs a server-side detection algorithm " +
                     "over the full respiration flow channel. Returns a list of all detected apnea/severe-hypopnea flow drops " +
                     "(periods where flow absolute amplitude drops below threshold for >= minDurationSeconds). " +
-                    "Threshold defaults to 0.08 L/s. minDurationSeconds defaults to 10 seconds. " +
+                    "Threshold defaults to 0.15 L/s. minDurationSeconds defaults to 10 seconds. " +
                     "Full-night server-side flow analysis — equivalent to waveform for event lists and reconciliation with EVE; "
                     + "does not require get-waveform-by-date for High-confidence mechanism when aligned with device events."
     )
@@ -112,7 +112,7 @@ public class WaveformTools {
             String date,
             @McpToolParam(description = "Team ID. Defaults to SLEEPHQ_TEAM_ID.", required = false)
             String teamId,
-            @McpToolParam(description = "Flow rate envelope threshold (L/s) to classify apnea (default 0.08)", required = false)
+            @McpToolParam(description = "Flow rate envelope threshold (L/s) to classify apnea (default 0.15)", required = false)
             Double threshold,
             @McpToolParam(description = "Minimum duration in seconds to classify as apnea (default 10)", required = false)
             Integer minDurationSeconds,

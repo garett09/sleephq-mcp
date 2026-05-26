@@ -68,6 +68,8 @@ class ComparisonServiceTest {
         assertThat(root.path("nights").get(1).path("data").path("id").asText()).isEqualTo("b");
         assertThat(root.path("meta").path("table_display_hint").asText()).contains("titration_decision_support");
         assertThat(root.path("mcp_payload_hints").path("waveform_default_max_minutes").asInt()).isEqualTo(10);
+        assertThat(root.path("titration_readiness").path("nights_with_ahi_summary").asInt()).isEqualTo(2);
+        assertThat(root.path("titration_readiness").path("ready_for_span_trends").asBoolean()).isTrue();
         assertThat(root.path("apnea_trends").path("nights_with_ahi_summary").asInt()).isEqualTo(2);
         assertThat(root.path("apnea_trends").path("titration_decision_support").path("evaluate_in_order").size()).isGreaterThan(0);
         assertThat(root.path("nights").get(0).path("table_display").path("osa_cell").asText()).isEqualTo("0.5/hr");
@@ -123,6 +125,48 @@ class ComparisonServiceTest {
         assertThatThrownBy(() -> service.compare("cpap-1", "2026-01-01", "2026-05-01"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("120");
+    }
+
+    @Test
+    void compare_decisionGuardrails_mustNotIncreaseWhenCaRising() {
+        when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
+        // night 1 (prior): low CA
+        when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))
+                .thenReturn("{\"data\":{\"id\":\"a\",\"type\":\"machine_date\",\"attributes\":{"
+                        + "\"ahi_summary\":{\"av\":1.0,\"oa\":0.5,\"ca\":0.2}}}}");
+        // night 2 (recent): CA elevated and rising
+        when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-02"), eq("cpap-1"), isNull(), any()))
+                .thenReturn("{\"data\":{\"id\":\"b\",\"type\":\"machine_date\",\"attributes\":{"
+                        + "\"ahi_summary\":{\"av\":7.0,\"oa\":0.5,\"ca\":6.5}}}}");
+
+        String json = service.compare("cpap-1", "2026-05-01", "2026-05-02");
+        var root = JsonApi.parse(json);
+
+        assertThat(root.path("decision_guardrails").path("must_not_increase_pressure").asBoolean()).isTrue();
+        assertThat(root.path("decision_guardrails").path("must_not_increase_reason").asText()).contains("CA is rising");
+        assertThat(root.path("decision_guardrails").path("ca_status").asText()).isEqualTo("rising");
+        assertThat(root.path("decision_guardrails").path("mask_fit_check_required").asBoolean()).isFalse();
+    }
+
+    @Test
+    void compare_decisionGuardrails_allowsIncreaseWhenOaRisingNoCa() {
+        when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
+        // night 1 (prior): low OA and CA
+        when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-01"), eq("cpap-1"), isNull(), any()))
+                .thenReturn("{\"data\":{\"id\":\"a\",\"type\":\"machine_date\",\"attributes\":{"
+                        + "\"ahi_summary\":{\"av\":1.0,\"oa\":0.5,\"ca\":0.2}}}}");
+        // night 2 (recent): OA rising, CA still normal
+        when(combinedNightService.combineForCalendarDateWithJournalMap(eq("2026-05-02"), eq("cpap-1"), isNull(), any()))
+                .thenReturn("{\"data\":{\"id\":\"b\",\"type\":\"machine_date\",\"attributes\":{"
+                        + "\"ahi_summary\":{\"av\":3.0,\"oa\":2.5,\"ca\":0.1}}}}");
+
+        String json = service.compare("cpap-1", "2026-05-01", "2026-05-02");
+        var root = JsonApi.parse(json);
+
+        assertThat(root.path("decision_guardrails").path("must_not_increase_pressure").asBoolean()).isFalse();
+        assertThat(root.path("decision_guardrails").path("must_not_increase_reason").asText()).isEmpty();
+        assertThat(root.path("decision_guardrails").path("oa_status").asText()).isEqualTo("rising");
+        assertThat(root.path("decision_guardrails").path("ca_status").asText()).isEqualTo("stable");
     }
 
     @Test

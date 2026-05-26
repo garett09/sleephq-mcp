@@ -100,6 +100,7 @@ public class ComparisonService {
         }
         ComparisonTableDisplay.markSettingsChanges(nights);
         ComparisonApneaTrendSupport.attach(root, nights);
+        attachTitrationReadiness(root);
 
         try {
             return JsonApi.mapper().writeValueAsString(root);
@@ -132,6 +133,22 @@ public class ComparisonService {
         }
         ComparisonTableDisplay.attachIfPresent(row);
         return row;
+    }
+
+    private static void attachTitrationReadiness(ObjectNode root) {
+        int withAhi = root.path("apnea_trends").path("nights_with_ahi_summary").asInt(0);
+        int inSpan = root.path("apnea_trends").path("nights_in_span").asInt(0);
+        ObjectNode readiness = root.putObject("titration_readiness");
+        readiness.put("nights_in_span", inSpan);
+        readiness.put("nights_with_ahi_summary", withAhi);
+        readiness.put("ready_for_span_trends", withAhi > 0);
+        if (withAhi == 0) {
+            readiness.put("blocked_action",
+                    "Call get-comparison succeeded but no nights had ahi_summary.av — check SLEEPHQ_CPAP_MACHINE_ID, "
+                            + "skipped nights[].reason, and toDate/fromDate before publishing Apnea trends or pressure advice.");
+        } else {
+            readiness.put("blocked_action", "");
+        }
     }
 
     private Map<String, JsonNode> loadJournalMapSafely(LocalDate start, LocalDate end) {

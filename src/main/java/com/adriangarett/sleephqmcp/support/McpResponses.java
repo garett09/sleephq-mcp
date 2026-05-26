@@ -59,7 +59,8 @@ public final class McpResponses {
 
     private static boolean isExpectedMissingNight(String message) {
         return message.startsWith("No CPAP machine_date for date=")
-                || message.startsWith("No O2 machine_date for date=");
+                || message.startsWith("No O2 machine_date for date=")
+                || message.startsWith("No night data for date=");
     }
 
     public static String errorJson(McpError error) {

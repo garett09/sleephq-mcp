@@ -6,24 +6,46 @@ Apply pressure/central/leak rules from `sleephq://guidelines/resmed-therapy-hand
 
 ---
 
+## BLOCKER — tools before prose
+
+**Do not write** `### Apnea trends`, `### Titration Configuration`, or **FINAL RECOMMENDATIONS** until **`get-comparison`** has succeeded for this span.
+
+1. `fromDate` = **{{toDate}}** minus (**{{reviewSpanDays}}** − 1) calendar days (inclusive span = **{{reviewSpanDays}}** nights).
+2. **`get-comparison(fromDate, toDate={{toDate}})`** — **first required MCP tool** for this workflow (before `get-device-context` if needed to unlock dates).
+3. Confirm **`titration_readiness.ready_for_span_trends`** is true OR **`apnea_trends.nights_with_ahi_summary` ≥ 1**. If zero, publish **`### Data completeness`** only and stop — do not invent "no data in span" without calling the tool.
+4. **`### Apnea trends (span)`** — copy **`apnea_trends.titration_decision_support.span_summary_bullets`** verbatim from that JSON (not from memory).
+5. Then **`get-device-context`** and remaining phases.
+
+---
+
+## Pressure decision rules — verify BEFORE writing FINAL RECOMMENDATIONS
+
+**CSA RULE (MANDATORY):** If `decision_guardrails.must_not_increase_pressure == true`, output **HOLD** or **−1 cmH₂O**. **Never output +1 cmH₂O.** Cite `decision_guardrails.must_not_increase_reason` verbatim in FINAL RECOMMENDATIONS.
+
+**SCAN COUNT ≠ AHI (MANDATORY):** `scan-apnea-events` returns raw event counts, not per-hour indices. Do **not** divide scan count by sleep hours to derive AHI. Use `ahi_summary.av` from `get-comparison` nights[] or `get-combined-night-by-date` for all index-based claims and threshold comparisons.
+
+**LEAK RULE (MANDATORY):** If any night has `leak_cell` 95th ≥24 L/min or non-zero `large_leak` minutes, recommend mask/seal investigation before any pressure change. Do not increase pressure when unresolved mask leak is present.
+
+---
+
 ## Mandatory visible sections (do not skip)
 
 Publish **in this order** so titration decisions are scannable:
 
 1. **`### Current device (live)`** — from **`get-device-context`**: mode, pressure/min-max, EPR, ramp, mask menu vs `registered_masks` (one short block).
-2. **`### Apnea trends (span)`** — copy **`apnea_trends.titration_decision_support.span_summary_bullets`** and state **`suggested_pressure_action`**; cite `pressure_signals` (over- vs under-titration).
-3. **`### Titration Configuration`** — full per-night pipe table (below); **every column populated or —**.
-4. **`### Data completeness`** — skipped nights, missing `therapy_summaries_present`, missing O2/journal.
+2. **`### Apnea trends (span)`** — **only after `get-comparison`**: bullets from **`apnea_trends.titration_decision_support.span_summary_bullets`** + **`suggested_pressure_action`** + **`pressure_signals`**.
+3. **`### Titration Configuration`** — one row per night from `get-comparison` → `nights[]` → **`table_display` only** (never invent).
+4. **`### Data completeness`** — `titration_readiness`, skipped nights, missing `therapy_summaries_present`, missing O2/journal.
 5. Deep dives + **`## Physician assessment`** with explicit **pressure decision** in **FINAL RECOMMENDATIONS**.
 
 ---
 
-## Phase 1 — All nights (one call)
+## Phase 1 — Span aggregate (`get-comparison`)
 
-1. `fromDate` = {{toDate}} minus ({{reviewSpanDays}} − 1) calendar days.
-2. `get-comparison(fromDate, toDate={{toDate}})` — **mandatory** before any table or pressure advice. Read root **`mcp_payload_hints`** for waveform/O2 window targets.
+1. `get-comparison(fromDate, toDate={{toDate}})` as in BLOCKER.
+2. Read **`mcp_payload_hints`** for waveform/O2 window targets.
 3. Read **`apnea_trends`** + **`titration_decision_support`** — decide leak → usage → CSA → OSA → pressure **before** writing recommendations.
-4. Build **Titration Configuration** — one row per calendar night from `nights[]` **`table_display` only** (never invent). **Never merge** nights into date ranges.
+4. Build **Titration Configuration** table from `nights[]` **`table_display` only**. **Never merge** nights into date ranges.
 5. Reconcile menu vs masks (`get-device-context`) — separate bullet, not in table rows.
 6. Optional **Configuration change summary**: nights with `settings_changed_from_prior_night` true.
 

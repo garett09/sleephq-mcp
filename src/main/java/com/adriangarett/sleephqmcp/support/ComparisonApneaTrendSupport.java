@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.ToDoubleFunction;
 
 /**
@@ -63,6 +62,7 @@ public final class ComparisonApneaTrendSupport {
 
         attachPressureSignals(trends, trends.path("oa"), trends.path("ca"));
         attachTitrationDecisionSupport(trends);
+        attachDecisionGuardrails(root, trends);
     }
 
     private static void attachTitrationDecisionSupport(ObjectNode trends) {
@@ -95,6 +95,46 @@ public final class ComparisonApneaTrendSupport {
         if (signals.path("possible_under_titration").asBoolean(false)) {
             bullets.add("Pressure signal: possible **under-titration** (rising OSA) — " + signals.path("under_titration_hint").asText(""));
         }
+    }
+
+    private static void attachDecisionGuardrails(ObjectNode root, ObjectNode trends) {
+        JsonNode caBlock = trends.path("ca");
+        JsonNode oaBlock = trends.path("oa");
+        JsonNode signals = trends.path("pressure_signals");
+
+        boolean caAvailable = caBlock.path("available").asBoolean(false);
+        boolean oaAvailable = oaBlock.path("available").asBoolean(false);
+        boolean caRising = caBlock.path("rising").asBoolean(false);
+        boolean oaRising = oaBlock.path("rising").asBoolean(false);
+        boolean overTitration = signals.path("possible_over_titration").asBoolean(false);
+
+        ObjectNode guardrails = root.putObject("decision_guardrails");
+        guardrails.put("ca_status", caAvailable ? (caRising ? "rising" : "stable") : "insufficient_data");
+        guardrails.put("oa_status", oaAvailable ? (oaRising ? "rising" : "stable") : "insufficient_data");
+
+        boolean mustNotIncrease = caRising || overTitration;
+        guardrails.put("must_not_increase_pressure", mustNotIncrease);
+        guardrails.put("must_not_increase_reason",
+                mustNotIncrease ? buildMustNotIncreaseReason(caBlock, signals, caRising) : "");
+        guardrails.put("mask_fit_check_required", false);
+        guardrails.put("mask_fit_reason",
+                "Verify mask fit from nights[].table_display.leak_cell (95th ≥24 L/min = mask first). "
+                        + "F40 with Pillows device menu is valid per ResMed; recommend change only with measured leak evidence.");
+    }
+
+    private static String buildMustNotIncreaseReason(JsonNode caBlock, JsonNode signals, boolean caRising) {
+        if (caRising) {
+            double recent = caBlock.path("recent_7d_mean_per_hr").asDouble(Double.NaN);
+            double prior = caBlock.path("prior_7d_mean_per_hr").asDouble(Double.NaN);
+            if (!Double.isNaN(recent) && !Double.isNaN(prior)) {
+                return String.format(
+                        "CA is rising (recent %.2f/hr vs prior %.2f/hr) — increasing CPAP pressure may worsen central apnea (TECSA risk)",
+                        recent, prior);
+            }
+            return "CA index is rising — increasing CPAP pressure may worsen central apnea (TECSA risk)";
+        }
+        return signals.path("over_titration_hint").asText(
+                "Possible over-titration — hold or consider decrease before any pressure increase");
     }
 
     private static void appendTrendBullet(ArrayNode bullets, String label, JsonNode block) {

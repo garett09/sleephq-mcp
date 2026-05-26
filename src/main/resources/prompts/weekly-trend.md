@@ -10,7 +10,7 @@ Workflow:
 
 ### Rolling 7-Day Performance Table
 
-| Night | Usage | Settings | 95th Press | Apnea (OSA · CSA · AHI) | Leak (95%) | Resp | SpO₂ | Heart rate | Sleep | Journal |
+| Night | Usage | Settings | 95th Press | Apnea (OSA · CSA · H · AHI) | Leak (95%) | Resp | SpO₂ | Heart rate | Sleep | Journal |
 | :--- | ---: | :--- | ---: | :--- | ---: | ---: | :--- | :--- | :--- | :--- |
 
 - One markdown row per night; no HTML in cells; no code-fenced rows.

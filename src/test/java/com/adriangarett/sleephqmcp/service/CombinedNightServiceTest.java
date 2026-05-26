@@ -78,36 +78,81 @@ class CombinedNightServiceTest {
     }
 
     @Test
-    void combineForCalendarDate_cpapMissing_throws() {
+    void combineForCalendarDate_cpapMissing_usesO2AsPrimaryData() {
         when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-19")))
                 .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
                         "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
+        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-19")))
+                .thenReturn("{\"data\":{\"id\":\"md-o2\",\"type\":\"machine_date\",\"attributes\":{"
+                        + "\"spo2_summary\":{\"av\":96}},\"relationships\":{}}}");
+
+        var root = JsonApi.parse(service.combineForCalendarDate("2026-05-19", null, null));
+
+        assertThat(root.path("data").path("id").asText()).isEqualTo("md-o2");
+        assertThat(root.path("coverage").path("cpap_machine_date").asBoolean()).isFalse();
+        assertThat(root.path("coverage").path("o2_machine_date").asBoolean()).isTrue();
+        assertThat(root.path("coverage").path("primary_source").asText()).isEqualTo("o2");
+    }
+
+    @Test
+    void combineForCalendarDate_cpapMissing_journalOnly_returnsJournalWithoutData() {
+        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-19")))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
+                        "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
+        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-19")))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
+                        "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
+        var journalAttrs = JsonApi.mapper().createObjectNode();
+        journalAttrs.put("date", "2026-05-19");
+        journalAttrs.put("step_count", 4200);
+        when(journalLookup.findAttributesByDate(isNull(), eq("2026-05-19")))
+                .thenReturn(java.util.Optional.of(journalAttrs));
+
+        var root = JsonApi.parse(service.combineForCalendarDate("2026-05-19", null, null));
+
+        assertThat(root.path("data").isNull()).isTrue();
+        assertThat(root.path("journal").path("step_count").asInt()).isEqualTo(4200);
+        assertThat(root.path("coverage").path("journal").asBoolean()).isTrue();
+    }
+
+    @Test
+    void combineForCalendarDate_cpapAndO2AndJournalMissing_throws() {
+        when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-19")))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
+                        "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
+        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-19")))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null,
+                        "{}".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
+        when(journalLookup.findAttributesByDate(isNull(), eq("2026-05-19")))
+                .thenReturn(java.util.Optional.empty());
 
         assertThatThrownBy(() -> service.combineForCalendarDate("2026-05-19", null, null))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No CPAP machine_date");
+                .hasMessageContaining("No night data for date=2026-05-19");
     }
 
     @Test
-    void combineForCalendarDate_cpapResponseMissingData_throwsNotFoundStyleMessage() {
+    void combineForCalendarDate_cpapResponseMissingData_fallsBackToO2() {
         when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-20")))
                 .thenReturn("{}");
+        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-20")))
+                .thenReturn("{\"data\":{\"id\":\"md-o2\",\"type\":\"machine_date\",\"attributes\":{"
+                        + "\"pulse_rate_summary\":{\"av\":58}},\"relationships\":{}}}");
 
-        assertThatThrownBy(() -> service.combineForCalendarDate("2026-05-20", null, null))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No CPAP machine_date for date=2026-05-20")
-                .hasMessageContaining("machine_id=cpap-1");
+        var root = JsonApi.parse(service.combineForCalendarDate("2026-05-20", null, null));
+        assertThat(root.path("data").path("id").asText()).isEqualTo("md-o2");
     }
 
     @Test
-    void combineForCalendarDate_cpapEmptyDataArray_throwsNotFoundStyleMessage() {
+    void combineForCalendarDate_cpapEmptyDataArray_fallsBackToO2() {
         when(client.getMachineDateByDate(eq("cpap-1"), eq("2026-05-21")))
                 .thenReturn("{\"data\":[]}");
+        when(client.getMachineDateByDate(eq("o2-1"), eq("2026-05-21")))
+                .thenReturn("{\"data\":{\"id\":\"md-o2\",\"type\":\"machine_date\",\"attributes\":{"
+                        + "\"spo2_summary\":{\"av\":97}},\"relationships\":{}}}");
 
-        assertThatThrownBy(() -> service.combineForCalendarDate("2026-05-21", null, null))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No CPAP machine_date for date=2026-05-21")
-                .hasMessageContaining("list-machine-dates");
+        var root = JsonApi.parse(service.combineForCalendarDate("2026-05-21", null, null));
+        assertThat(root.path("data").path("id").asText()).isEqualTo("md-o2");
     }
 
     @Test
@@ -216,6 +261,8 @@ class CombinedNightServiceTest {
         assertThat(root.path("ahi_components").path("oa_per_hr").asDouble()).isEqualTo(0.8);
         assertThat(root.path("ahi_components").path("ca_per_hr").asDouble()).isEqualTo(0.3);
         assertThat(root.path("ahi_components").path("osa_elevated").asBoolean()).isFalse();
+        assertThat(root.path("therapy_display").path("apnea_indices_cell").asText())
+                .contains("OSA").contains("CSA").contains("AHI");
     }
 
     @Test

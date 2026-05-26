@@ -9,7 +9,7 @@ This MCP server issues HTTP requests only to paths that appear in the published 
 ## MCP-only behavior (not extra upstream routes)
 
 - **`get-comparison`** — Builds a local JSON document by calling the documented **Find a Machine Date** route once per calendar day (`GET /api/v1/machines/{machine_id}/machine_dates/{date}`) plus optional O2 overlay logic in `CombinedNightService`. SleepHQ does not expose a `/comparisons` API. Each night may include **`table_display`** (`osa_cell`, `csa_cell`, `ahi_cell`, leak, resp rate, flow limit, SpO₂, pulse, sleep, journal, settings). Root **`apnea_trends`** aggregates OA/CA/AHI means, rising flags, and `pressure_signals` (over- vs under-titration hints). **Tidal volume** is not a documented `machine_date` summary field.
-- **`get-combined-night-by-date`** — Same documented per-date GET(s); merges summary fields in-process when CPAP and O2 machines are configured.
+- **`get-combined-night-by-date`** — Same documented per-date GET(s); merges summary fields in-process when CPAP and O2 machines are configured. When CPAP `machine_date` is absent (e.g. no Magic Uploader), returns O2 `machine_date` as `data` and/or top-level `journal` with `coverage` flags; fails only when all three are missing.
 - **`get-device-events`** — Downloads `EVE.edf` via `get-import-file` + S3; parses EDF+ TAL annotations locally (ResMed device flags).
 - **`get-o2-oximetry`** — Resolves O2 import file via `list-imports` / `list-import-files`; parses Viatom binary locally (O2Ring S `0x0301` or VLD3; not EDF).
 - **`get-waveform`**, **`get-waveform-by-date`**, **`scan-apnea-events`** — EDF parse/detect on `BRP.edf` (and other EDF uploads) via `get-import-file` + S3.

@@ -112,6 +112,7 @@ public class TeamDataTools {
     private String listFilesFiltered(String teamId, String nameFilter) {
         String lower = nameFilter.toLowerCase(Locale.ROOT);
         ArrayNode matches = JsonApi.mapper().createArrayNode();
+        boolean truncated = false;
         int pageNum = 1;
         while (pageNum <= 5) {  // max 500 files (5 pages × 100)
             JsonNode root = JsonApi.parse(client.listTeamFiles(teamId, pageNum, 100));
@@ -124,11 +125,20 @@ public class TeamDataTools {
                 }
             }
             if (data.size() < 100) break;  // last page
+            if (pageNum == 5) {
+                truncated = true;
+                break;
+            }
             pageNum++;
         }
         ObjectNode result = JsonApi.mapper().createObjectNode();
         result.set("data", matches);
         result.put("meta_total_matches", matches.size());
+        result.put("search_truncated", truncated);
+        if (truncated) {
+            result.put("search_truncated_reason",
+                    "Stopped at 500-file limit (5 pages × 100); matches shown are partial — use a narrower nameFilter to reduce scope.");
+        }
         try {
             return JsonApi.mapper().writeValueAsString(result);
         } catch (Exception e) {

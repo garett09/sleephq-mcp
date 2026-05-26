@@ -7,7 +7,7 @@ Workflow:
 2. For **{{date}}**: `get-combined-night-by-date(date="{{date}}")` — `ahi_components` or `ahi_summary` OA/H split.
 3. `get-device-events(date="{{date}}")` — OA/H device flags with timestamps.
 4. `scan-apnea-events(date="{{date}}")` — obstructive vs central flow events; do not merge counts with EVE.
-5. If OA elevated and leak controlled: optional `get-waveform-by-date` on worst OA cluster (`maxMinutes=5`).
+5. If OA elevated and leak controlled: optional **`get-waveform-by-date`** on worst OA cluster (`startMinute=<event_min-3>, maxMinutes=15`) — need preceding flow-limited breaths and recovery to confirm obstructive morphology; 5 min is insufficient.
 
 Output:
 - **Trend table** (14 nights × **OSA (/hr)** + **CSA (/hr)** + AHI — use `osa_cell`, `csa_cell`, `ahi_cell`; cite `apnea_trends.pressure_signals.possible_under_titration` when rising OA

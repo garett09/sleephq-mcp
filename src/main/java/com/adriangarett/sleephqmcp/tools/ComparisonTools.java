@@ -19,7 +19,10 @@ public class ComparisonTools {
     }
 
     @McpTool(name = "get-comparison",
-            description = "Multi-night view without SleepHQ /comparisons. Returns nights[] with table_display (apnea_indices_cell: OSA·CSA·H·AHI, …) and root apnea_trends. machineId defaults to SLEEPHQ_CPAP_MACHINE_ID. Max 120 days.")
+            description = "REQUIRED for physician_titration_review / balanced / longitudinal spans. Returns nights[] "
+                    + "(table_display), root apnea_trends (OA/CA/AHI means, titration_decision_support.span_summary_bullets), "
+                    + "titration_readiness.nights_with_ahi_summary, mcp_payload_hints. machineId defaults to "
+                    + "SLEEPHQ_CPAP_MACHINE_ID. Max 120 days. Call before writing Apnea trends or per-night titration tables.")
     public String getComparison(
             @McpToolParam(description = "Range start YYYY-MM-DD", required = true) String fromDate,
             @McpToolParam(description = "Range end YYYY-MM-DD", required = true) String toDate,

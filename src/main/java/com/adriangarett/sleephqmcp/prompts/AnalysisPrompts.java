@@ -92,7 +92,9 @@ public class AnalysisPrompts {
     }
 
     @McpPrompt(name = "physician-titration-review",
-            description = "15–90d titration visit: device context, apnea_trends decision support, full per-night table, explicit HOLD/+1/−1/mask recommendation (max 6 deep nights).")
+            description = "15–90d titration visit. BLOCKER: call get-comparison for the span BEFORE this prompt; "
+                    + "then use apnea_trends.titration_decision_support and nights[] table_display. "
+                    + "Explicit HOLD/+1/−1/mask recommendation (max 8 deep nights).")
     public McpSchema.GetPromptResult physicianTitrationReview(
             @McpArg(name = "toDate", description = "Window end date YYYY-MM-DD", required = true) String toDate,
             @McpArg(name = "reviewSpanDays", description = "Span length 15, 30, 60, or 90", required = true) int reviewSpanDays) {

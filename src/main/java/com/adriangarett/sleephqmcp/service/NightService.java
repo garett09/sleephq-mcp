@@ -3,7 +3,9 @@ package com.adriangarett.sleephqmcp.service;
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.adriangarett.sleephqmcp.support.NightTherapyDisplaySupport;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -33,9 +35,15 @@ public class NightService {
             return envelopeJson;
         }
         Optional<JsonNode> journal = journalLookup.findAttributesByDate(null, date);
-        if (journal.isEmpty()) {
-            return envelopeJson;
+        String enriched = journal.isEmpty()
+                ? envelopeJson
+                : JournalOverlaySupport.enrichEnvelopeJson(envelopeJson, journal.get());
+        ObjectNode out = (ObjectNode) JsonApi.parse(enriched);
+        NightTherapyDisplaySupport.attachIfPresent(out);
+        try {
+            return JsonApi.mapper().writeValueAsString(out);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize night envelope", e);
         }
-        return JournalOverlaySupport.enrichEnvelopeJson(envelopeJson, journal.get());
     }
 }

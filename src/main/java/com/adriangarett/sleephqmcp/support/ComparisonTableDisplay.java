@@ -476,6 +476,15 @@ public final class ComparisonTableDisplay {
         return buildLeakCell(leak95LMin, null);
     }
 
+    static String buildLeakCellFromAttributes(JsonNode attrs) {
+        if (attrs == null || !attrs.isObject()) {
+            return "";
+        }
+        Double leak95 = readLeak95(attrs);
+        Integer largeLeakMinutes = attrs.path("large_leak").isNumber() ? attrs.path("large_leak").asInt() : null;
+        return buildLeakCell(leak95, largeLeakMinutes);
+    }
+
     static String formatLeak(double leak95LMin) {
         if (leak95LMin == Math.rint(leak95LMin)) {
             return ((long) leak95LMin) + " L/min";

@@ -75,5 +75,5 @@ If the server uses `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true`, omit the `X-SleepHQ-MCP-K
 
 - **401 from `/mcp` (before tools run)** — send header `X-SleepHQ-MCP-Key` matching `SLEEPHQ_MCP_API_KEY`, or set `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true` only on trusted localhost.
 - **401 from SleepHQ tools** — check `SLEEPHQ_CLIENT_ID` / `SLEEPHQ_CLIENT_SECRET`. With anonymous health, `/actuator/health` returns only UP/DOWN; configure actuator authentication if you need credential details on that endpoint.
-- **404 from `get-machine-date-by-date` / `get-combined-night-by-date`** — usually no `machine_date` for that machine and calendar date; confirm with `list-machine-dates`. Not the same as a missing API route.
+- **404 / empty from `get-combined-night-by-date`** — without Magic Uploader, CPAP `machine_date` may be absent; the tool still returns O2 summaries and/or `journal` when configured (`coverage.cpap_machine_date` / `o2_machine_date` / `journal`). Use `get-journal-by-date` for sleep stages only. Fatal only when CPAP, O2, and journal are all missing for that date.
 - **MCP client can't connect** — confirm the server is on the right port (default 8080, override via `SLEEPHQ_MCP_PORT`). Streamable HTTP requires both `Content-Type: application/json` and `Accept: application/json, text/event-stream`.

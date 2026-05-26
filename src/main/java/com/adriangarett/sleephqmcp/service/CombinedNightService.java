@@ -2,8 +2,8 @@ package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
-import com.adriangarett.sleephqmcp.support.AhiSummarySupport;
 import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
+import com.adriangarett.sleephqmcp.support.NightTherapyDisplaySupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -17,11 +17,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Builds one JSON:API {@code machine_date} document for a calendar night: CPAP is the primary
- * {@code data} resource (same shape as {@code GET /api/v1/machine_dates/{id}}); when the CPAP row
- * lacks oximetry summaries, copies {@code spo2_summary}, {@code pulse_rate_summary}, and
- * {@code movement_summary} from the O2 Ring machine's {@code machine_date} for that date when configured
- * ({@code SLEEPHQ_O2_MACHINE_ID} or tool override); if no O2 machine is configured, returns CPAP-only.
+ * Builds one JSON:API {@code machine_date} document for a calendar night. CPAP is preferred as
+ * {@code data}; when CPAP is absent (e.g. no Magic Uploader yet), uses the O2 machine's
+ * {@code machine_date} as {@code data} when present; journal wellness is attached when
+ * {@code SLEEPHQ_TEAM_ID} is set. When CPAP exists but lacks oximetry summaries, copies
+ * {@code spo2_summary}, {@code pulse_rate_summary}, and {@code movement_summary} from O2.
+ * Throws only when no CPAP, O2, or journal row exists for the date.
  */
 @Service
 public class CombinedNightService {
@@ -49,8 +50,8 @@ public class CombinedNightService {
     public String combineForCalendarDate(String calendarDate, String cpapMachineId, String o2MachineId) {
         String date = SleepHqPathParams.requireCalendarDate(calendarDate, "date");
         ObjectNode envelope = buildMachineDateEnvelope(date, cpapMachineId, o2MachineId);
-        journalLookup.findAttributesByDate(null, date)
-                .ifPresent(attrs -> JournalOverlaySupport.attachIfPresent(envelope, attrs));
+        attachJournalSafely(envelope, date);
+        finalizeEnvelopeOrThrow(envelope, date, cpapMachineId, o2MachineId);
         return serializeEnvelope(envelope);
     }
 
@@ -68,6 +69,8 @@ public class CombinedNightService {
                 JournalOverlaySupport.attachIfPresent(envelope, attrs);
             }
         }
+        attachCoverage(envelope);
+        NightTherapyDisplaySupport.attachIfPresent(envelope);
         return serializeEnvelope(envelope);
     }
 
@@ -76,45 +79,90 @@ public class CombinedNightService {
                 "SLEEPHQ_CPAP_MACHINE_ID");
         String o2Mid = resolveO2MachineIdOptional(o2MachineId);
 
-        JsonNode cpapDoc = requireCpapDocument(() -> client.getMachineDateByDate(cpapMid, date), date);
-        JsonNode cpapData = requireSingleResource(cpapDoc, "CPAP", date, cpapMid);
-        JsonNode o2Attrs = o2Mid == null ? null : loadO2AttributesOrNull(o2Mid, date);
+        JsonNode cpapData = loadMachineDateResourceOrNull(cpapMid, date, "CPAP");
+        JsonNode o2Data = o2Mid == null ? null : loadMachineDateResourceOrNull(o2Mid, date, "O2");
+        JsonNode o2Attrs = o2Data == null ? null : o2Data.path("attributes");
 
-        ObjectNode mergedAttrs = mergeAttributes((ObjectNode) cpapData.path("attributes").deepCopy(), o2Attrs);
+        ObjectNode envelope = JsonApi.mapper().createObjectNode();
+        if (cpapData != null) {
+            ObjectNode mergedAttrs = mergeAttributes((ObjectNode) cpapData.path("attributes").deepCopy(), o2Attrs);
+            envelope.set("data", buildDataResource(cpapData, mergedAttrs));
+        } else if (o2Data != null) {
+            ObjectNode o2AttrsCopy = (ObjectNode) o2Data.path("attributes").deepCopy();
+            envelope.set("data", buildDataResource(o2Data, o2AttrsCopy));
+        } else {
+            envelope.putNull("data");
+        }
+        attachCoverage(envelope, cpapData != null, o2Data != null);
+        return envelope;
+    }
 
+    private void attachJournalSafely(ObjectNode envelope, String date) {
+        try {
+            journalLookup.findAttributesByDate(null, date)
+                    .ifPresent(attrs -> JournalOverlaySupport.attachIfPresent(envelope, attrs));
+        } catch (IllegalArgumentException e) {
+            // SLEEPHQ_TEAM_ID not configured — journal overlay skipped
+        }
+        attachCoverage(envelope);
+    }
+
+    private void finalizeEnvelopeOrThrow(ObjectNode envelope, String date, String cpapMachineId, String o2MachineId) {
+        attachCoverage(envelope);
+        if (envelope.path("data").isObject() || envelope.has("journal")) {
+            NightTherapyDisplaySupport.attachIfPresent(envelope);
+            return;
+        }
+        String cpapMid = resolveMachineId(cpapMachineId, clinical.defaultCpapMachineId(), "cpapMachineId",
+                "SLEEPHQ_CPAP_MACHINE_ID");
+        String o2Mid = resolveO2MachineIdOptional(o2MachineId);
+        throw new IllegalStateException(buildNoNightDataMessage(date, cpapMid, o2Mid));
+    }
+
+    private static String buildNoNightDataMessage(String date, String cpapMid, String o2Mid) {
+        StringBuilder msg = new StringBuilder("No night data for date=").append(date);
+        msg.append(" (no CPAP machine_date on machine_id=").append(cpapMid);
+        if (o2Mid != null) {
+            msg.append("; no O2 machine_date on machine_id=").append(o2Mid);
+        }
+        msg.append("; no team journal row). Without Magic Uploader, CPAP nights are absent — use ");
+        msg.append("get-journal-by-date for sleep stages/steps, get-o2-oximetry for ring curves, ");
+        msg.append("or list-machine-dates when therapy uploads resume.");
+        return msg.toString();
+    }
+
+    private static ObjectNode buildDataResource(JsonNode source, ObjectNode attributes) {
         ObjectNode dataOut = JsonApi.mapper().createObjectNode();
-        dataOut.set("id", cpapData.get("id"));
-        dataOut.put("type", "machine_date");
-        dataOut.set("attributes", mergedAttrs);
-        JsonNode rel = cpapData.path("relationships");
+        dataOut.set("id", source.get("id"));
+        dataOut.put("type", source.path("type").asText("machine_date"));
+        dataOut.set("attributes", attributes);
+        JsonNode rel = source.path("relationships");
         if (rel.isObject()) {
             dataOut.set("relationships", rel.deepCopy());
         } else {
             dataOut.set("relationships", JsonApi.mapper().createObjectNode());
         }
-
-        ObjectNode envelope = JsonApi.mapper().createObjectNode();
-        envelope.set("data", dataOut);
-        attachAhiComponents(envelope, mergedAttrs.path("ahi_summary"));
-        return envelope;
+        return dataOut;
     }
 
-    private static void attachAhiComponents(ObjectNode envelope, JsonNode ahiSummary) {
-        AhiSummarySupport.readComponents(ahiSummary).ifPresent(components -> {
-            ObjectNode out = envelope.putObject("ahi_components");
-            out.put("ahi_per_hr", components.ahiPerHr());
-            if (components.oaPerHr() != null) {
-                out.put("oa_per_hr", components.oaPerHr());
-                out.put("osa_elevated", AhiSummarySupport.isOaElevated(components.oaPerHr()));
-            }
-            if (components.caPerHr() != null) {
-                out.put("ca_per_hr", components.caPerHr());
-                out.put("csa_elevated", AhiSummarySupport.isCaElevated(components.caPerHr()));
-            }
-            if (components.hypopneaPerHr() != null) {
-                out.put("h_per_hr", components.hypopneaPerHr());
-            }
-        });
+    private static void attachCoverage(ObjectNode envelope) {
+        boolean cpap = envelope.path("coverage").path("cpap_machine_date").asBoolean(false);
+        boolean o2 = envelope.path("coverage").path("o2_machine_date").asBoolean(false);
+        attachCoverage(envelope, cpap, o2);
+    }
+
+    private static void attachCoverage(ObjectNode envelope, boolean cpapMachineDate, boolean o2MachineDate) {
+        ObjectNode coverage = envelope.putObject("coverage");
+        coverage.put("cpap_machine_date", cpapMachineDate);
+        coverage.put("o2_machine_date", o2MachineDate);
+        coverage.put("journal", envelope.has("journal"));
+        if (cpapMachineDate) {
+            coverage.put("primary_source", "cpap");
+        } else if (o2MachineDate) {
+            coverage.put("primary_source", "o2");
+        } else {
+            coverage.put("primary_source", "none");
+        }
     }
 
     private static String serializeEnvelope(ObjectNode envelope) {
@@ -148,30 +196,10 @@ public class CombinedNightService {
         return SleepHqPathParams.requireResourceId(clinical.defaultO2MachineId(), "SLEEPHQ_O2_MACHINE_ID");
     }
 
-    private static JsonNode requireCpapDocument(java.util.function.Supplier<String> fetch, String date) {
+    private JsonNode loadMachineDateResourceOrNull(String machineId, String date, String label) {
         final String raw;
         try {
-            raw = fetch.get();
-        } catch (RestClientException e) {
-            String suffix = "";
-            if (e instanceof RestClientResponseException rre) {
-                suffix = " (HTTP " + rre.getStatusCode().value() + ")";
-            }
-            throw new IllegalStateException("No CPAP machine_date for date=" + date + suffix, e);
-        } catch (RuntimeException e) {
-            throw new IllegalStateException("CPAP machine_date fetch failed for date=" + date + ": " + e.getMessage(), e);
-        }
-        try {
-            return JsonApi.parse(raw);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("CPAP machine_date response not valid JSON for date=" + date, e);
-        }
-    }
-
-    private JsonNode loadO2AttributesOrNull(String o2MachineId, String date) {
-        final String raw;
-        try {
-            raw = client.getMachineDateByDate(o2MachineId, date);
+            raw = client.getMachineDateByDate(machineId, date);
         } catch (RestClientException e) {
             if (e instanceof RestClientResponseException rre && rre.getStatusCode().value() == 404) {
                 return null;
@@ -180,28 +208,16 @@ public class CombinedNightService {
             if (e instanceof RestClientResponseException rre) {
                 suffix = " (HTTP " + rre.getStatusCode().value() + ")";
             }
-            throw new IllegalStateException("O2 machine_date fetch failed" + suffix, e);
+            throw new IllegalStateException(label + " machine_date fetch failed for date=" + date + suffix, e);
         } catch (RuntimeException e) {
-            throw new IllegalStateException("O2 machine_date fetch failed: " + e.getMessage(), e);
+            throw new IllegalStateException(
+                    label + " machine_date fetch failed for date=" + date + ": " + e.getMessage(), e);
         }
         try {
             JsonNode doc = JsonApi.parse(raw);
             if (!JsonApi.hasSingleResourceData(doc)) {
                 return null;
             }
-            return JsonApi.singleResourceData(doc).path("attributes");
-        } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("O2 machine_date response not valid JSON: " + e.getMessage(), e);
-        }
-    }
-
-    private static JsonNode requireSingleResource(JsonNode doc, String label, String date, String machineId) {
-        if (!JsonApi.hasSingleResourceData(doc)) {
-            throw new IllegalStateException(
-                    "No " + label + " machine_date for date=" + date + " (machine_id=" + machineId
-                            + "; run list-machine-dates for that machine and use a listed night)");
-        }
-        try {
             return JsonApi.singleResourceData(doc);
         } catch (IllegalArgumentException e) {
             throw new IllegalStateException(
