@@ -45,6 +45,8 @@ public final class OscarChannelCatalog {
         m.put(OscarChannelIds.CPAP_Pressure, meta("pressure", "Pressure", "cmH2O"));
         m.put(OscarChannelIds.CPAP_IPAP, meta("ipap", "IPAP", "cmH2O"));
         m.put(OscarChannelIds.CPAP_EPAP, meta("epap", "EPAP", "cmH2O"));
+        m.put(OscarChannelIds.CPAP_ExpiratoryTimeWave, meta("expiratory_time_wave", "Expiratory time (waveform)", "s"));
+        m.put(OscarChannelIds.CPAP_InspiratoryTime, meta("inspiratory_time", "Inspiratory time", "s"));
         m.put(OscarChannelIds.CPAP_AHI, meta("ahi", "AHI", "/h"));
         m.put(OscarChannelIds.CPAP_RDI, meta("rdi", "RDI", "/h"));
         m.put(OscarChannelIds.CPAP_SessionMetric, meta("session_metric", "Session metric", ""));
