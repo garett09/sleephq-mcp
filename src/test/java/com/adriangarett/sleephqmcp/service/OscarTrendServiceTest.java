@@ -54,16 +54,15 @@ class OscarTrendServiceTest {
         when(nightAnalysisService.analyzeNight(eq("2026-05-20"), isNull(), isNull())).thenReturn(Optional.of(nightNode("6a0db26c", "2026-05-20")));
         when(nightAnalysisService.analyzeNight(eq("2026-05-21"), isNull(), isNull())).thenReturn(Optional.of(night21));
 
-        // Use "full" to preserve calendar_date in the output (summary strips it)
         String json = trendService.trend("2026-05-21", 7, "full");
         JsonNode root = JsonApi.mapper().readTree(json);
 
         assertThat(root.get("start_date").asText()).isEqualTo("2026-05-15");
         assertThat(root.get("end_date").asText()).isEqualTo("2026-05-21");
         assertThat(root.get("nights")).hasSize(3);
-        assertThat(root.get("nights").get(0).get("calendar_date").asText()).isEqualTo("2026-05-18");
-        assertThat(root.get("nights").get(1).get("calendar_date").asText()).isEqualTo("2026-05-19");
-        assertThat(root.get("nights").get(2).get("calendar_date").asText()).isEqualTo("2026-05-21");
+        assertThat(root.get("nights").get(0).get("date").asText()).isEqualTo("2026-05-18");
+        assertThat(root.get("nights").get(1).get("date").asText()).isEqualTo("2026-05-19");
+        assertThat(root.get("nights").get(2).get("date").asText()).isEqualTo("2026-05-21");
     }
 
     @Test
@@ -125,7 +124,7 @@ class OscarTrendServiceTest {
         assertThat(firstNight.has("notable_moments")).isTrue();
         assertThat(firstNight.has("data_sources")).isTrue();
         assertThat(firstNight.has("channels")).isTrue();
-        assertThat(firstNight.has("calendar_date")).isTrue();
+        assertThat(firstNight.has("calendar_date")).isFalse();
     }
 
     @Test
@@ -173,23 +172,21 @@ class OscarTrendServiceTest {
     // ── fixtures ────────────────────────────────────────────────────────────
 
     /** Minimal node used by the dedup test (full shape — no slim behaviour expected). */
-    private static ObjectNode nightNode(String sessionId, String calendarDate) {
+    private static ObjectNode nightNode(String sessionId, String date) {
         ObjectNode night = JsonApi.mapper().createObjectNode();
-        night.put("calendar_date", calendarDate);
-        night.put("date", calendarDate);
+        night.put("date", date);
         night.putObject("session").put("session_id", sessionId);
         return night;
     }
 
     /**
      * Rich fixture that mirrors the shape produced by {@link UnifiedNightAnalysisService}:
-     * date, calendar_date, session, respiratory_indices, events (with counts + timed_sample),
+     * date, session, respiratory_indices, events (with counts + timed_sample),
      * channels (with pressure), data_sources, coverage, notable_moments.
      */
-    private static ObjectNode richNightNode(String sessionId, String calendarDate) {
+    private static ObjectNode richNightNode(String sessionId, String date) {
         ObjectNode night = JsonApi.mapper().createObjectNode();
-        night.put("date", calendarDate);
-        night.put("calendar_date", calendarDate);
+        night.put("date", date);
         night.putObject("session").put("session_id", sessionId);
         night.putObject("respiratory_indices").put("ahi", 2.5);
 

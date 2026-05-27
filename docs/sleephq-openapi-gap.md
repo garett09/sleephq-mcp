@@ -59,3 +59,9 @@ Observed on live `machine_date.attributes.ahi_summary` (ResMed therapy indices, 
 ## If SleepHQ adds routes later
 
 When new paths are added to `swagger.json`, extend `SleepHqClient` and expose tools only after the contract lists them.
+
+## OSCAR trend windowing
+
+`get-oscar-trend` yields one row per OSCAR session in the calendar window; nights with no session
+are absent. Trend rows use a single `date` field — the duplicate `calendar_date` was removed in
+the 2026-05 cleanup.

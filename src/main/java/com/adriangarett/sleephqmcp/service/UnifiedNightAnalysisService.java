@@ -57,7 +57,6 @@ public class UnifiedNightAnalysisService {
 
         ObjectNode nightAnalysis = JsonApi.mapper().createObjectNode();
         nightAnalysis.put("date", date);
-        nightAnalysis.put("calendar_date", date);
 
         OscarSummaryHeaderParser.SummaryHeader header =
                 oscarRepository.loadSummaryHeader(indexEntry).orElse(null);
