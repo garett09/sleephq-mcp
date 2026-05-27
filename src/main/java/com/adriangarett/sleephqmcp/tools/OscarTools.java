@@ -60,13 +60,15 @@ public class OscarTools {
     }
 
     @McpTool(name = "get-oscar-trend",
-            description = "Pre-aggregated nightly night_analysis rows for a date range (no raw waveforms).")
+            description = "Pre-aggregated nightly night_analysis rows for a date range (no raw waveforms). "
+                    + "detail=summary (default) returns slim rows; detail=full preserves the complete shape.")
     public String getOscarTrend(
             @McpToolParam(description = "Number of nights ending at last session (1-90)", required = true) int days,
-            @McpToolParam(description = "Optional end date YYYY-MM-DD", required = false) String endDate) {
+            @McpToolParam(description = "Optional end date YYYY-MM-DD", required = false) String endDate,
+            @McpToolParam(description = "summary (default) or full", required = false) String detail) {
         return McpResponses.safe(() -> endDate == null || endDate.isBlank()
-                ? trendService.trend(days)
-                : trendService.trend(endDate, days));
+                ? trendService.trend(days, detail)
+                : trendService.trend(endDate, days, detail));
     }
 
     @McpTool(name = "get-oscar-events",
