@@ -51,7 +51,7 @@ public final class OscarWaveformStatistics {
         return stats;
     }
 
-    private static String mapLabelToField(String label) {
+    static String mapLabelToField(String label) {
         if (label == null) {
             return null;
         }
@@ -64,6 +64,9 @@ public final class OscarWaveformStatistics {
         }
         if (lower.startsWith("minvent")) {
             return "minute_vent";
+        }
+        if (lower.startsWith("flowhires") || lower.startsWith("flowrate2") || lower.equals("flow rate (hi-res)")) {
+            return "flow_rate_hi_res";
         }
         if (lower.startsWith("flow")) {
             return "flow";
