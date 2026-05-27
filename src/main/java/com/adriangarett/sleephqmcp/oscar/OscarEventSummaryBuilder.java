@@ -5,25 +5,13 @@ import com.adriangarett.sleephqmcp.domain.DeviceEventResult;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 public final class OscarEventSummaryBuilder {
-
-    private static final Set<String> NON_THERAPY_EVENT_KEYS = Set.of(
-            "recording_start",
-            "recording_starts",
-            "recording_end",
-            "recording_stop",
-            "starting",
-            "stopping",
-            "start",
-            "stop",
-            "unknown");
 
     private OscarEventSummaryBuilder() {}
 
@@ -37,14 +25,16 @@ public final class OscarEventSummaryBuilder {
             Optional<Map<String, Integer>> summaryCounts) {
         ObjectNode root = com.adriangarett.sleephqmcp.support.JsonApi.mapper().createObjectNode();
         Map<String, Integer> counts = new LinkedHashMap<>();
+        List<DeviceEvent> therapyOnly = new ArrayList<>();
         int therapyEvents = 0;
         for (DeviceEvent event : result.events()) {
-            String key = normalizeLabel(event.label());
-            if (isNonTherapyEvent(key)) {
+            String key = OscarEventLabelCanonicalizer.canonical(event.label());
+            if (key == null) {
                 continue;
             }
             counts.merge(key, 1, Integer::sum);
             therapyEvents++;
+            therapyOnly.add(event);
         }
         ObjectNode countsNode = root.putObject("counts");
         counts.forEach(countsNode::put);
@@ -60,25 +50,25 @@ public final class OscarEventSummaryBuilder {
             root.put("summary_total", summaryTotal);
         }
         root.put("total", hasSummaryCounts ? summaryTotal : therapyEvents);
-        if (hasSummaryCounts && therapyEvents < summaryTotal) {
+        if (hasSummaryCounts) {
             root.put("event_count_authority", "oscar_summary_000");
+            root.put("event_counts_agree", therapyEvents == summaryTotal);
         } else if (therapyEvents > 0) {
             root.put("event_count_authority", "oscar_eve_edf");
         }
         ArrayNode timed = root.putArray("timed_sample");
-        List<DeviceEvent> events = result.events();
-        int limit = Math.min(maxTimedEvents, events.size());
+        int limit = Math.min(maxTimedEvents, therapyOnly.size());
         for (int i = 0; i < limit; i++) {
-            DeviceEvent event = events.get(i);
+            DeviceEvent event = therapyOnly.get(i);
             ObjectNode row = timed.addObject();
             row.put("timestamp", event.timestamp());
             row.put("label", event.label());
             row.put("code", event.code());
             row.put("duration_seconds", event.durationSeconds());
         }
-        if (events.size() > limit) {
+        if (therapyOnly.size() > limit) {
             root.put("timed_sample_truncated", true);
-            root.put("timed_sample_total", events.size());
+            root.put("timed_sample_total", therapyOnly.size());
         }
         return root;
     }
@@ -95,22 +85,5 @@ public final class OscarEventSummaryBuilder {
         root.put("total", summaryTotal);
         root.put("event_count_authority", "oscar_summary_000");
         return root;
-    }
-
-    static boolean isNonTherapyEvent(String normalizedLabel) {
-        if (normalizedLabel == null || normalizedLabel.isBlank()) {
-            return true;
-        }
-        if (NON_THERAPY_EVENT_KEYS.contains(normalizedLabel)) {
-            return true;
-        }
-        return normalizedLabel.startsWith("recording");
-    }
-
-    private static String normalizeLabel(String label) {
-        if (label == null || label.isBlank()) {
-            return "unknown";
-        }
-        return label.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
     }
 }
