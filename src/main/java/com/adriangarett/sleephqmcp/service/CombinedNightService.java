@@ -8,6 +8,7 @@ import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
@@ -33,12 +34,15 @@ public class CombinedNightService {
     private final SleepHqClient client;
     private final ClinicalContextProperties clinical;
     private final JournalLookupService journalLookup;
+    private final UnifiedNightAnalysisService nightAnalysisService;
 
     public CombinedNightService(SleepHqClient client, ClinicalContextProperties clinical,
-                                JournalLookupService journalLookup) {
+                                JournalLookupService journalLookup,
+                                UnifiedNightAnalysisService nightAnalysisService) {
         this.client = client;
         this.clinical = clinical;
         this.journalLookup = journalLookup;
+        this.nightAnalysisService = nightAnalysisService;
     }
 
     /**
@@ -52,6 +56,7 @@ public class CombinedNightService {
         ObjectNode envelope = buildMachineDateEnvelope(date, cpapMachineId, o2MachineId);
         attachJournalSafely(envelope, date);
         finalizeEnvelopeOrThrow(envelope, date, cpapMachineId, o2MachineId);
+        attachNightAnalysis(envelope, date);
         return serializeEnvelope(envelope);
     }
 
@@ -71,7 +76,32 @@ public class CombinedNightService {
         }
         attachCoverage(envelope);
         NightTherapyDisplaySupport.attachIfPresent(envelope);
+        attachNightAnalysis(envelope, date);
         return serializeEnvelope(envelope);
+    }
+
+    private void attachNightAnalysis(ObjectNode envelope, String date) {
+        JsonNode attrs = envelope.path("data").path("attributes");
+        JsonNode journal = envelope.has("journal") ? envelope.get("journal") : null;
+        JsonNode machineAttrs = attrs.isObject() ? attrs : null;
+        nightAnalysisService.analyzeNight(date, machineAttrs, journal).ifPresent(analysis -> {
+            envelope.set("night_analysis", analysis);
+            envelope.put("oscar_status", "ok");
+            ArrayNode dataSources = envelope.putArray("data_sources");
+            if (envelope.path("data").isObject()) {
+                dataSources.add("sleephq");
+            }
+            if (analysis.has("data_sources") && analysis.get("data_sources").isArray()) {
+                analysis.get("data_sources").forEach(source -> {
+                    if (!source.asText().equals("sleephq")) {
+                        dataSources.add(source.asText());
+                    }
+                });
+            }
+        });
+        if (!envelope.has("oscar_status")) {
+            envelope.put("oscar_status", "unavailable");
+        }
     }
 
     private ObjectNode buildMachineDateEnvelope(String date, String cpapMachineId, String o2MachineId) {
