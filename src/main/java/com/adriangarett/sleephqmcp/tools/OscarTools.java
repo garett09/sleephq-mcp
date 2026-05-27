@@ -116,7 +116,7 @@ public class OscarTools {
                     }
                 })
                 .orElseGet(() -> JsonApi.toJsonString(java.util.Map.of(
-                        "calendar_date", date,
+                        "date", date,
                         "oscar_status", "unavailable")));
     }
 }
