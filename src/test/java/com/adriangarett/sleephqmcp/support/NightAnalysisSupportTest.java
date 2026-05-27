@@ -10,6 +10,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+// static import for channel constants used in new tests
+import static com.adriangarett.sleephqmcp.oscar.OscarChannelIds.CPAP_ClearAirway;
+import static com.adriangarett.sleephqmcp.oscar.OscarChannelIds.CPAP_Obstructive;
+import static com.adriangarett.sleephqmcp.oscar.OscarChannelIds.CPAP_Pressure;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class NightAnalysisSupportTest {
@@ -57,5 +62,26 @@ class NightAnalysisSupportTest {
         assertThat(indices.get("oscar_ahi_per_hr").asDouble()).isEqualTo(2.0);
         assertThat(indices.get("ahi_per_hr").asDouble()).isEqualTo(2.0);
         assertThat(indices.has("sleephq_ahi_per_hr")).isFalse();
+    }
+
+    @Test
+    void summaryChannelNode_includesWaveformChannelButNotEventChannels() {
+        OscarSession session = new OscarSession(
+                "2026-05-27",
+                0x1234L,
+                0L,
+                28_800L,
+                Map.of(
+                        CPAP_Pressure,    new ChannelSummary(10.0, 8.0, 14.0, null, null, null),
+                        CPAP_ClearAirway, new ChannelSummary(13.0, 0.0, 20.0, null, null, null),
+                        CPAP_Obstructive, new ChannelSummary(5.0,  0.0, 10.0, null, null, null)
+                ),
+                List.of(CPAP_Pressure, CPAP_ClearAirway, CPAP_Obstructive));
+
+        ObjectNode node = NightAnalysisSupport.summaryChannelNode(session);
+
+        assertThat(node.has("pressure")).isTrue();
+        assertThat(node.has("clear_airway")).isFalse();
+        assertThat(node.has("obstructive")).isFalse();
     }
 }

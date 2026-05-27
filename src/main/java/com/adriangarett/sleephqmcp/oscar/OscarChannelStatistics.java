@@ -15,6 +15,9 @@ public final class OscarChannelStatistics {
         Map<String, ChannelStatistics> stats = new LinkedHashMap<>();
         for (Map.Entry<Integer, ChannelSummary> entry : session.channels().entrySet()) {
             int id = entry.getKey();
+            if (OscarChannelIdClassification.isEventChannel(id)) {
+                continue;
+            }
             ChannelSummary summary = entry.getValue();
             if (summary.avg() == null && summary.min() == null && summary.max() == null) {
                 continue;

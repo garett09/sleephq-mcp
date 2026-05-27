@@ -5,6 +5,7 @@ import com.adriangarett.sleephqmcp.domain.ChannelSummary;
 import com.adriangarett.sleephqmcp.domain.OscarSession;
 import com.adriangarett.sleephqmcp.domain.OscarSessionIndexEntry;
 import com.adriangarett.sleephqmcp.oscar.OscarChannelCatalog;
+import com.adriangarett.sleephqmcp.oscar.OscarChannelIdClassification;
 import com.adriangarett.sleephqmcp.oscar.OscarChannelIds;
 import com.adriangarett.sleephqmcp.oscar.OscarSummaryHeaderParser;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -46,6 +47,9 @@ public final class NightAnalysisSupport {
     public static ObjectNode summaryChannelNode(OscarSession session) {
         ObjectNode channels = JsonApi.mapper().createObjectNode();
         for (int channelId : session.availableChannelIds()) {
+            if (OscarChannelIdClassification.isEventChannel(channelId)) {
+                continue;
+            }
             String field = OscarChannelCatalog.fieldName(channelId);
             ChannelSummary summary = session.channels().get(channelId);
             ObjectNode ch = channels.putObject(field);
