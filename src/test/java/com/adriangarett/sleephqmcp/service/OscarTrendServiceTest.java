@@ -10,11 +10,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,11 +27,16 @@ class OscarTrendServiceTest {
     @Mock
     private UnifiedNightAnalysisService nightAnalysisService;
 
+    @Mock
+    private MachineDateAttributesLoader machineDateLoader;
+
     private OscarTrendService trendService;
 
     @BeforeEach
     void setUp() {
-        trendService = new OscarTrendService(oscarRepository, nightAnalysisService);
+        // Default: loader returns null (no SleepHQ data) — tests that need it override per-test
+        when(machineDateLoader.loadOrNull(any())).thenReturn(null);
+        trendService = new OscarTrendService(oscarRepository, nightAnalysisService, machineDateLoader);
     }
 
     @Test
@@ -40,13 +46,13 @@ class OscarTrendServiceTest {
         ObjectNode night19Again = nightNode("6a0c7c58", "2026-05-19");
         ObjectNode night21 = nightNode("6a0db26c", "2026-05-21");
 
-        when(nightAnalysisService.analyzeNight(eq("2026-05-15"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-16"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-17"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-18"))).thenReturn(Optional.of(night18));
-        when(nightAnalysisService.analyzeNight(eq("2026-05-19"))).thenReturn(Optional.of(night19), Optional.of(night19Again));
-        when(nightAnalysisService.analyzeNight(eq("2026-05-20"))).thenReturn(Optional.of(nightNode("6a0db26c", "2026-05-20")));
-        when(nightAnalysisService.analyzeNight(eq("2026-05-21"))).thenReturn(Optional.of(night21));
+        when(nightAnalysisService.analyzeNight(eq("2026-05-15"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-16"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-17"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-18"), isNull(), isNull())).thenReturn(Optional.of(night18));
+        when(nightAnalysisService.analyzeNight(eq("2026-05-19"), isNull(), isNull())).thenReturn(Optional.of(night19), Optional.of(night19Again));
+        when(nightAnalysisService.analyzeNight(eq("2026-05-20"), isNull(), isNull())).thenReturn(Optional.of(nightNode("6a0db26c", "2026-05-20")));
+        when(nightAnalysisService.analyzeNight(eq("2026-05-21"), isNull(), isNull())).thenReturn(Optional.of(night21));
 
         // Use "full" to preserve calendar_date in the output (summary strips it)
         String json = trendService.trend("2026-05-21", 7, "full");
@@ -63,13 +69,13 @@ class OscarTrendServiceTest {
     @Test
     void summaryDetailEmitsSlimRows() throws Exception {
         ObjectNode night = richNightNode("abc123", "2026-05-21");
-        when(nightAnalysisService.analyzeNight(eq("2026-05-15"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-16"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-17"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-18"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-19"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-20"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-21"))).thenReturn(Optional.of(night));
+        when(nightAnalysisService.analyzeNight(eq("2026-05-15"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-16"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-17"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-18"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-19"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-20"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-21"), isNull(), isNull())).thenReturn(Optional.of(night));
 
         // default (no detail arg) uses summary
         String json = trendService.trend("2026-05-21", 7);
@@ -104,13 +110,13 @@ class OscarTrendServiceTest {
     @Test
     void fullDetailKeepsExistingShape() throws Exception {
         ObjectNode night = richNightNode("abc123", "2026-05-21");
-        when(nightAnalysisService.analyzeNight(eq("2026-05-15"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-16"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-17"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-18"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-19"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-20"))).thenReturn(Optional.empty());
-        when(nightAnalysisService.analyzeNight(eq("2026-05-21"))).thenReturn(Optional.of(night));
+        when(nightAnalysisService.analyzeNight(eq("2026-05-15"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-16"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-17"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-18"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-19"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-20"), isNull(), isNull())).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-21"), isNull(), isNull())).thenReturn(Optional.of(night));
 
         String json = trendService.trend("2026-05-21", 7, "full");
         JsonNode root = JsonApi.mapper().readTree(json);
@@ -124,14 +130,44 @@ class OscarTrendServiceTest {
 
     @Test
     void rootIncludesDetailField() throws Exception {
-        when(nightAnalysisService.analyzeNight(eq("2026-05-21"))).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-21"), isNull(), isNull())).thenReturn(Optional.empty());
 
         String summaryJson = trendService.trend("2026-05-21", 1);
         assertThat(JsonApi.mapper().readTree(summaryJson).get("detail").asText()).isEqualTo("summary");
 
-        when(nightAnalysisService.analyzeNight(eq("2026-05-21"))).thenReturn(Optional.empty());
+        when(nightAnalysisService.analyzeNight(eq("2026-05-21"), isNull(), isNull())).thenReturn(Optional.empty());
         String fullJson = trendService.trend("2026-05-21", 1, "full");
         assertThat(JsonApi.mapper().readTree(fullJson).get("detail").asText()).isEqualTo("full");
+    }
+
+    @Test
+    void summaryDetailIncludesSleepHqAhiWhenMachineDateAvailable() throws Exception {
+        // Build machine_date attributes with ahi_summary — the shape AhiSummarySupport.readComponents() expects
+        ObjectNode machineDateAttrs = JsonApi.mapper().createObjectNode();
+        ObjectNode ahiSummary = machineDateAttrs.putObject("ahi_summary");
+        ahiSummary.put("av", 3.1);
+        ahiSummary.put("oa", 0.5);
+        ahiSummary.put("ca", 0.0);
+        ahiSummary.put("h", 2.6);
+
+        // Loader returns attrs for this specific date
+        when(machineDateLoader.loadOrNull(eq("2026-05-21"))).thenReturn(machineDateAttrs);
+
+        // Night analysis with attrs produces a node including sleephq_ahi_per_hr in respiratory_indices
+        ObjectNode nightWithSleepHq = richNightNode("abc123", "2026-05-21");
+        nightWithSleepHq.putObject("respiratory_indices")
+                .put("ahi", 3.1)
+                .put("sleephq_ahi_per_hr", 3.1);
+
+        when(nightAnalysisService.analyzeNight(eq("2026-05-21"), eq(machineDateAttrs), isNull()))
+                .thenReturn(Optional.of(nightWithSleepHq));
+
+        String json = trendService.trend("2026-05-21", 1, "full");
+        JsonNode root = JsonApi.mapper().readTree(json);
+        JsonNode firstNight = root.get("nights").get(0);
+
+        assertThat(firstNight.get("respiratory_indices").has("sleephq_ahi_per_hr")).isTrue();
+        assertThat(firstNight.get("respiratory_indices").get("sleephq_ahi_per_hr").asDouble()).isEqualTo(3.1);
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────

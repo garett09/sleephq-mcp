@@ -3,6 +3,7 @@ package com.adriangarett.sleephqmcp.service;
 import com.adriangarett.sleephqmcp.oscar.OscarRepository;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Service;
@@ -17,10 +18,14 @@ public class OscarTrendService {
 
     private final OscarRepository oscarRepository;
     private final UnifiedNightAnalysisService nightAnalysisService;
+    private final MachineDateAttributesLoader machineDateLoader;
 
-    public OscarTrendService(OscarRepository oscarRepository, UnifiedNightAnalysisService nightAnalysisService) {
+    public OscarTrendService(OscarRepository oscarRepository,
+                             UnifiedNightAnalysisService nightAnalysisService,
+                             MachineDateAttributesLoader machineDateLoader) {
         this.oscarRepository = oscarRepository;
         this.nightAnalysisService = nightAnalysisService;
+        this.machineDateLoader = machineDateLoader;
     }
 
     // ── public API ───────────────────────────────────────────────────────────
@@ -72,7 +77,8 @@ public class OscarTrendService {
         ArrayNode nights = root.putArray("nights");
         Map<String, ObjectNode> bySessionId = new LinkedHashMap<>();
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            nightAnalysisService.analyzeNight(date.toString()).ifPresent(node -> {
+            JsonNode machineDateAttrs = machineDateLoader.loadOrNull(date.toString());
+            nightAnalysisService.analyzeNight(date.toString(), machineDateAttrs, null).ifPresent(node -> {
                 String sessionId = node.path("session").path("session_id").asText("");
                 if (!sessionId.isBlank()) {
                     bySessionId.put(sessionId, node);
