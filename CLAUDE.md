@@ -51,7 +51,7 @@ auth/         AuthInterceptor (bearer token + 401 retry), TokenManager (token ca
 
 **`session_metric` (channel 0x1158):** ResMed extended summary metric with unconfirmed semantics; treat as opaque. Do not use for clinical interpretation.
 
-**Canonical event labels:** EVE.edf annotations are normalised to summary-counts keys via `OscarEventLabelCanonicalizer` so `events.counts` and `events.summary_counts` share keys (`obstructive`, `clear_airway`, `hypopnea`, `rera`, …). Event channels (0x1000–0x1028) are excluded from `channels.*` via `OscarChannelIdClassification`.
+**Canonical event labels:** EVE.edf annotations are normalised to the same **field names** as `.000` summary counts via `OscarEventLabelCanonicalizer` (`obstructive`, `clear_airway`, `hypopnea`, `rera`, …). `events.counts` is **sparse** (EVE events only); `events.summary_counts` is **full** (all counted `.000` channels, including zeros). Compare with: every `counts` key ⊆ `summary_counts` with matching values; `event_counts_agree` compares totals. Authority: `oscar_summary_000` when summary present, else `oscar_eve_edf`. Event channels (0x1000–0x1028) are excluded from `channels.*` via `OscarChannelIdClassification`. Manual smoke: [`docs/smoke-test-oscar-mcp.md`](docs/smoke-test-oscar-mcp.md).
 
 **Trend payload modes:** `get-oscar-trend(detail="summary"|"full")` — default `summary` emits one slim row per session (no `timed_sample`, no waveform channels, no `notable_moments`); `full` returns the same shape as `get-combined-night-by-date`. Each row also includes a SleepHQ overlay (`sleephq_ahi_per_hr`, `sleephq` block) when machine_date is available.
 

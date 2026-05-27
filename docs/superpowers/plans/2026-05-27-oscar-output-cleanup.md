@@ -1017,11 +1017,14 @@ curl -s -X POST http://localhost:8080/mcp \
 ```
 
 Verify:
-- `channels.*` has **no** `clear_airway`, `obstructive`, `hypopnea` keys.
-- `events.counts` keys match `events.summary_counts` keys.
-- `events.event_counts_agree` is `true` on 2026-05-18.
+- `channels.*` has **no** `clear_airway`, `obstructive`, `hypopnea` keys (event channels belong in `events`, not `channels`).
+- Every key in `events.counts` exists in `events.summary_counts` with the **same value**; extra zero-count keys only in `summary_counts` are OK.
+- `events.event_count_authority` is `oscar_summary_000` when summary present.
+- `events.event_counts_agree` is `true` on 2026-05-18 (totals match).
 - No `calendar_date` field.
 - No `Recording starts` in `events.timed_sample`.
+
+Full Goose checklist: [`docs/smoke-test-oscar-mcp.md`](../../smoke-test-oscar-mcp.md).
 
 Then:
 ```bash
@@ -1034,7 +1037,7 @@ Verify slim shape and per-night `sleephq_ahi_per_hr` when available.
 
 - [ ] **Step 3: Update `CLAUDE.md` "Key conventions" with two new bullets**
 
-> - **Canonical event labels:** EVE.edf event annotations are normalized to summary-counts keys via `OscarEventLabelCanonicalizer` so `events.counts` and `events.summary_counts` use the same keys (`obstructive`, `clear_airway`, `hypopnea`, `rera`, …). Event channels (0x1001–0x1028) are excluded from `channels.*`.
+> - **Canonical event labels:** EVE labels map to the same field names as `.000` counts via `OscarEventLabelCanonicalizer`. `counts` is sparse (EVE); `summary_counts` is full (dashboard, incl. zeros). Event channels (0x1001–0x1028) are excluded from `channels.*`.
 > - **Trend payload mode:** `get-oscar-trend(detail="summary"|"full")` — default `summary` emits one slim row per session; `full` returns the same shape as `get-combined-night-by-date`.
 
 - [ ] **Step 4: Commit docs**
