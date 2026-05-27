@@ -51,6 +51,10 @@ auth/         AuthInterceptor (bearer token + 401 retry), TokenManager (token ca
 
 **`session_metric` (channel 0x1158):** ResMed extended summary metric with unconfirmed semantics; treat as opaque. Do not use for clinical interpretation.
 
+**Canonical event labels:** EVE.edf annotations are normalised to summary-counts keys via `OscarEventLabelCanonicalizer` so `events.counts` and `events.summary_counts` share keys (`obstructive`, `clear_airway`, `hypopnea`, `rera`, …). Event channels (0x1000–0x1028) are excluded from `channels.*` via `OscarChannelIdClassification`.
+
+**Trend payload modes:** `get-oscar-trend(detail="summary"|"full")` — default `summary` emits one slim row per session (no `timed_sample`, no waveform channels, no `notable_moments`); `full` returns the same shape as `get-combined-night-by-date`. Each row also includes a SleepHQ overlay (`sleephq_ahi_per_hr`, `sleephq` block) when machine_date is available.
+
 ## Environment variables
 
 Required at runtime (set in `.env`):
