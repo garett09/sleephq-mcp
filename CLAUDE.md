@@ -47,6 +47,8 @@ auth/         AuthInterceptor (bearer token + 401 retry), TokenManager (token ca
 
 **Clinical/prompt resources:** MCP prompts (`src/main/resources/prompts/*.md`) and static clinical context (`src/main/resources/clinical/*.md`) are served as MCP resources. These are classpath resources loaded via `StaticContextResources` and `AnalysisPrompts`. Do not embed clinical guidance in Java code.
 
+**OSCAR local data:** Optional integration reads `~/Documents/OSCAR_Data` (configurable). Background → [`context/`](context/README.md). Primary LLM output is compact `night_analysis` on `get-combined-night-by-date` (no raw PLD/EVE by default). Tools: `get-oscar-status`, `get-night-analysis`, `get-mechanics`, `get-oscar-trend`, `get-oscar-events` (`detail=summary` default), `get-plmd-night`. Env: `OSCAR_DATA_PATH`, `OSCAR_PROFILE_NAME`, `OSCAR_DEVICE_FOLDER`.
+
 ## Environment variables
 
 Required at runtime (set in `.env`):
@@ -57,3 +59,4 @@ Optional defaults (see `application.properties` for all):
 - `SLEEPHQ_TEAM_ID`, `SLEEPHQ_CPAP_MACHINE_ID`, `SLEEPHQ_O2_MACHINE_ID` — used by journal overlay and `get-combined-night-by-date` defaults
 - `SLEEPHQ_MCP_PORT` — default `8080`
 - `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS` — fallback drift correction
+- `OSCAR_DATA_PATH`, `OSCAR_PROFILE_NAME`, `OSCAR_DEVICE_FOLDER` — local OSCAR CPAP backup (optional)
