@@ -3,12 +3,10 @@ package com.adriangarett.sleephqmcp.oscar;
 import com.adriangarett.sleephqmcp.domain.ChannelSummary;
 import com.adriangarett.sleephqmcp.domain.OscarSession;
 
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Event totals from OSCAR {@code Summaries/*.000} {@code m_cnt} hash (OSCAR dashboard counts).
@@ -23,26 +21,6 @@ public final class OscarSummaryEventCounts {
     /** Per-night event totals above this are almost certainly a misaligned hash parse. */
     private static final int MAX_PLAUSIBLE_NIGHTLY_EVENT_COUNT = 30;
 
-    private static final int[] EVENT_CHANNEL_IDS = {
-            OscarChannelIds.CPAP_ClearAirway,
-            OscarChannelIds.CPAP_Obstructive,
-            OscarChannelIds.CPAP_Hypopnea,
-            OscarChannelIds.CPAP_Apnea,
-            OscarChannelIds.CPAP_FlowLimit,
-            OscarChannelIds.CPAP_RERA,
-            OscarChannelIds.CPAP_VibratorySnore,
-            OscarChannelIds.CPAP_LargeLeak,
-            OscarChannelIds.CPAP_NRI,
-            OscarChannelIds.CPAP_ExpiratoryTime,
-            OscarChannelIds.CPAP_SensAwake,
-            OscarChannelIds.CPAP_AllApnea,
-            OscarChannelIds.CPAP_PressurePulse
-    };
-
-    private static final Set<Integer> KNOWN_EVENT_CHANNEL_IDS = Arrays.stream(EVENT_CHANNEL_IDS)
-            .boxed()
-            .collect(Collectors.toUnmodifiableSet());
-
     private OscarSummaryEventCounts() {}
 
     public static Map<String, Integer> fromSession(OscarSession session) {
@@ -51,7 +29,7 @@ public final class OscarSummaryEventCounts {
         }
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (Map.Entry<Integer, ChannelSummary> entry : session.channels().entrySet()) {
-            if (!isEventChannel(entry.getKey())) {
+            if (!OscarChannelIdClassification.isCountedEventChannel(entry.getKey())) {
                 continue;
             }
             Integer count = toIntegerCount(entry.getValue().count());
@@ -99,17 +77,9 @@ public final class OscarSummaryEventCounts {
 
     private static Set<Integer> buildAllowed(List<Integer> availableChannelIds) {
         if (availableChannelIds == null || availableChannelIds.isEmpty()) {
-            return Set.of(boxedEventIds());
+            return OscarChannelIdClassification.countedEventChannelIds();
         }
         return Set.copyOf(availableChannelIds);
-    }
-
-    private static Integer[] boxedEventIds() {
-        Integer[] ids = new Integer[EVENT_CHANNEL_IDS.length];
-        for (int i = 0; i < EVENT_CHANNEL_IDS.length; i++) {
-            ids[i] = EVENT_CHANNEL_IDS[i];
-        }
-        return ids;
     }
 
     /**
@@ -169,7 +139,7 @@ public final class OscarSummaryEventCounts {
             int channelId = readUInt32(bytes, position);
             double value = readDouble(bytes, position + 4);
             position += 12;
-            if (!allowed.contains(channelId) || !isEventChannel(channelId)) {
+            if (!allowed.contains(channelId) || !OscarChannelIdClassification.isCountedEventChannel(channelId)) {
                 continue;
             }
             Integer count = toIntegerCount(value);
@@ -184,10 +154,6 @@ public final class OscarSummaryEventCounts {
         Map<String, Integer> out = new LinkedHashMap<>();
         byChannelId.forEach((id, count) -> out.put(OscarChannelCatalog.fieldName(id), count));
         return out;
-    }
-
-    private static boolean isEventChannel(int channelId) {
-        return KNOWN_EVENT_CHANNEL_IDS.contains(channelId);
     }
 
     private static Integer toIntegerCount(Double value) {
