@@ -73,6 +73,7 @@ public class UnifiedNightAnalysisService {
         String sessionStart = indexEntry.firstInstant().toString().substring(0, 19);
         List<DeviceEvent> events = List.of();
         boolean hasPld = false;
+        boolean pldHasStats = false;
         boolean hasEve = false;
         boolean hasBrp = false;
 
@@ -80,7 +81,9 @@ public class UnifiedNightAnalysisService {
             OscarEdfPaths paths = edfPaths.get();
             if (paths.pld().isPresent()) {
                 hasPld = true;
-                mergeStats(channelStats, loadPld(paths.pld().get(), analysis.percentile()));
+                Map<String, ChannelStatistics> pldStats = loadPld(paths.pld().get(), analysis.percentile());
+                pldHasStats = pldStats.values().stream().anyMatch(s -> s.sampleCount() > 0);
+                mergeStats(channelStats, pldStats);
             }
             if (paths.brp().isPresent()) {
                 hasBrp = true;
@@ -135,7 +138,8 @@ public class UnifiedNightAnalysisService {
                 hasPld,
                 hasEve,
                 hasBrp,
-                channelsNode.size()));
+                channelsNode.size(),
+                pldHasStats));
 
         List<ObjectNode> moments = OscarEventCorrelator.buildNotableMoments(
                 channelStats,

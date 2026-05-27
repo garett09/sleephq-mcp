@@ -65,6 +65,19 @@ class NightAnalysisSupportTest {
     }
 
     @Test
+    void coverageDistinguishesPldPresenceFromPldStats() {
+        // pldPresent=true, pldHasStats=true → both flags true
+        ObjectNode withStats = NightAnalysisSupport.coverageNode(false, false, true, false, false, 0, true);
+        assertThat(withStats.get("oscar_edf_pld").asBoolean()).isTrue();
+        assertThat(withStats.get("oscar_edf_pld_stats").asBoolean()).isTrue();
+
+        // pldPresent=true, pldHasStats=false → pld true, pld_stats false
+        ObjectNode noStats = NightAnalysisSupport.coverageNode(false, false, true, false, false, 0, false);
+        assertThat(noStats.get("oscar_edf_pld").asBoolean()).isTrue();
+        assertThat(noStats.get("oscar_edf_pld_stats").asBoolean()).isFalse();
+    }
+
+    @Test
     void summaryChannelNode_includesWaveformChannelButNotEventChannels() {
         OscarSession session = new OscarSession(
                 "2026-05-27",

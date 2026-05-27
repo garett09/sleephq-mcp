@@ -93,14 +93,16 @@ public final class NightAnalysisSupport {
     public static ObjectNode coverageNode(
             boolean sleephqCpap,
             boolean summary,
-            boolean pld,
+            boolean pldPresent,
             boolean eve,
             boolean brp,
-            int channelCount) {
+            int channelCount,
+            boolean pldHasStats) {
         ObjectNode coverage = JsonApi.mapper().createObjectNode();
         coverage.put("sleephq_cpap", sleephqCpap);
         coverage.put("oscar_summary", summary);
-        coverage.put("oscar_edf_pld", pld);
+        coverage.put("oscar_edf_pld", pldPresent);
+        coverage.put("oscar_edf_pld_stats", pldHasStats);
         coverage.put("oscar_edf_eve", eve);
         coverage.put("oscar_edf_brp", brp);
         coverage.put("channels_reported", channelCount);
