@@ -47,7 +47,11 @@ public final class OscarChannelIds {
     public static final int CPAP_LeakTotal = 0x1117;
     public static final int CPAP_LeakMedian = 0x1118;
     public static final int CPAP_RDI = 0x1119;
-    /** ResMed extended summary metric on recent AS11 backups (Summaries.xml.gz). */
+    /**
+     * ResMed extended summary metric introduced on recent AS11 backups (Summaries.xml.gz).
+     * Exact semantic is not in this repo's schema dump — observed values vary widely night-to-night
+     * (e.g. 62.54 on one night, 0 on another). Treat as opaque; do not derive clinical conclusions.
+     */
     public static final int CPAP_SessionMetric = 0x1158;
 
     // Settings (examples)

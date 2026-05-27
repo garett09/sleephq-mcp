@@ -49,7 +49,7 @@ public final class OscarChannelCatalog {
         m.put(OscarChannelIds.CPAP_InspiratoryTime, meta("inspiratory_time", "Inspiratory time", "s"));
         m.put(OscarChannelIds.CPAP_AHI, meta("ahi", "AHI", "/h"));
         m.put(OscarChannelIds.CPAP_RDI, meta("rdi", "RDI", "/h"));
-        m.put(OscarChannelIds.CPAP_SessionMetric, meta("session_metric", "Session metric", ""));
+        m.put(OscarChannelIds.CPAP_SessionMetric, meta("session_metric", "ResMed session metric (semantic unconfirmed)", ""));
         m.put(OscarChannelIds.CPAP_LeakTotal, meta("leak_total", "Leak total", "L/min"));
         m.put(OscarChannelIds.CPAP_LeakMedian, meta("leak_median", "Leak median", "L/min"));
         m.put(OscarChannelIds.CPAP_MaxLeak, meta("leak_max", "Leak max", "L/min"));

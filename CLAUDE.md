@@ -49,6 +49,8 @@ auth/         AuthInterceptor (bearer token + 401 retry), TokenManager (token ca
 
 **OSCAR local data:** Optional integration reads `~/Documents/OSCAR_Data` (configurable). Background → [`context/`](context/README.md). Primary LLM output is compact `night_analysis` on `get-combined-night-by-date` (no raw PLD/EVE by default). Tools: `get-oscar-status`, `get-night-analysis`, `get-mechanics`, `get-oscar-trend`, `get-oscar-events` (`detail=summary` default), `get-plmd-night`. Env: `OSCAR_DATA_PATH`, `OSCAR_PROFILE_NAME`, `OSCAR_DEVICE_FOLDER`.
 
+**`session_metric` (channel 0x1158):** ResMed extended summary metric with unconfirmed semantics; treat as opaque. Do not use for clinical interpretation.
+
 ## Environment variables
 
 Required at runtime (set in `.env`):
