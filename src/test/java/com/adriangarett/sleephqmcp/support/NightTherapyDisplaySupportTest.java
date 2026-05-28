@@ -31,6 +31,20 @@ class NightTherapyDisplaySupportTest {
     }
 
     @Test
+    void attachIfPresent_usageInSeconds_formatsUsageCellAsHours() {
+        ObjectNode envelope = JsonApi.mapper().createObjectNode();
+        ObjectNode data = envelope.putObject("data");
+        data.put("type", "machine_date");
+        ObjectNode attrs = data.putObject("attributes");
+        attrs.put("usage", 25440);
+        attrs.putObject("ahi_summary").put("av", 0.57);
+
+        NightTherapyDisplaySupport.attachIfPresent(envelope);
+
+        assertThat(envelope.path("therapy_display").path("usage_cell").asText()).isEqualTo("7.1 h");
+    }
+
+    @Test
     void attachIfPresent_noData_leavesEnvelopeUnchanged() {
         ObjectNode envelope = JsonApi.mapper().createObjectNode();
         envelope.putNull("data");

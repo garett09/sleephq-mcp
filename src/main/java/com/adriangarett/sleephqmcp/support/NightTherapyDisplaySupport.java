@@ -71,7 +71,7 @@ public final class NightTherapyDisplaySupport {
                 apnea.put("hypopnea_per_hr", components.hypopneaPerHr());
             }
         });
-        String usageCell = ComparisonTableDisplay.buildUsageCell(attrs.path("usage"));
+        String usageCell = ComparisonTableDisplay.buildUsageCellFromAttributes(attrs);
         if (!usageCell.isBlank()) {
             display.put("usage_cell", usageCell);
         }

@@ -342,7 +342,21 @@ public final class ComparisonTableDisplay {
         if (!usageHours.isNumber()) {
             return "";
         }
-        double hours = usageHours.asDouble();
+        return formatUsageHours(usageHours.asDouble());
+    }
+
+    static String buildUsageCellFromAttributes(JsonNode attrs) {
+        if (attrs == null || !attrs.isObject()) {
+            return "";
+        }
+        Double usageHours = readUsageHours(attrs);
+        if (usageHours == null) {
+            return "";
+        }
+        return formatUsageHours(usageHours);
+    }
+
+    private static String formatUsageHours(double hours) {
         if (hours == Math.rint(hours)) {
             return ((long) hours) + " h";
         }
