@@ -19,7 +19,7 @@ public final class OscarSummaryEventCounts {
     private static final int MAX_HASH_ENTRIES = 40;
     private static final double MAX_EVENT_COUNT = 10_000;
     /** Per-night event totals above this are almost certainly a misaligned hash parse. */
-    private static final int MAX_PLAUSIBLE_NIGHTLY_EVENT_COUNT = 30;
+    private static final int MAX_PLAUSIBLE_NIGHTLY_EVENT_COUNT = 500;
 
     private OscarSummaryEventCounts() {}
 

@@ -17,6 +17,20 @@ class OscarSummaryEventCountsTest {
     private static final int MIN_HASH_ENTRIES_FOR_TEST = 8;
 
     @Test
+    void scan_acceptsModerateApneaEventTotals() {
+        byte[] bytes = buildSummaryWithCntHash(32, Map.of(
+                OscarChannelIds.CPAP_Obstructive, 45,
+                OscarChannelIds.CPAP_Hypopnea, 30,
+                OscarChannelIds.CPAP_ClearAirway, 5,
+                OscarChannelIds.CPAP_Apnea, 2));
+        Map<String, Integer> counts = OscarSummaryEventCounts.scan(bytes, List.of());
+        assertThat(counts).containsEntry("obstructive", 45);
+        assertThat(counts).containsEntry("hypopnea", 30);
+        assertThat(counts).containsEntry("clear_airway", 5);
+        assertThat(counts).containsEntry("apnea", 2);
+    }
+
+    @Test
     void scan_findsCntHashInSyntheticSummary() {
         byte[] bytes = buildSummaryWithCntHash(32, Map.of(
                 OscarChannelIds.CPAP_ClearAirway, 3,
