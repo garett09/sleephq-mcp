@@ -84,7 +84,7 @@ instructions: |
   - *Interface:* `list-masks`, `list-devices`, `get-machine-details` (also inside `get-device-context`)
   - *Physiology:* `get-device-events` (EVE), `scan-apnea-events` (BRP flow), `get-waveform-by-date`, `get-o2-oximetry` (always cap `maxMinutes`)
   - *Waveform anchors:* `get-waveform-by-date(anchor=…)` menu = `auto, eve_scan_overlap, worst_obstructive, worst_central, worst_leak, notable_moment, rem, deep, core, awake`. Planner **never silently falls back to minute 0** — on no match it returns a structured error (`no_anchor_candidates` or `no_sleephq_brp`); report the error, don't invent a window. `worst_leak` resolving to `start_minute=0` is **valid** (peak leak at session start), not a bug. Always cite `window_selection` (`anchor_resolved`, `reason`, `evidence`).
-  - *Autovisualiser (Goose builtin):* After primary MCP data returns, read `sleephq://playbook/autovisualiser` and render ≤2 charts (line AHI/OA/CA trends, sleep-stage donut, leak bar). Never chart before `get-comparison` / `get-combined-night-by-date`; never chart smoke tests; on failure continue with tables only.
+  - *Autovisualiser (Goose builtin):* After primary MCP data returns, read `sleephq://playbook/autovisualiser`. **physician_titration_review:** up to **5** span charts (AHI, OSA+CSA, leak, usage, SpO₂ or worst-night stages). **balanced:** ≤2 charts. Never chart before `get-comparison` / `get-combined-night-by-date`; never chart smoke tests; on failure continue with tables only.
   - *Goose memory:* store mask/pressure goals only when user asks; confirm before save; no secrets
   - *Chat recall:* past session decisions — always re-fetch SleepHQ for current nights
 
@@ -163,6 +163,7 @@ instructions: |
     - **Phase 2:** `get-device-context` — publish **`### Current device (live)`** block (mode, pressure, EPR, masks).
     - **Phase 3:** Publish **`### Apnea trends (span)`** only from **`apnea_trends.titration_decision_support.span_summary_bullets`** (verbatim) + `suggested_pressure_action` + `pressure_signals`.
     - **Phase 4 table:** every night from Phase 1 `nights[]`, all cells: `usage_cell`, `settings_cell`, `pressure_cell`, `epap_cell`, **`apnea_indices_cell`**, `leak_cell`, `resp_rate_cell`, `flow_limit_cell`, `spo2_cell`, `pulse_cell`, `sleep_cell`, `journal_cell`. **`### Data completeness`** required (include `titration_readiness`).
+    - **Phase 4a (charts — priority):** After Phase 4 table, read `sleephq://playbook/autovisualiser` → **`### Span trends (charts)`** with up to **5** autovisualiser charts from `get-comparison` (AHI line, OSA+CSA line, leak 95th bar, usage bar, SpO₂ min line or worst-night sleep-stage donut if Phase 5 already fetched that night). Tables stay authoritative; chart numbers must match `table_display`.
     - **Phase 4b:** Masks vs menu — F40 + Pillows can be valid; mask change only with leak/fit evidence.
     - **Phase 5:** ≤**8** deep nights: post-change (3), worst AHI, worst OSA!/CSA! night, worst leak (waveform **required** `maxMinutes=15–30`), worst SpO₂ (`get-o2-oximetry` **`maxMinutes=45`**) — **EVE + scan event lists** each deep night (see `mcp_payload_hints`). On worst **CSA!/OSA!** nights, if OSCAR reachable also `get-night-analysis(date)` and cross-check `event_count_authority` / `summary_counts` against SleepHQ `ahi_summary` — event **type/presence** only, never the index.
     - **Phase 5b — Decision self-check (STRICT gate):** Before writing any pressure action, verify it against every gate: (1) resources read this session (handbook §5, `normal-ranges`, `patient/baseline` — cite in Evidence; no decision from memory); (2) leak 95th <24 L/min (no unresolved `large_leak`) on decision nights, else action = mask/leak first; (3) usage ≥4h on those nights; (4) CSA guardrail — if `decision_guardrails.must_not_increase_pressure`, action ∈ {HOLD, −1}, **never +1**; (5) decision reflects the span `apnea_trends`, not a single outlier night; (6) if OSCAR was read, `event_counts_agree` (or the disagreement is explained, SleepHQ indices still govern); (7) escalation not missed — SpO₂ <85% or AHI persistently >20 → in-person referral; screen ASV contraindications before any ASV suggestion. **If any check fails, revise the action and re-run this check — do not publish the violating recommendation.**
@@ -346,7 +347,15 @@ instructions: |
   After the workflow **Required** tools succeed:
   1. Read MCP resource **`sleephq://playbook/autovisualiser`**.
   2. Build chart payloads from numeric JSON paths listed there (`table_display.ahi`, `minutes_by_stage_for_reporting`, etc.) — not from memory.
-  3. Render **at most 2** inline charts for `balanced` and `physician_titration_review`, **1** for `clinical_deep_dive`, **0** for `morning_brief_only` unless the user asks.
+  {% if workflow_mode == "physician_titration_review" %}
+  3. Render **up to 5** inline charts per `sleephq://playbook/autovisualiser` physician chart pack (AHI, OSA+CSA, leak, usage, SpO₂ or worst-night stages).
+  {% elif workflow_mode == "balanced" %}
+  3. Render **at most 2** inline charts after `get-comparison`.
+  {% elif workflow_mode == "clinical_deep_dive" %}
+  3. Render **at most 1** chart (sleep stages) after `get-combined-night-by-date`.
+  {% else %}
+  3. Default **at most 1** chart when structured span/night data exists; **0** for `morning_brief_only` unless the user asks.
+  {% endif %}
   4. Place charts immediately after the markdown table they summarize; caption with tool + date span.
   5. **Tables and FINAL RECOMMENDATIONS win** if chart and table disagree.
 
@@ -377,7 +386,7 @@ activities:
   - "Sub-investigations (when triggered): central-apnea-investigation, obstructive-residual-investigation, o2-desat-review, titration-decision, leak-diagnosis, event-reconciliation."
   - "Discovery/fallback only: list-teams, list-machines, get-machine-date-by-date, list-import-files, get-import-file, get-waveform(fileId), get-journal-by-date."
   - "OSCAR (when local backup configured): get-oscar-status → get-night-analysis or get-combined-night-by-date; multi-night OSCAR without waveforms → get-oscar-trend(detail=summary); event lists → get-oscar-events(detail=summary); PLMD slice → get-plmd-night. Smoke checklist: docs/smoke-test-oscar-mcp.md."
-  - "Charts (optional): after get-comparison → read sleephq://playbook/autovisualiser → ≤2 autovisualiser charts; skip for morning_brief_only and smoke runs."
+  - "Charts: physician_titration_review → up to 5 span charts after get-comparison (AHI, OSA+CSA, leak, usage, SpO₂/stages). balanced → ≤2. Skip morning_brief_only and smoke runs."
 
 extensions:
   - type: streamable_http

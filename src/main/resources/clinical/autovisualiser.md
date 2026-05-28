@@ -13,7 +13,7 @@ Use the Goose **autovisualiser** builtin **after** live MCP data returns this se
 | workflow_mode | Max charts | Call autovisualiser? |
 |---------------|------------|----------------------|
 | balanced | 2 | Yes — after `get-comparison` |
-| physician_titration_review | 2 | Yes — after `get-comparison` |
+| physician_titration_review | **5** | Yes — after `get-comparison` (priority workflow) |
 | clinical_deep_dive | 1 | Yes — sleep stages after `get-combined-night-by-date` |
 | mask_leak_with_pressure | 1 | Optional — 7d leak from `get-comparison` if called |
 | morning_brief_only | 0 | No — unless user explicitly asks |
@@ -87,6 +87,24 @@ Only when OSCAR was already fetched and SleepHQ span lacks nights. Use `nights[]
 1. **Nightly control (line)** — x: date, y: AHI (/hr). Series: total AHI; optional second chart for OSA + CSA lines.
 2. **Sleep stages (donut/pie)** — one focal night from `minutes_by_stage_for_reporting`.
 3. **Leak trend (bar)** — x: date, y: 95th % leak (L/min) when discussing mask fit.
+
+## physician_titration_review chart pack (up to 5)
+
+**When:** immediately after Phase 4 per-night table (`get-comparison` returned). Place under `## Technologist read` → `### Span trends (charts)` before `### Apnea trends (span)` bullets.
+
+**Priority order** (render in this order; skip a slot if data missing — do not invent):
+
+| # | Chart | Type | Data |
+|---|-------|------|------|
+| 1 | Total AHI by night | line | `ahi_total` × `dates` |
+| 2 | OSA + CSA by night | line (2 series) | `osa_per_hr`, `csa_per_hr` × `dates` — **required** for pressure decisions |
+| 3 | Leak 95th by night | bar | `leak_95_l_min` × `dates` — mask-first signal |
+| 4 | CPAP usage by night | bar | `usage_hours` × `dates` — compliance gate |
+| 5 | SpO₂ nadir by night **or** sleep stages on worst night | line **or** donut | `spo2_min_pct` × `dates`; **else** `minutes_by_stage_for_reporting` from `get-combined-night-by-date` on worst SpO₂ / worst AHI deep night |
+
+**Deep-night only (#5 donut):** call `get-combined-night-by-date` only if already in Phase 5 deep nights — do not add extra API calls just for a chart.
+
+**Do not chart here:** waveform samples, EVE/scan event lists, raw `apnea_trends` JSON (use bullets for span summary).
 
 ## Autovisualiser usage
 

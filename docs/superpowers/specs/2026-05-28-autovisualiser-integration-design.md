@@ -35,7 +35,7 @@ MCP tools return JSON → agent extracts numeric series → autovisualiser tools
 | Workflow | Max charts | Preferred MCP source | Chart type |
 |----------|------------|----------------------|------------|
 | `balanced` | 2 | `get-comparison` `nights[]` | Line: nightly total AHI (`table_display.ahi` or `data.attributes.ahi_summary`); optional line: leak 95th or SpO₂ min |
-| `physician_titration_review` | 2 | `get-comparison` | Line: OSA + CSA per night (`ahi.oa`, `ahi.ca`); bar: usage hours |
+| `physician_titration_review` | **5** | `get-comparison` | Pack: AHI line, OSA+CSA line, leak bar, usage bar, SpO₂ min or worst-night stages |
 | `clinical_deep_dive` | 1 | `get-combined-night-by-date` `journal` | Donut: `minutes_by_stage_for_reporting` |
 | `mask_leak_with_pressure` | 1 | `get-comparison` 7d or focal night leak | Bar: leak 95th by night |
 | `morning_brief_only` | 0 | — | Text only unless user asks for a chart |

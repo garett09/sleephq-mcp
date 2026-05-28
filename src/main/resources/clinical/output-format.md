@@ -14,7 +14,7 @@ Table cells: `90% (High)` not just `High`.
 
 ## Inline charts (Goose autovisualiser)
 
-Optional **after** markdown tables exist for the same data. Max 2 charts on span reports; tables and **FINAL RECOMMENDATIONS** stay authoritative. See `sleephq://playbook/autovisualiser`.
+Optional **after** markdown tables exist for the same data. **physician_titration_review:** up to 5 span charts; **balanced:** max 2; tables and **FINAL RECOMMENDATIONS** stay authoritative. See `sleephq://playbook/autovisualiser`.
 
 ## Therapy verdict (plain language — mandatory)
 

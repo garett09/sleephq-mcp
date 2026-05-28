@@ -1,6 +1,6 @@
 Physician titration review for **{{reviewSpanDays}}** days ending **{{toDate}}**.
 
-Resources: get-device-context, patient/baseline, resmed-titration, resmed-therapy-handbook, normal-ranges, playbook/workflows, playbook/payload-budget, playbook/data-sources, playbook/output-format
+Resources: get-device-context, patient/baseline, resmed-titration, resmed-therapy-handbook, normal-ranges, playbook/workflows, playbook/payload-budget, playbook/data-sources, playbook/output-format, playbook/autovisualiser
 
 Apply pressure/central/leak rules from `sleephq://guidelines/resmed-therapy-handbook` §5 (home adaptation) — not single-night lab cookbook.
 
@@ -35,8 +35,9 @@ Publish **in this order** so titration decisions are scannable:
 1. **`### Current device (live)`** — from **`get-device-context`**: mode, pressure/min-max, EPR, ramp, mask menu vs `registered_masks` (one short block).
 2. **`### Apnea trends (span)`** — **only after `get-comparison`**: bullets from **`apnea_trends.titration_decision_support.span_summary_bullets`** + **`suggested_pressure_action`** + **`pressure_signals`**.
 3. **`### Titration Configuration`** — one row per night from `get-comparison` → `nights[]` → **`table_display` only** (never invent).
-4. **`### Data completeness`** — `titration_readiness`, skipped nights, missing `therapy_summaries_present`, missing O2/journal. If OSCAR was read: one line on reachability + `event_counts_agree` + authority.
-5. Deep dives + **`## Physician assessment`** with explicit **pressure decision** in **FINAL RECOMMENDATIONS**.
+4. **`### Span trends (charts)`** — after the table: up to **5** Goose **autovisualiser** charts from `get-comparison` JSON (see `sleephq://playbook/autovisualiser` physician pack): AHI line, OSA+CSA line, leak 95th bar, usage bar, SpO₂ min line or worst-night sleep-stage donut. Tables stay authoritative.
+5. **`### Data completeness`** — `titration_readiness`, skipped nights, missing `therapy_summaries_present`, missing O2/journal. If OSCAR was read: one line on reachability + `event_counts_agree` + authority.
+6. Deep dives + **`## Physician assessment`** with explicit **pressure decision** in **FINAL RECOMMENDATIONS**.
 
 ---
 
