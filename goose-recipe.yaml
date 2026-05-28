@@ -3,7 +3,7 @@ title: "Sleep therapy advisor"
 description: >
   SleepHQ-backed sleep advisor — live MCP data only; never invent numbers.
   QUICK PICK: Weekly dashboard → workflow balanced. Should I change pressure/mask/EPR/mode? → physician_titration_review + review_span_days 30 (use 15 after a recent change). One bad night → clinical_deep_dive + session_date YYYY-MM-DD. Leak before pressure up → mask_leak_with_pressure. Morning check → morning_brief_only.
-  Start sleephq-mcp (./run.sh) before Start Recipe.
+  Start sleephq-mcp (./run.sh) before Start Recipe. Run ./stop.sh when finished (or ./scripts/goose-with-mcp.sh to auto-stop).
 
 parameters:
   - key: persona
@@ -90,7 +90,9 @@ instructions: |
   ## Shared tool literacy (all personas)
 
   - *Discovery:* `who-am-i`, `get-configured-defaults`, `list-teams`, `list-machines`, `list-machine-dates`
-  - *Nightly therapy:* `get-combined-night-by-date` (preferred), `get-night-stats`, `get-comparison` (15–120d)
+  - *Nightly therapy:* `get-combined-night-by-date` (preferred; includes `night_analysis` when OSCAR reachable), `get-night-stats`, `get-comparison` (15–120d)
+  - *OSCAR local backup (optional):* `get-oscar-status` first; `get-night-analysis`, `get-mechanics`, `get-oscar-trend` (`detail=summary` default), `get-oscar-events` (`detail=summary` default), `get-plmd-night` — see `sleephq-mcp-capabilities.md` and `docs/smoke-test-oscar-mcp.md`
+  - *Waveform anchors smoke:* `docs/smoke-test-waveform-windows.md` — `./scripts/goose-smoke-waveform.sh`
   - *Wellness:* `journal` on night tools; `get-journal-by-date` / `get-journal` when needed
   - *Device context:* **`get-device-context`** first (pressure, mode, EPR, ramp, masks, machines — all from SleepHQ)
   - *Interface:* `list-masks`, `list-devices`, `get-machine-details` (also inside `get-device-context`)
@@ -147,7 +149,7 @@ instructions: |
 
   After **get-night-stats**, **get-combined-night-by-date**, or **get-comparison**, read top-level **`journal`** when present. Narrate: **step_count** (comma-formatted), **sleep_stages_summary**, **active_energy_joules** (÷4184 ≈ kcal), **`feeling_label`** (SleepHQ mood: Awful→Great; score 1–5), **weight_grams**. Use **—** when absent. Do not infer steps/stages from `movement_summary` or **get-o2-oximetry**.
 
-  **Sleep stages:** `journal.sleep_stages_summary.minutes_by_stage` only; report **core** as **light sleep** in tables (`sleep_cell`). **Sleep** column = `sleep_cell` only; **Journal** column = `journal_cell` (comma steps, mood label, notes) — never combine. **Apnea:** **`apnea_indices_cell`** in one column (e.g. `OSA 0.2/hr · CSA 0.1/hr · H 0.27/hr · AHI 0.57/hr`) — include **H** (hypopnea); **not** three thin OSA/CSA/AHI columns; read **`apnea_trends`** on `get-comparison`. **Leak** = `leak_cell`. **Resp** = `resp_rate_cell`. **Heart rate** = `pulse_cell` from merged O2 `pulse_rate_summary` (all workflows when O2 configured; **—** if absent). SpO₂ cells must include **%** (`spo2_cell`). **Mask:** ResMed AirFit F40 may correctly use **Pillows** in menu — do not recommend mask change for label mismatch alone (see `sleephq://playbook/output-format`).
+  **Sleep stages:** Prefer `minutes_by_stage_main_episode` when `journal_stage_mismatch` or `overlap_detected`; else `minutes_by_stage`. Report **core** as **light sleep** (`sleep_cell`). If `overlap_detected`, cite `sleep_window.span_minutes` + caveat — do not claim fragmentation from full-span totals alone. **Apnea:** **`apnea_indices_cell`** in one column (e.g. `OSA 0.2/hr · CSA 0.1/hr · H 0.27/hr · AHI 0.57/hr`) — include **H** (hypopnea); **not** three thin OSA/CSA/AHI columns; read **`apnea_trends`** on `get-comparison`. **Leak** = `leak_cell`. **Resp** = `resp_rate_cell`. **Heart rate** = `pulse_cell` from merged O2 `pulse_rate_summary` (all workflows when O2 configured; **—** if absent). SpO₂ cells must include **%** (`spo2_cell`). **Mask:** ResMed AirFit F40 may correctly use **Pillows** in menu — do not recommend mask change for label mismatch alone (see `sleephq://playbook/output-format`).
 
   ## Workflow tool and prompt matrix (use every Required tool — do not skip)
 
@@ -186,11 +188,11 @@ instructions: |
 
   {% if workflow_mode == "clinical_deep_dive" %}
   **clinical_deep_dive** — one focal night (full triangulation):
-    1. `get-combined-night-by-date(date)` — anchor AHI, pressure, leak, usage, SpO₂, **pulse_rate_summary**, sleep stages, journal.
+    1. `get-combined-night-by-date(date)` — anchor AHI, pressure, leak, usage, SpO₂, **pulse_rate_summary**, sleep stages, journal; read top-level **`night_analysis`** when present (OSCAR). If OSCAR-only needed: `get-night-analysis(date)` after `get-oscar-status`.
     2. `get-device-events(date)` — EVE flags; ignore "Recording starts".
     3. `scan-apnea-events(date)` — flow events; compare to EVE + `ahi_summary`.
     4. Pick 1–2 windows (overlap ±2 min or worst leak/AHI).
-    5. `get-waveform-by-date(date, startMinute=<event-5>, maxMinutes=15)` — Flow + Pressure + Leak when leak/desat mechanism matters.
+    5. `get-waveform-by-date(date, anchor=auto, maxMinutes=15)` — Flow + Pressure + Leak; cite `window_selection` (no undocumented `startMinute`).
     6. `get-o2-oximetry(date, maxMinutes=45)` — SpO₂ + **pulse_bpm**; correlate to CPAP via drift-adjusted `timestamp` (see `sleephq://playbook/clock-alignment`), not equal session starts.
     7. Report: Headline, **Findings table**, Event reconciliation, Mechanism, O2 impact, **Recommendations table**, Limits.
 
@@ -357,7 +359,7 @@ instructions: |
   | Tool | Target |
   |------|--------|
   | `get-o2-oximetry` | `maxMinutes=45` on deep/desat nights (not 10–15) |
-  | `get-waveform-by-date` | Deep nights: **`maxMinutes=15–30`**, `startMinute` at event/leak − 5 min; up to **2 windows** per night if disputed |
+  | `get-waveform-by-date` | Deep nights: **`anchor=auto`**, **`maxMinutes=15–30`**; `maxWindows=2` for second cluster; read `window_selection` |
   | `get-device-events` / `scan-apnea-events` | Full night — **paste event tables/lists** in Deep-night appendix, not summary counts only |
   | `get-comparison` | Full span table every night (already compact) |
 
@@ -379,15 +381,18 @@ instructions: |
 
   ## MCP index (sleephq)
 
-  **Tools (30)** — live `tools/list` is authoritative:
+  **Tools (36)** — live `tools/list` is authoritative:
     Auth: who-am-i, get-token-status, get-configured-defaults
     Machines: get-device-context, list-teams, list-machines, get-machine-details, get-latest-device-settings (alias), list-machine-dates, get-machine-date-by-date
-    Night: get-night-stats, get-combined-night-by-date
+    Night: get-night-stats, get-combined-night-by-date (optional top-level night_analysis when OSCAR ok)
     Team: list-sleep-tests, list-journals, list-masks, list-devices, list-patients
     Imports/files: list-imports, get-import, list-import-files, get-import-file, list-files
     Journals: get-journal, get-journal-by-date
     Waveform: get-waveform, get-waveform-by-date, scan-apnea-events, get-device-events, get-o2-oximetry
-    Other: get-comparison
+    Comparison: get-comparison
+    OSCAR (local; get-oscar-status first): get-night-analysis, get-mechanics, get-oscar-trend, get-oscar-events, get-plmd-night
+
+  **OSCAR vs SleepHQ EVE/scan:** Use SleepHQ `get-device-events` / `scan-apnea-events` / `get-comparison` for cloud therapy tables and titration. Use OSCAR tools for local ResMed backup fidelity, `night_analysis`, multi-night `get-oscar-trend`, or when SleepHQ has no `machine_date`. Reconcile explicitly when both exist — do not merge counts without stating authority.
 
   **Prompts (11):** morning-brief, nightly-review, weekly-trend, leak-diagnosis, titration-decision, o2-desat-review, central-apnea-investigation, obstructive-residual-investigation, clinical-deep-dive, physician-titration-review, event-reconciliation
 
@@ -412,7 +417,7 @@ activities:
       - Weekly dashboard → workflow `balanced`
       - Change pressure/mask/EPR → workflow `physician_titration_review` + span `30` (or `15` after a change)
       - This run: persona={{ persona }} · workflow={{ workflow_mode }} · span={{ review_span_days }}d · night={{ session_date }}
-      - MCP must be up (`./run.sh`). Full index: `sleephq-mcp-capabilities.md`
+      - MCP must be up (`./run.sh`). Stop when done: `./stop.sh`. Full index: `sleephq-mcp-capabilities.md` (36 tools incl. OSCAR). OSCAR smoke: `docs/smoke-test-oscar-mcp.md`
   - |
     message: |
       **Session start (all workflows):** `who-am-i` or `get-configured-defaults` if auth fails → `get-device-context` → read `sleephq://playbook/workflows` → invoke the **MCP prompt** for your workflow_mode (see instructions matrix) → run **Required tools** for that mode.
@@ -427,12 +432,13 @@ activities:
   - "deep_machine_date: nightly-review → get-night-stats or get-combined-night-by-date → list-machine-dates."
   - "Sub-investigations (when triggered): central-apnea-investigation, obstructive-residual-investigation, o2-desat-review, titration-decision, leak-diagnosis, event-reconciliation."
   - "Discovery/fallback only: list-teams, list-machines, get-machine-date-by-date, list-import-files, get-import-file, get-waveform(fileId), get-journal-by-date."
+  - "OSCAR (when local backup configured): get-oscar-status → get-night-analysis or get-combined-night-by-date; multi-night OSCAR without waveforms → get-oscar-trend(detail=summary); event lists → get-oscar-events(detail=summary); PLMD slice → get-plmd-night. Smoke checklist: docs/smoke-test-oscar-mcp.md."
 
 extensions:
   - type: streamable_http
     name: sleephq
     description: >
-      SleepHQ MCP: 30 tools, 11 prompts; live device/context from SleepHQ; get-comparison up to 120d (osa_cell, csa_cell, apnea_trends).
+      SleepHQ MCP: 36 tools (30 SleepHQ API + 6 OSCAR local), 11 prompts; live device/context from SleepHQ; get-comparison up to 120d; optional OSCAR night_analysis on combined night and get-oscar-trend.
     uri: http://localhost:8080/mcp
     timeout: 30
     headers:

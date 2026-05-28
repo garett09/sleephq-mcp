@@ -42,4 +42,18 @@ class ClinicalDefaultsSupportTest {
                 .containsEntry("cpap_clock_adjust_seconds_env_fallback", 1428)
                 .containsEntry("clock_reference", "o2_and_journal");
     }
+
+    @Test
+    void configuredDefaultsBody_withPayload_includesMcpPayloadHints() {
+        var clinical = new ClinicalContextProperties("32809", "81272", "81007", null);
+        var payload = new SleepHqPayloadProperties(480, 600, 4000, 45, null);
+
+        @SuppressWarnings("unchecked")
+        var hints = (java.util.Map<String, Object>) ClinicalDefaultsSupport
+                .configuredDefaultsBody(clinical, payload)
+                .get("mcp_payload_hints");
+
+        assertThat(hints).containsEntry("waveform_default_max_minutes", 480);
+        assertThat(hints).containsEntry("waveform_max_minutes_cap", 600);
+    }
 }

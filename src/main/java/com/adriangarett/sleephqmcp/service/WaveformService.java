@@ -63,9 +63,20 @@ public class WaveformService {
         if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
             throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
         }
-        String fileId = TeamFileResolver.resolveByDate(sleepHqClient, resolvedTeamId, date, "brp.edf");
+        String fileId = resolveBrpFileId(resolvedTeamId, date);
         OptionalInt machineDateOffset = machineDateTimeOffsetLoader.loadForCpapDate(date, null);
         return getWaveform(fileId, startSeconds, maxSeconds, cpapClockAdjustSeconds, machineDateOffset);
+    }
+
+    public String resolveBrpFileId(String teamId, String date) {
+        try {
+            return TeamFileResolver.resolveByDate(sleepHqClient, teamId, date, "brp.edf");
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("No file matching")) {
+                throw new IllegalArgumentException("no_sleephq_brp: " + e.getMessage(), e);
+            }
+            throw e;
+        }
     }
 
     public String getWaveform(String fileId, int startSeconds, int maxSeconds, Integer cpapClockAdjustSeconds,
@@ -106,6 +117,19 @@ public class WaveformService {
 
     public String scanApneaEvents(String fileId, String teamId, String date, Double threshold, Integer minDurationSeconds,
                                  Integer cpapClockAdjustSeconds) {
+        ApneaScanResult aligned = loadScan(fileId, teamId, date, threshold, minDurationSeconds, cpapClockAdjustSeconds);
+        OptionalInt machineDateOffset = resolveMachineDateOffsetForScan(date);
+        CpapClockAlignment.CpapClockAdjustResolution resolution =
+                CpapClockAlignment.resolveAdjust(clinical, cpapClockAdjustSeconds, machineDateOffset);
+        return CpapClockAlignment.serializeWithAlignment(aligned, resolution);
+    }
+
+    public ApneaScanResult loadScanByDate(String teamId, String date, Integer cpapClockAdjustSeconds) {
+        return loadScan(null, teamId, date, null, null, cpapClockAdjustSeconds);
+    }
+
+    public ApneaScanResult loadScan(String fileId, String teamId, String date, Double threshold,
+                                    Integer minDurationSeconds, Integer cpapClockAdjustSeconds) {
         String targetFileId = fileId;
         if (targetFileId == null || targetFileId.isBlank()) {
             if (date == null || date.isBlank()) {
@@ -115,12 +139,20 @@ public class WaveformService {
             if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
                 throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
             }
-            targetFileId = TeamFileResolver.resolveByDate(sleepHqClient, resolvedTeamId, date, "brp.edf");
+            targetFileId = resolveBrpFileId(resolvedTeamId, date);
         }
 
         double hypopneaLimit = threshold != null ? threshold : 0.15;
         int minDuration = minDurationSeconds != null ? minDurationSeconds : 10;
+        ApneaScanResult scanResult = scanFromFileId(targetFileId, hypopneaLimit, minDuration);
 
+        OptionalInt machineDateOffset = resolveMachineDateOffsetForScan(date);
+        CpapClockAlignment.CpapClockAdjustResolution resolution =
+                CpapClockAlignment.resolveAdjust(clinical, cpapClockAdjustSeconds, machineDateOffset);
+        return CpapClockAlignment.alignApneaScan(scanResult, resolution.adjustSeconds());
+    }
+
+    private ApneaScanResult scanFromFileId(String targetFileId, double hypopneaLimit, int minDuration) {
         String fileJson = sleepHqClient.getImportFile(targetFileId);
         JsonNode attrs = JsonApi.attributes(JsonApi.parse(fileJson));
         String downloadUrl = attrs.path("download_url").asText(null);
@@ -144,14 +176,14 @@ public class WaveformService {
             throw new IllegalArgumentException("No flow respiration channel found in file " + filename);
         }
 
-        double Fs = flowChannel.sampleRate();
+        double fs = flowChannel.sampleRate();
         List<Double> samples = flowChannel.samples();
         int totalSamples = samples.size();
 
         double apneaLimit = 0.04;
-        int minSamples = (int) Math.round(minDuration * Fs);
+        int minSamples = (int) Math.round(minDuration * fs);
 
-        int windowSize = (int) Math.round(4.0 * Fs);
+        int windowSize = (int) Math.round(4.0 * fs);
         if (windowSize <= 0) {
             windowSize = 1;
         }
@@ -180,9 +212,9 @@ public class WaveformService {
                 inEvent = false;
                 int durationSamples = i - eventStartIdx;
                 if (durationSamples >= minSamples) {
-                    double startSec = eventStartIdx / Fs;
-                    double durationSec = durationSamples / Fs;
-                    String classification = classifyEvent(samples, eventStartIdx, i, Fs, apneaLimit);
+                    double startSec = eventStartIdx / fs;
+                    double durationSec = durationSamples / fs;
+                    String classification = classifyEvent(samples, eventStartIdx, i, fs, apneaLimit);
                     events.add(createEvent(fullResult.startDatetime(), startSec, durationSec, classification));
                 }
             }
@@ -191,27 +223,20 @@ public class WaveformService {
         if (inEvent) {
             int durationSamples = totalSamples - eventStartIdx;
             if (durationSamples >= minSamples) {
-                double startSec = eventStartIdx / Fs;
-                double durationSec = durationSamples / Fs;
-                String classification = classifyEvent(samples, eventStartIdx, totalSamples, Fs, apneaLimit);
+                double startSec = eventStartIdx / fs;
+                double durationSec = durationSamples / fs;
+                String classification = classifyEvent(samples, eventStartIdx, totalSamples, fs, apneaLimit);
                 events.add(createEvent(fullResult.startDatetime(), startSec, durationSec, classification));
             }
         }
 
-        ApneaScanResult scanResult = new ApneaScanResult(
+        return new ApneaScanResult(
                 filename,
                 fullResult.startDatetime(),
                 fullResult.durationSeconds(),
                 flowChannel.label(),
                 hypopneaLimit,
-                events
-        );
-
-        OptionalInt machineDateOffset = resolveMachineDateOffsetForScan(date);
-        CpapClockAlignment.CpapClockAdjustResolution resolution =
-                CpapClockAlignment.resolveAdjust(clinical, cpapClockAdjustSeconds, machineDateOffset);
-        return CpapClockAlignment.serializeWithAlignment(
-                CpapClockAlignment.alignApneaScan(scanResult, resolution.adjustSeconds()), resolution);
+                events);
     }
 
     private OptionalInt resolveMachineDateOffsetForScan(String calendarDate) {

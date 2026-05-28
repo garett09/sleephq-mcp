@@ -6,8 +6,8 @@ Workflow:
 1. `get-combined-night-by-date(date="{{date}}")` — **`ahi_components`** (OSA/OA, CSA/CA, total AHI), pressure, leak, usage, SpO₂, **pulse_rate_summary**, `resp_rate_summary`, journal sleep stages.
 2. `get-device-events(date="{{date}}")` — EVE device flags (OA, CA, H, FL, etc.); ignore "Recording starts" as pathology.
 3. `scan-apnea-events(date="{{date}}")` — flow-derived events; compare count to EVE and `ahi_summary`.
-4. Pick 1–2 windows (EVE ∩ scan ±2 min, or worst leak/AHI). Example: if worst event at minute 247, call `get-waveform-by-date(date="{{date}}", startMinute=242, maxMinutes=15)` — this shows 5 min lead-in before the event cluster.
-5. **`get-waveform-by-date(date="{{date}}", startMinute=<event_min-5>, maxMinutes=15)`** — Flow + Press + **Leak** when leak or desat mechanism is in question. Always cap `maxMinutes`.
+4. Pick 1–2 windows via **`get-waveform-by-date(date="{{date}}", anchor=auto, maxMinutes=15)`** (or `anchor=eve_scan_overlap` / `worst_leak`). Read `window_selection.reason` and evidence — do not guess `startMinute`.
+5. Second disputed cluster: `anchor=auto`, `maxWindows=2`, `windowIndex=1`. Manual `startMinute` only when copied from `window_selection` or event `start_seconds`.
 6. **`get-o2-oximetry(date="{{date}}", maxMinutes=45)`** — SpO₂ and **pulse_bpm** in same window when possible. Always pass `maxMinutes`; full night can exceed 1M chars.
 
 Output (follow `sleephq://playbook/output-format`):

@@ -9,9 +9,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./mvnw test -Dtest=ClassName    # run a single test class
 ./mvnw package                  # full build (produces target/sleephq-mcp-0.0.1-SNAPSHOT.jar)
 ./run.sh                        # stop old JVM, clean rebuild, copy to dist/, start server
+./stop.sh                       # stop JVM on SLEEPHQ_MCP_PORT (run after Goose / MCP clients)
+./scripts/goose-with-mcp.sh     # optional: start server, run goose, stop server on exit
 ```
 
-`./run.sh` is the correct way to (re)start the server — it prevents stale JVM / `NoClassDefFoundError` by doing a full clean build before starting. Wait for `Classpath sanity OK` in the log before connecting a client.
+`./run.sh` is the correct way to (re)start the server — it prevents stale JVM / `NoClassDefFoundError` by doing a full clean build before starting. Wait for `Classpath sanity OK` in the log before connecting a client. **Stop with `./stop.sh` when done** — the process stays up until killed.
 
 Health check: `GET http://localhost:8080/actuator/health`
 
@@ -42,6 +44,8 @@ auth/         AuthInterceptor (bearer token + 401 retry), TokenManager (token ca
 **SleepHQ API contract:** All upstream calls use `https://sleephq.com` + `/api` + `/v1/...` paths from the published Swagger. Do not invent undocumented routes. See `docs/sleephq-openapi-gap.md` for tools that do local processing on top of documented routes (e.g. `get-comparison`, EDF parsing, Viatom binary parsing).
 
 **EDF processing:** `get-waveform`, `get-device-events`, `scan-apnea-events` download binary EDF files via the import/S3 route and parse locally (`EdfParser`, `EdfAnnotationParser`, `EdfBinarySupport`). O2 oximetry uses a Viatom proprietary binary (`ViatomSessionParser`).
+
+**Contextual waveform:** `get-waveform-by-date` uses `WaveformWindowPlanner` to auto-anchor BRP slices (`anchor=auto` default when `startMinute` omitted). Response includes `window_selection` (reason + evidence). Never falls back to minute 0 — fails with `no_sleephq_brp` or `no_anchor_candidates`.
 
 **CPAP clock drift:** Date-based EDF tools read `time_offset` from the `machine_date` API per night. Fallback env: `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS`. See `CpapClockAlignment` and `src/main/resources/clinical/clock-alignment.md`.
 

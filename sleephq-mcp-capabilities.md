@@ -5,7 +5,11 @@ Update this file when you add or rename `@McpTool` in Java.
 
 **Official OpenAPI:** [sleephq.com/api/swagger.json](https://sleephq.com/api/swagger.json). All outbound HTTP paths match that spec. A **404** on `get-machine-date-by-date` / `get-combined-night-by-date` usually means no `machine_date` row for that machine and calendar date (not a missing MCP route).
 
-## Tools (30)
+## Tools (36)
+
+Live `tools/list` on the running server is authoritative. **30** SleepHQ API tools + **6** local OSCAR tools (optional; require `OSCAR_DATA_PATH`).
+
+### SleepHQ API (30)
 
 | Name | Role |
 |------|------|
@@ -20,7 +24,7 @@ Update this file when you add or rename `@McpTool` in Java.
 | `list-machine-dates` | `GET /api/v1/machines/{machine_id}/machine_dates` |
 | `get-machine-date-by-date` | `GET /api/v1/machines/{machine_id}/machine_dates/{date}` |
 | `get-night-stats` | `GET /api/v1/machine_dates/{id}` — `{ data: machine_date, journal?: wellness }` with `sleep_stages_summary` (minutes_by_stage, Apple Health stage_type legend) |
-| `get-combined-night-by-date` | Same envelope; CPAP + optional O2 summary merge + journal overlay by calendar date |
+| `get-combined-night-by-date` | Same envelope; CPAP + optional O2 summary merge + journal overlay; optional top-level `night_analysis` when OSCAR reachable |
 | `list-sleep-tests` | `GET /api/v1/teams/{team_id}/sleep_tests` |
 | `list-journals` | `GET /api/v1/teams/{team_id}/journals` |
 | `get-journal` | `GET /api/v1/journals/{id}` — single journal entry (feeling_score, weight_grams, step_count, sleep_stages, notes) |
@@ -34,11 +38,28 @@ Update this file when you add or rename `@McpTool` in Java.
 | `list-files` | `GET /api/v1/teams/{team_id}/files` — all uploaded raw files for a team |
 | `get-import-file` | `GET /api/v1/imports/files/{id}` — single file metadata + signed `download_url` (expires 5 min) |
 | `get-waveform` | Downloads and parses an EDF device file by `fileId`. Returns `filename`, `start_datetime` (CPAP drift-adjusted when `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS` set), `duration_seconds`, and `channels[]`. Optional `cpapClockAdjustSeconds` override. |
-| `get-waveform-by-date` | Resolves BRP.edf for `YYYY-MM-DD`; same as `get-waveform` including optional CPAP clock drift on wall times. |
+| `get-waveform-by-date` | Resolves BRP.edf for `YYYY-MM-DD`; same as `get-waveform` plus `window_selection` (anchor, reason, evidence). Params: `anchor` (`auto`, `eve_scan_overlap`, `worst_obstructive`, `worst_central`, `worst_leak`, `notable_moment`, `rem`, `deep`, `core`, `awake`), `maxWindows` (1\|2), `windowIndex`, `startMinute` (manual override). Errors: `no_sleephq_brp`, `no_anchor_candidates`, `no_stage_overlap`, `invalid_anchor`. Never defaults to minute 0. |
 | `scan-apnea-events` | Full-night flow apnea scan; `timestamp` drift-adjusted on CPAP clock. Optional `cpapClockAdjustSeconds`. |
 | `get-device-events` | ResMed `EVE.edf` device events; `timestamp` drift-adjusted on CPAP clock. Optional `cpapClockAdjustSeconds`. Not `scan-apnea-events`. |
 | `get-o2-oximetry` | Downloads a **Viatom O2 Ring** binary session via `list-imports` (by `fileId` or `date` + `SLEEPHQ_O2_MACHINE_ID`). Supports **O2Ring S** (`0x0301`, 1 s samples) and classic **VLD3** (~4 s). Not EDF. Nightly averages: `get-combined-night-by-date`. |
 | `get-comparison` | **Local range aggregate:** `fromDate`, `toDate` (YYYY-MM-DD), optional `machineId` (CPAP). `nights[]` with `table_display` (`osa_cell`, `csa_cell`, `ahi_cell`, …), root **`apnea_trends`** (OA/CA means, rising, `pressure_signals`), or `skipped` + `reason` |
+
+### OSCAR local backup (6)
+
+Reads `~/Documents/OSCAR_Data` by default (`OSCAR_DATA_PATH`, `OSCAR_PROFILE_NAME`, `OSCAR_DEVICE_FOLDER`). No SleepHQ HTTP for EDF/`.000` parsing. Background: [`context/README.md`](context/README.md). Smoke: [`docs/smoke-test-oscar-mcp.md`](docs/smoke-test-oscar-mcp.md).
+
+| Name | Role |
+|------|------|
+| `get-oscar-status` | `configured`, `reachable`, `device_folder`, `session_count`, `last_session_date` |
+| `get-night-analysis` | Compact `night_analysis` for one date (channels, events, notable_moments) — same shape embedded in `get-combined-night-by-date` |
+| `get-mechanics` | Mechanics slice: `channels` + `respiratory_indices` only (no full events) |
+| `get-oscar-trend` | `days` (1–90), optional `endDate`; `detail=summary` (default) slim rows vs `detail=full` (same shape as single-night analysis); optional SleepHQ overlay per row |
+| `get-oscar-events` | EVE.edf events; `detail=summary` (default) counts + capped `timed_sample`; `detail=full` for all events |
+| `get-plmd-night` | PLMD-style deltas: `movement_summary` vs PLD Vt/RR means (best-effort) |
+
+**Event counts:** `events.counts` is sparse (EVE only); `events.summary_counts` is full (`.000` dashboard slots). Authority: `oscar_summary_000` when present, else `oscar_eve_edf`. Canonical keys: `obstructive`, `clear_airway`, `hypopnea`, `rera`, … (not `obstructive_apnea` / `central_apnea` in `counts`).
+
+**Prefer:** `get-combined-night-by-date` when you need SleepHQ therapy + journal + OSCAR in one call; `get-night-analysis` for OSCAR-only; `get-oscar-trend(detail=summary)` for multi-night OSCAR without raw waveforms.
 
 ## MCP prompts (11)
 
@@ -66,7 +87,7 @@ Templates: `src/main/resources/prompts/*.md`
 
 ## Goose workflow
 
-See [goose-recipe.yaml](goose-recipe.yaml). Grounding: `get-device-context` → static resources → workflow prompt → tools.
+See [goose-recipe.yaml](goose-recipe.yaml). Grounding: `get-device-context` → static resources → workflow prompt → tools. When OSCAR is configured, call `get-oscar-status` once per session before relying on `night_analysis` / trend tools.
 
 | Workflow | Default prompt |
 |----------|----------------|

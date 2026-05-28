@@ -2,6 +2,7 @@ package com.adriangarett.sleephqmcp.service;
 
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
+import com.adriangarett.sleephqmcp.support.CpapBrpSessionWindow;
 import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
 import com.adriangarett.sleephqmcp.support.NightTherapyDisplaySupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
@@ -14,8 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Builds one JSON:API {@code machine_date} document for a calendar night. CPAP is preferred as
@@ -35,14 +38,17 @@ public class CombinedNightService {
     private final ClinicalContextProperties clinical;
     private final JournalLookupService journalLookup;
     private final UnifiedNightAnalysisService nightAnalysisService;
+    private final WaveformService waveformService;
 
     public CombinedNightService(SleepHqClient client, ClinicalContextProperties clinical,
                                 JournalLookupService journalLookup,
-                                UnifiedNightAnalysisService nightAnalysisService) {
+                                UnifiedNightAnalysisService nightAnalysisService,
+                                WaveformService waveformService) {
         this.client = client;
         this.clinical = clinical;
         this.journalLookup = journalLookup;
         this.nightAnalysisService = nightAnalysisService;
+        this.waveformService = waveformService;
     }
 
     /**
@@ -71,7 +77,7 @@ public class CombinedNightService {
         if (journalByDate != null) {
             JsonNode attrs = journalByDate.get(date);
             if (attrs != null) {
-                JournalOverlaySupport.attachIfPresent(envelope, attrs);
+                attachJournal(envelope, attrs, date, cpapMachineId, o2MachineId);
             }
         }
         attachCoverage(envelope);
@@ -130,11 +136,26 @@ public class CombinedNightService {
     private void attachJournalSafely(ObjectNode envelope, String date) {
         try {
             journalLookup.findAttributesByDate(null, date)
-                    .ifPresent(attrs -> JournalOverlaySupport.attachIfPresent(envelope, attrs));
+                    .ifPresent(attrs -> attachJournal(envelope, attrs, date, null, null));
         } catch (IllegalArgumentException e) {
             // SLEEPHQ_TEAM_ID not configured — journal overlay skipped
         }
         attachCoverage(envelope);
+    }
+
+    private void attachJournal(ObjectNode envelope,
+                               JsonNode journalAttrs,
+                               String date,
+                               String cpapMachineId,
+                               String o2MachineId) {
+        Optional<CpapBrpSessionWindow.Bounds> bounds =
+                CpapBrpSessionWindow.tryResolve(waveformService, null, date, null);
+        Instant clipStart = bounds.map(CpapBrpSessionWindow.Bounds::start).orElse(null);
+        Instant clipEnd = bounds.map(CpapBrpSessionWindow.Bounds::end).orElse(null);
+        ObjectNode wellness = JournalOverlaySupport.buildWellnessObject(journalAttrs, clipStart, clipEnd);
+        if (wellness != null && !wellness.isEmpty()) {
+            envelope.set("journal", wellness);
+        }
     }
 
     private void finalizeEnvelopeOrThrow(ObjectNode envelope, String date, String cpapMachineId, String o2MachineId) {

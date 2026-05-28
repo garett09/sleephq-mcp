@@ -47,16 +47,28 @@ public class DeviceEventService {
     }
 
     public String getDeviceEventsByDate(String teamId, String date, Integer cpapClockAdjustSeconds) {
-        String resolvedTeamId = teamId != null && !teamId.isBlank() ? teamId : clinical.defaultTeamId();
-        if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
-            throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
-        }
+        DeviceEventResult aligned = loadDeviceEventsByDate(teamId, date, cpapClockAdjustSeconds);
+        OptionalInt machineDateOffset = machineDateTimeOffsetLoader.loadForCpapDate(date, null);
+        CpapClockAlignment.CpapClockAdjustResolution resolution =
+                CpapClockAlignment.resolveAdjust(clinical, cpapClockAdjustSeconds, machineDateOffset);
+        return CpapClockAlignment.serializeWithAlignment(aligned, resolution);
+    }
+
+    public DeviceEventResult loadDeviceEventsByDate(String teamId, String date, Integer cpapClockAdjustSeconds) {
+        String resolvedTeamId = requireTeamId(teamId);
         String fileId = TeamFileResolver.resolveByDate(sleepHqClient, resolvedTeamId, date, "eve.edf");
         OptionalInt machineDateOffset = machineDateTimeOffsetLoader.loadForCpapDate(date, null);
-        return getDeviceEvents(fileId, cpapClockAdjustSeconds, machineDateOffset);
+        return loadDeviceEvents(fileId, cpapClockAdjustSeconds, machineDateOffset);
     }
 
     public String getDeviceEvents(String fileId, Integer cpapClockAdjustSeconds, OptionalInt machineDateOffset) {
+        DeviceEventResult aligned = loadDeviceEvents(fileId, cpapClockAdjustSeconds, machineDateOffset);
+        CpapClockAlignment.CpapClockAdjustResolution resolution =
+                CpapClockAlignment.resolveAdjust(clinical, cpapClockAdjustSeconds, machineDateOffset);
+        return CpapClockAlignment.serializeWithAlignment(aligned, resolution);
+    }
+
+    public DeviceEventResult loadDeviceEvents(String fileId, Integer cpapClockAdjustSeconds, OptionalInt machineDateOffset) {
         String fileJson = sleepHqClient.getImportFile(fileId);
         JsonNode attrs = JsonApi.attributes(JsonApi.parse(fileJson));
         String downloadUrl = requireDownloadUrl(attrs, fileId);
@@ -68,8 +80,15 @@ public class DeviceEventService {
 
         CpapClockAlignment.CpapClockAdjustResolution resolution =
                 CpapClockAlignment.resolveAdjust(clinical, cpapClockAdjustSeconds, machineDateOffset);
-        return CpapClockAlignment.serializeWithAlignment(
-                CpapClockAlignment.alignDeviceEvents(result, resolution.adjustSeconds()), resolution);
+        return CpapClockAlignment.alignDeviceEvents(result, resolution.adjustSeconds());
+    }
+
+    private String requireTeamId(String teamId) {
+        String resolvedTeamId = teamId != null && !teamId.isBlank() ? teamId : clinical.defaultTeamId();
+        if (resolvedTeamId == null || resolvedTeamId.isBlank()) {
+            throw new IllegalArgumentException("Required teamId is missing and no default SLEEPHQ_TEAM_ID is configured");
+        }
+        return resolvedTeamId;
     }
 
     private static String requireDownloadUrl(JsonNode attrs, String fileId) {

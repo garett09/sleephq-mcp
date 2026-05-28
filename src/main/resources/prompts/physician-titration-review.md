@@ -66,9 +66,9 @@ Publish **in this order** so titration decisions are scannable:
 
 Per deep night (`nights[].date` only):
 - `get-device-events` + `scan-apnea-events` (**required**) — publish **event lists** (time, label, duration), not counts-only summaries
-- Worst leak: `get-waveform-by-date` (Flow + Press + Leak, `maxMinutes=15–30`, `startMinute` at cluster − 5)
+- Worst leak: `get-waveform-by-date(anchor=worst_leak, maxMinutes=15–30)` — cite `window_selection.reason`
 - Worst SpO₂: `get-o2-oximetry(maxMinutes=45)` with pulse summary (or `mcp_payload_hints.o2_recommended_max_minutes`)
-- Disputed EVE↔scan: second waveform window (`maxMinutes=10–15`) at event `startMinute − 2`
+- Disputed EVE↔scan: `anchor=auto`, `maxWindows=2` or `anchor=eve_scan_overlap` (`maxMinutes=10–15`)
 
 ---
 

@@ -4,6 +4,7 @@ import com.adriangarett.sleephqmcp.auth.TokenManager;
 import com.adriangarett.sleephqmcp.client.SleepHqClient;
 import com.adriangarett.sleephqmcp.config.ClinicalContextProperties;
 import com.adriangarett.sleephqmcp.config.ClinicalDefaultsSupport;
+import com.adriangarett.sleephqmcp.config.SleepHqPayloadProperties;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.McpResponses;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -19,11 +20,17 @@ public class AuthTools {
     private final SleepHqClient client;
     private final TokenManager tokenManager;
     private final ClinicalContextProperties clinical;
+    private final SleepHqPayloadProperties payload;
 
-    public AuthTools(SleepHqClient client, TokenManager tokenManager, ClinicalContextProperties clinical) {
+    public AuthTools(
+            SleepHqClient client,
+            TokenManager tokenManager,
+            ClinicalContextProperties clinical,
+            SleepHqPayloadProperties payload) {
         this.client = client;
         this.tokenManager = tokenManager;
         this.clinical = clinical;
+        this.payload = payload;
     }
 
     @McpTool(name = "who-am-i",
@@ -33,9 +40,11 @@ public class AuthTools {
     }
 
     @McpTool(name = "get-configured-defaults",
-            description = "Show SLEEPHQ_TEAM_ID, SLEEPHQ_CPAP_MACHINE_ID, and SLEEPHQ_O2_MACHINE_ID as loaded by the server (non-secret). Use after changing .env to confirm cpap_machine_id is the AirSense id from list-machines, not the team id.")
+            description = "Show SLEEPHQ_TEAM_ID, SLEEPHQ_CPAP_MACHINE_ID, SLEEPHQ_O2_MACHINE_ID, and mcp_payload_hints "
+                    + "(waveform_default_max_minutes, waveform_max_minutes_cap, etc.) as loaded by the server (non-secret). "
+                    + "Call after changing .env; restart ./run.sh for new limits. Omit maxMinutes on get-waveform-by-date to use waveform_default_max_minutes.")
     public String getConfiguredDefaults() {
-        return JsonApi.toJsonString(ClinicalDefaultsSupport.configuredDefaultsBody(clinical));
+        return JsonApi.toJsonString(ClinicalDefaultsSupport.configuredDefaultsBody(clinical, payload));
     }
 
     @McpTool(name = "get-token-status",

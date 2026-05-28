@@ -1,0 +1,7 @@
+[
+  {"started_at": "2026-05-18T14:00:00Z", "ended_at": "2026-05-18T16:00:00Z", "stage_type": 2},
+  {"started_at": "2026-05-18T22:14:00Z", "ended_at": "2026-05-19T02:14:00Z", "stage_type": 5},
+  {"started_at": "2026-05-19T02:14:00Z", "ended_at": "2026-05-19T04:14:00Z", "stage_type": 4},
+  {"started_at": "2026-05-19T04:14:00Z", "ended_at": "2026-05-19T06:00:00Z", "stage_type": 3},
+  {"started_at": "2026-05-19T06:00:00Z", "ended_at": "2026-05-19T06:14:00Z", "stage_type": 2}
+]

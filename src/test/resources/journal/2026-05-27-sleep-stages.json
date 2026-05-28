@@ -1,0 +1,342 @@
+[
+  {
+    "started_at": "2026-05-27T19:04:29Z",
+    "ended_at": "2026-05-27T19:06:29Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T19:06:29Z",
+    "ended_at": "2026-05-27T19:16:01Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-27T19:16:01Z",
+    "ended_at": "2026-05-27T19:34:34Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T19:19:24Z",
+    "ended_at": "2026-05-27T19:29:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T19:29:23Z",
+    "ended_at": "2026-05-27T19:54:23Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-27T19:34:34Z",
+    "ended_at": "2026-05-27T19:52:37Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-27T19:52:37Z",
+    "ended_at": "2026-05-27T19:54:07Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-27T19:54:07Z",
+    "ended_at": "2026-05-27T19:59:08Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T19:54:23Z",
+    "ended_at": "2026-05-27T20:17:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T19:59:08Z",
+    "ended_at": "2026-05-27T20:05:39Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-27T20:05:39Z",
+    "ended_at": "2026-05-27T20:07:09Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-27T20:07:09Z",
+    "ended_at": "2026-05-27T20:10:40Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T20:10:40Z",
+    "ended_at": "2026-05-27T20:24:12Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-27T20:17:23Z",
+    "ended_at": "2026-05-27T20:22:23Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-27T20:22:23Z",
+    "ended_at": "2026-05-27T20:39:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T20:24:12Z",
+    "ended_at": "2026-05-27T20:41:45Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T20:39:23Z",
+    "ended_at": "2026-05-27T21:08:23Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-27T20:41:45Z",
+    "ended_at": "2026-05-27T21:07:20Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-27T21:07:20Z",
+    "ended_at": "2026-05-27T21:07:50Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-27T21:07:50Z",
+    "ended_at": "2026-05-27T21:37:55Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T21:08:23Z",
+    "ended_at": "2026-05-27T21:31:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T21:31:23Z",
+    "ended_at": "2026-05-27T21:41:23Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-27T21:37:55Z",
+    "ended_at": "2026-05-27T21:39:55Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-27T21:39:55Z",
+    "ended_at": "2026-05-27T21:47:26Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T21:41:23Z",
+    "ended_at": "2026-05-27T21:53:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T21:47:26Z",
+    "ended_at": "2026-05-27T21:47:56Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-27T21:47:56Z",
+    "ended_at": "2026-05-27T21:52:27Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T21:52:27Z",
+    "ended_at": "2026-05-27T22:20:32Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-27T21:53:23Z",
+    "ended_at": "2026-05-27T22:21:23Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-27T22:20:32Z",
+    "ended_at": "2026-05-27T22:22:32Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-27T22:21:23Z",
+    "ended_at": "2026-05-27T22:22:23Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-27T22:22:23Z",
+    "ended_at": "2026-05-27T22:37:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T22:22:32Z",
+    "ended_at": "2026-05-27T22:46:36Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T22:37:23Z",
+    "ended_at": "2026-05-27T22:58:23Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-27T22:46:36Z",
+    "ended_at": "2026-05-27T22:57:08Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-27T22:57:08Z",
+    "ended_at": "2026-05-27T23:18:42Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T22:58:23Z",
+    "ended_at": "2026-05-27T23:08:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T23:08:23Z",
+    "ended_at": "2026-05-27T23:19:23Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-27T23:18:42Z",
+    "ended_at": "2026-05-27T23:23:43Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-27T23:19:23Z",
+    "ended_at": "2026-05-27T23:29:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T23:23:43Z",
+    "ended_at": "2026-05-27T23:27:43Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-27T23:27:43Z",
+    "ended_at": "2026-05-28T00:12:51Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-27T23:29:23Z",
+    "ended_at": "2026-05-27T23:45:23Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-27T23:45:23Z",
+    "ended_at": "2026-05-28T00:04:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T00:04:23Z",
+    "ended_at": "2026-05-28T00:12:23Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-28T00:12:23Z",
+    "ended_at": "2026-05-28T00:32:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T00:12:51Z",
+    "ended_at": "2026-05-28T00:43:26Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T00:32:23Z",
+    "ended_at": "2026-05-28T00:51:23Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-28T00:43:26Z",
+    "ended_at": "2026-05-28T00:50:27Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-28T00:50:27Z",
+    "ended_at": "2026-05-28T00:51:27Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-28T00:51:23Z",
+    "ended_at": "2026-05-28T01:01:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T00:51:27Z",
+    "ended_at": "2026-05-28T01:01:29Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T01:01:23Z",
+    "ended_at": "2026-05-28T01:04:23Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-28T01:01:29Z",
+    "ended_at": "2026-05-28T01:04:30Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-28T01:04:23Z",
+    "ended_at": "2026-05-28T01:14:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T01:04:30Z",
+    "ended_at": "2026-05-28T01:19:02Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T01:14:23Z",
+    "ended_at": "2026-05-28T01:31:23Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-28T01:19:02Z",
+    "ended_at": "2026-05-28T01:49:37Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-28T01:31:23Z",
+    "ended_at": "2026-05-28T01:33:23Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-28T01:33:23Z",
+    "ended_at": "2026-05-28T01:44:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T01:44:23Z",
+    "ended_at": "2026-05-28T02:07:23Z",
+    "stage_type": 5
+  },
+  {
+    "started_at": "2026-05-28T01:49:37Z",
+    "ended_at": "2026-05-28T02:12:41Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T02:07:23Z",
+    "ended_at": "2026-05-28T02:37:23Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T02:12:41Z",
+    "ended_at": "2026-05-28T02:13:41Z",
+    "stage_type": 4
+  },
+  {
+    "started_at": "2026-05-28T02:13:41Z",
+    "ended_at": "2026-05-28T02:34:45Z",
+    "stage_type": 3
+  },
+  {
+    "started_at": "2026-05-28T02:34:45Z",
+    "ended_at": "2026-05-28T03:01:19Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-28T02:37:23Z",
+    "ended_at": "2026-05-28T02:52:23Z",
+    "stage_type": 2
+  },
+  {
+    "started_at": "2026-05-28T02:52:23Z",
+    "ended_at": "2026-05-28T03:02:23Z",
+    "stage_type": 3
+  }
+]

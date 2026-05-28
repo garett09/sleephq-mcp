@@ -38,19 +38,21 @@ cp .env.example .env
 
 `./run.sh` stops any old JVM on port 8080, rebuilds, copies the jar to `dist/`, and starts a single fresh process (avoids `NoClassDefFoundError` from stale servers). Wait for log line `Classpath sanity OK` before connecting Goose.
 
+**Stop when done:** `./stop.sh` frees port 8080 (the JVM keeps running until stopped).
+
 **CPAP clock drift:** Date-based EDF tools (`get-device-events`, `get-waveform-by-date`, `scan-apnea-events` with `date`) read `time_offset` from the CPAP `machine_date` API. Optional env fallback: `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS`. O2 and journal are never shifted. See `sleephq://playbook/clock-alignment`.
 
 Server listens on `http://localhost:8080/mcp` (Streamable HTTP). Health at `/actuator/health`.
 
 ## Hook up Goose
 
-The included `goose-recipe.yaml` points at `http://localhost:8080/mcp` and sends `X-SleepHQ-MCP-Key` from `SLEEPHQ_MCP_API_KEY`. Export that variable (same value as in `.env` for the server) before starting Goose, unless the server runs with `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true`. Then:
+**Goose Desktop:** `./run.sh` in a terminal, then in the app add a Streamable HTTP extension → `http://localhost:8080/mcp` with header `X-SleepHQ-MCP-Key` = your `SLEEPHQ_MCP_API_KEY` from `.env`. Enable it in a new chat. When done: `./stop.sh`.
 
-```bash
-goose session --recipe goose-recipe.yaml
-```
+**Waveform smoke (Desktop):** paste [`context/goose-smoke-waveform.txt`](context/goose-smoke-waveform.txt) into a chat — see [docs/smoke-test-waveform-windows.md](docs/smoke-test-waveform-windows.md).
 
-The recipe’s opening **message** activity and [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md) list every tool with its backing endpoint.
+**Goose CLI (optional):** `goose-recipe.yaml` uses the same URL/headers. `goose session --recipe goose-recipe.yaml` or `./scripts/goose-with-mcp.sh session --recipe goose-recipe.yaml`, then `./stop.sh`.
+
+[sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md) lists every tool. **More smoke tests:** [waveform windows](docs/smoke-test-waveform-windows.md) · [OSCAR](docs/smoke-test-oscar-mcp.md)
 
 ## Adding capabilities
 

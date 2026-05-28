@@ -1,11 +1,15 @@
 package com.adriangarett.sleephqmcp.tools;
 
 import com.adriangarett.sleephqmcp.config.SleepHqPayloadProperties;
+import com.adriangarett.sleephqmcp.domain.WaveformWindowPlan;
 import com.adriangarett.sleephqmcp.service.DeviceEventService;
 import com.adriangarett.sleephqmcp.service.OximetryService;
 import com.adriangarett.sleephqmcp.service.WaveformService;
+import com.adriangarett.sleephqmcp.service.WaveformWindowPlanner;
 import com.adriangarett.sleephqmcp.support.McpResponses;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
+import com.adriangarett.sleephqmcp.support.WaveformAnchorSupport;
+import com.adriangarett.sleephqmcp.support.WaveformResponseSupport;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
@@ -16,15 +20,18 @@ public class WaveformTools {
     private final WaveformService waveformService;
     private final DeviceEventService deviceEventService;
     private final OximetryService oximetryService;
+    private final WaveformWindowPlanner windowPlanner;
     private final SleepHqPayloadProperties payload;
 
     public WaveformTools(WaveformService waveformService,
                          DeviceEventService deviceEventService,
                          OximetryService oximetryService,
+                         WaveformWindowPlanner windowPlanner,
                          SleepHqPayloadProperties payload) {
         this.waveformService = waveformService;
         this.deviceEventService = deviceEventService;
         this.oximetryService = oximetryService;
+        this.windowPlanner = windowPlanner;
         this.payload = payload;
     }
 
@@ -62,15 +69,23 @@ public class WaveformTools {
     @McpTool(
             name = "get-waveform-by-date",
             description = "Resolves the BRP.edf file ID for a calendar date, downloads and parses it, and returns the segment's channel data. " +
-                    "Avoids file ID hunting. Returns the same structure as get-waveform. " +
-                    "Date format YYYY-MM-DD. Default maxMinutes from server payload config. Prefer scan-apnea-events for titration."
+                    "Avoids file ID hunting. Returns the same structure as get-waveform plus window_selection (anchor reason and evidence). " +
+                    "When startMinute is omitted, uses anchor=auto to pick a clinical window (never defaults to minute 0). " +
+                    "Anchors: auto, eve_scan_overlap, worst_obstructive, worst_central, worst_leak, notable_moment, rem, deep, core, awake. " +
+                    "Date format YYYY-MM-DD. Default maxMinutes from server payload config."
     )
     public String getWaveformByDate(
             @McpToolParam(description = "Calendar date (YYYY-MM-DD)", required = true)
             String date,
-            @McpToolParam(description = "Start minute within the night (default 0)", required = false)
+            @McpToolParam(description = "Start minute within the night; overrides anchor when set", required = false)
             Integer startMinute,
-            @McpToolParam(description = "Max minutes of samples per channel (server default when omitted)", required = false)
+            @McpToolParam(description = "Window anchor when startMinute omitted (default auto)", required = false)
+            String anchor,
+            @McpToolParam(description = "1 or 2 windows when anchor=auto", required = false)
+            Integer maxWindows,
+            @McpToolParam(description = "0 or 1 when maxWindows=2", required = false)
+            Integer windowIndex,
+            @McpToolParam(description = "Max minutes per channel. Omit to use waveform_default_max_minutes from get-configured-defaults (capped by waveform_max_minutes_cap).", required = false)
             Integer maxMinutes,
             @McpToolParam(description = "Team ID. Defaults to SLEEPHQ_TEAM_ID.", required = false)
             String teamId,
@@ -78,12 +93,26 @@ public class WaveformTools {
             Integer cpapClockAdjustSeconds) {
         return McpResponses.safe(() -> {
             String cleanDate = SleepHqPathParams.requireCalendarDate(date, "date");
-            int startMin = startMinute == null ? 0 : startMinute;
-            if (startMin < 0) {
-                throw new IllegalArgumentException("startMinute must be non-negative");
-            }
             int minutes = resolveWaveformMaxMinutes(maxMinutes);
-            return waveformService.getWaveformByDate(teamId, cleanDate, startMin * 60, minutes * 60, cpapClockAdjustSeconds);
+            String anchorRequested = anchor == null || anchor.isBlank()
+                    ? WaveformAnchorSupport.ANCHOR_AUTO
+                    : anchor;
+            int windows = maxWindows == null ? 1 : maxWindows;
+            int index = windowIndex == null ? 0 : windowIndex;
+
+            WaveformWindowPlan plan = windowPlanner.plan(
+                    teamId,
+                    cleanDate,
+                    anchorRequested,
+                    windows,
+                    index,
+                    startMinute,
+                    minutes,
+                    cpapClockAdjustSeconds);
+
+            String waveformJson = waveformService.getWaveformByDate(
+                    teamId, cleanDate, plan.startSeconds(), minutes * 60, cpapClockAdjustSeconds);
+            return WaveformResponseSupport.attachWindowSelection(waveformJson, plan, payload);
         });
     }
 

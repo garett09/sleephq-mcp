@@ -5,7 +5,7 @@ Resources: `get-device-context`, `sleephq://reference/normal-ranges`
 Workflow:
 1. `get-combined-night-by-date(date="{{date}}")` — `leak_rate_summary`, `large_leak`, usage, pressure, `pulse_rate_summary` if O2 present.
 2. `list-masks` and `list-devices` for interface context.
-3. If mid-session leak cluster suspected: **`get-waveform-by-date(date="{{date}}", maxMinutes=10)`** — inspect **Flow**, **Press**, and **Leak** channels (required for titration-grade leak read). Always pass `maxMinutes=10`; do not call without a cap.
+3. If mid-session leak cluster suspected: **`get-waveform-by-date(date="{{date}}", anchor=worst_leak, maxMinutes=10–15)`** — inspect **Flow**, **Press**, and **Leak**; cite `window_selection`. Do not invent `startMinute`.
 
 Output:
 - **Leak metrics** (95th, large_leak flags)

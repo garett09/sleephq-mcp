@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.time.Instant;
+
 /**
  * Builds a top-level {@code journal} sibling on night envelopes without altering JSON:API {@code data}.
  */
@@ -32,6 +34,15 @@ public final class JournalOverlaySupport {
      * @return wellness object for MCP consumers, or {@code null} when no usable attributes
      */
     public static ObjectNode buildWellnessObject(JsonNode journalAttributes) {
+        return buildWellnessObject(journalAttributes, null, null);
+    }
+
+    /**
+     * @param cpapClipStart when set with {@code cpapClipEnd}, segments outside CPAP BRP session are excluded
+     */
+    public static ObjectNode buildWellnessObject(JsonNode journalAttributes,
+                                               Instant cpapClipStart,
+                                               Instant cpapClipEnd) {
         if (journalAttributes == null || journalAttributes.isMissingNode() || !journalAttributes.isObject()) {
             return null;
         }
@@ -54,7 +65,7 @@ public final class JournalOverlaySupport {
             JsonNode parsed = JournalSleepStagesParser.tryParse(stages.asText());
             if (parsed != null) {
                 out.set("sleep_stages_parsed", parsed);
-                ObjectNode summary = JournalSleepStagesSummary.summarize(parsed);
+                ObjectNode summary = JournalSleepStagesSummary.summarize(parsed, cpapClipStart, cpapClipEnd);
                 if (summary != null) {
                     out.set("sleep_stages_summary", summary);
                 } else {

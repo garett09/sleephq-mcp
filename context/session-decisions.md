@@ -8,3 +8,4 @@
 | 2026-05 | Primary tool: `get-combined-night-by-date` with `night_analysis` |
 | 2026-05 | `get-oscar-events` default `detail=summary`; `full` opt-in |
 | 2026-05 | PLMD best-effort via `movement_summary.av` until burst detector exists |
+| 2026-05-28 | Journal stage mismatch on wide Apple Health span: use `minutes_by_stage_main_episode` + `journal_stage_mismatch` flag; contextual waveform via `WaveformWindowPlanner` |

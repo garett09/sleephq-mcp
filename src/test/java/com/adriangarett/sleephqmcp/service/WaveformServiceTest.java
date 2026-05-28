@@ -327,6 +327,18 @@ class WaveformServiceTest {
         assertThat(event.path("timestamp").asText()).isEqualTo("2026-05-20T21:09:07.320");
     }
 
+    @Test
+    void resolveBrpFileId_whenMissing_throwsNoSleephqBrp() {
+        when(sleepHqClient.listTeamFiles(eq("team-123"), eq(1), eq(100))).thenReturn("""
+                { "data": [] }
+                """);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> waveformService.resolveBrpFileId("team-123", "2026-05-20"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no_sleephq_brp");
+    }
+
     private void writeString(byte[] buf, int offset, String s) {
         byte[] bytes = s.getBytes(StandardCharsets.US_ASCII);
         System.arraycopy(bytes, 0, buf, offset, bytes.length);

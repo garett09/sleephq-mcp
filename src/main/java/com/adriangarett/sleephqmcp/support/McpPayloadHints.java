@@ -21,8 +21,9 @@ public final class McpPayloadHints {
         hints.put("get_device_events", "full_night (no minute cap)");
         hints.put("note", payload.profileNote());
         hints.put("goose_when_context_1m",
-                "Prefer maxMinutes=" + payload.waveformDefaultMaxMinutes() + "–"
-                        + Math.min(30, payload.waveformMaxMinutesCap()) + " waveform on each deep night; "
+                "Omit maxMinutes on get-waveform-by-date to use server default ("
+                        + payload.waveformDefaultMaxMinutes() + " min, cap "
+                        + payload.waveformMaxMinutesCap() + "). Pass a smaller maxMinutes only for a tight slice. "
                         + "O2 maxMinutes=" + payload.o2RecommendedMaxMinutes() + " on desat/leak nights; "
                         + "include scan event lists in appendix, not counts only.");
     }

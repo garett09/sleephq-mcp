@@ -1,6 +1,9 @@
 package com.adriangarett.sleephqmcp.config;
 
 import com.adriangarett.sleephqmcp.support.CpapClockAlignment;
+import com.adriangarett.sleephqmcp.support.JsonApi;
+import com.adriangarett.sleephqmcp.support.McpPayloadHints;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -41,6 +44,19 @@ public final class ClinicalDefaultsSupport {
             body.put("clock_reference", CpapClockAlignment.REFERENCE_CLOCK);
         }
         misconfigurationWarning(clinical).ifPresent(w -> body.put("warning", w));
+        return body;
+    }
+
+    public static Map<String, Object> configuredDefaultsBody(
+            ClinicalContextProperties clinical, SleepHqPayloadProperties payload) {
+        Map<String, Object> body = configuredDefaultsBody(clinical);
+        if (payload != null) {
+            ObjectNode hintsHost = JsonApi.mapper().createObjectNode();
+            McpPayloadHints.attach(hintsHost, payload);
+            body.put(
+                    "mcp_payload_hints",
+                    JsonApi.mapper().convertValue(hintsHost.get("mcp_payload_hints"), Map.class));
+        }
         return body;
     }
 

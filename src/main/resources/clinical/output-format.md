@@ -76,7 +76,7 @@ Legacy terms **ADEQUATE / BORDERLINE / INADEQUATE** are clinician shorthand only
   - **Flow limitation:** `flow_limit_cell` — nightly index when present
   - **SpO₂:** `spo2_cell` — always includes **%** (e.g. `avg 97.4% / min 84%`)
   - **Heart rate:** `pulse_cell` — O2 `pulse_rate_summary` (e.g. `avg 56 bpm / min 48 bpm`); required in titration/longitudinal tables when O2 is configured
-  - **Sleep:** `sleep_cell` — `total` + **`light`** (from `minutes_by_stage.core`) + `deep` + `rem`
+  - **Sleep:** `sleep_cell` — use `minutes_by_stage_for_reporting` when present; else `minutes_by_stage_main_episode` when `journal_stage_mismatch`; else `minutes_by_stage` (**light** = core). If `overlap_detected`, note `sleep_window.span_minutes` — do not overstate fragmentation.
   - **Journal:** `journal_cell` — comma-formatted steps, SleepHQ mood label (e.g. `10,826 steps · Okay (3) · note: …`)
 - **Do not** put steps or feeling inside the Sleep column.
 - **Completeness:** each night lists `table_display.therapy_summaries_present` — flag missing `ahi_summary`, `pressure_summary`, `epap_summary`, `leak_rate_summary`, `resp_rate_summary`, `flow_limit_summary`, `machine_settings`, `usage`, `large_leak`.

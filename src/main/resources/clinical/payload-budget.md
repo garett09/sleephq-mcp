@@ -18,9 +18,9 @@ Full-night tools (no minute cap): **`scan-apnea-events`**, **`get-device-events`
 ### physician_titration_review
 
 - **Phase 2:** up to **8** deep nights (was 6); every deep night: **EVE + scan** with **event list** in appendix (not counts only).
-- **Worst leak:** `get-waveform-by-date` **`maxMinutes=15–30`**, `startMinute` at leak cluster − 5 min.
+- **Worst leak:** `get-waveform-by-date` **`anchor=worst_leak`**, **`maxMinutes=15–30`**; cite `window_selection`.
 - **Worst SpO₂ / desat:** `get-o2-oximetry` **`maxMinutes=45`** (or server `o2_recommended_max_minutes`).
-- **Disputed mechanism:** up to **2** extra waveform windows (`maxMinutes=10–15`) at event `startMinute − 2`.
+- **Disputed mechanism:** `anchor=auto`, **`maxWindows=2`** (`maxMinutes=10–15`); read `window_selection` per window.
 
 ### clinical_deep_dive
 
