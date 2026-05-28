@@ -52,6 +52,13 @@ class OscarChannelUnitNormalizerTest {
     }
 
     @Test
+    void normalizeTidalVolume_nanMedianSurvivesScaling() {
+        ChannelStatistics raw = stat("tidal_volume", "L", 0.373, 0.0, 1.0, 0.5); // median defaults to NaN
+        ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);
+        assertThat(Double.isNaN(normalized.median())).isTrue();
+    }
+
+    @Test
     void normalizeTidalVolume_scalesMedianWithOtherStats() {
         ChannelStatistics raw = stat("tidal_volume", "L", 0.373, 0.0, 1.0, 0.5, 0.36);
         ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);

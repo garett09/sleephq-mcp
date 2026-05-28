@@ -82,7 +82,7 @@ public final class OscarChannelUnitNormalizer {
                 round(stat.min() * factor),
                 round(stat.max() * factor),
                 round(stat.percentile() * factor),
-                round(stat.median() * factor),
+                scaleValue(stat.median(), factor),
                 stat.minAt(),
                 stat.maxAt(),
                 stat.minAtSeconds(),
@@ -92,5 +92,9 @@ public final class OscarChannelUnitNormalizer {
 
     private static double round(double value) {
         return Math.round(value * 1000.0) / 1000.0;
+    }
+
+    private static double scaleValue(double value, double factor) {
+        return Double.isNaN(value) ? Double.NaN : round(value * factor);
     }
 }
