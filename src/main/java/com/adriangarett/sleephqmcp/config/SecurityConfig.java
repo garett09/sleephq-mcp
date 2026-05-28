@@ -32,6 +32,7 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/**").denyAll()
                         .anyRequest().permitAll())
                 .addFilterBefore(mcpApiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
