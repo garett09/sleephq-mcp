@@ -171,10 +171,10 @@ public class WaveformService {
         int twelveHours = 12 * 3600;
         WaveformResult fullResult = EdfParser.parseFlowChannel(edfBytes, 0, twelveHours);
 
-        WaveformChannel flowChannel = fullResult.channels().getFirst();
-        if (flowChannel == null) {
+        if (fullResult.channels().isEmpty()) {
             throw new IllegalArgumentException("No flow respiration channel found in file " + filename);
         }
+        WaveformChannel flowChannel = fullResult.channels().getFirst();
 
         double fs = flowChannel.sampleRate();
         List<Double> samples = flowChannel.samples();
