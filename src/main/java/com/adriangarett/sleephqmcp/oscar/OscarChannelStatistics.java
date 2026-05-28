@@ -30,7 +30,7 @@ public final class OscarChannelStatistics {
                     round(summary.avg()),
                     round(summary.min()),
                     round(summary.max()),
-                    round(summary.max()),
+                    Double.NaN,
                     Double.NaN,
                     null,
                     null,

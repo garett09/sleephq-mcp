@@ -51,4 +51,13 @@ class OscarChannelStatisticsTest {
         Map<String, ChannelStatistics> stats = OscarChannelStatistics.fromSummarySession(mixedSession());
         assertThat(stats).doesNotContainKey("obstructive");
     }
+
+    @Test
+    void fromSummarySession_percentileIsNaNWhenUnknown() {
+        Map<String, ChannelStatistics> stats = OscarChannelStatistics.fromSummarySession(mixedSession());
+        ChannelStatistics pressure = stats.get("pressure");
+        assertThat(pressure).isNotNull();
+        assertThat(pressure.percentile()).isNaN();
+        assertThat(pressure.max()).isEqualTo(14.0);
+    }
 }
