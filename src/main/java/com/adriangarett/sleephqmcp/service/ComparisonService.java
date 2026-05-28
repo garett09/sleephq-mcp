@@ -150,8 +150,12 @@ public class ComparisonService {
         readiness.put("ready_for_span_trends", withAhi > 0);
         if (withAhi == 0) {
             readiness.put("blocked_action",
-                    "Call get-comparison succeeded but no nights had ahi_summary.av — check SLEEPHQ_CPAP_MACHINE_ID, "
-                            + "skipped nights[].reason, and toDate/fromDate before publishing Apnea trends or pressure advice.");
+                    "No nights had parseable ahi_summary values. Diagnostic steps: "
+                    + "(1) Inspect nights[0].data.attributes.ahi_summary to see the actual keys the API returned — "
+                    + "expected av/oa/ca/h or total/obstructive_apnea/clear_airway/hypopnea; "
+                    + "(2) If all nights are skipped (skipped=true), check nights[].reason for a fetch error and verify SLEEPHQ_CPAP_MACHINE_ID; "
+                    + "(3) If ahi_summary has data under different keys, compute trends manually from nights[].data.attributes. "
+                    + "Do not halt the workflow — use raw per-night ahi_summary to derive span trends.");
         } else {
             readiness.put("blocked_action", "");
         }

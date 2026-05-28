@@ -184,4 +184,20 @@ class ComparisonServiceTest {
 
         assertThat(root.path("meta").path("o2_machine_id").isMissingNode()).isTrue();
     }
+
+    @Test
+    void compare_blockedAction_mentionsRawAhiSummaryInspection_whenNoNightsHaveAhi() {
+        when(journalLookup.loadByDateRange(isNull(), any(), any())).thenReturn(java.util.Map.of());
+        when(combinedNightService.combineForCalendarDateWithJournalMap(any(), any(), isNull(), any()))
+                .thenReturn("{\"data\":{\"id\":\"x\",\"type\":\"machine_date\",\"attributes\":"
+                        + "{\"ahi_summary\":{\"unknown_key\":1.0},\"usage\":28800}}}");
+
+        String json = service.compare("cpap-1", "2026-05-01", "2026-05-01");
+        JsonNode root = JsonApi.parse(json);
+
+        assertThat(root.path("titration_readiness").path("nights_with_ahi_summary").asInt()).isEqualTo(0);
+        String blockedAction = root.path("titration_readiness").path("blocked_action").asText();
+        assertThat(blockedAction).contains("nights[0].data.attributes.ahi_summary");
+        assertThat(blockedAction).contains("actual keys");
+    }
 }
