@@ -12,7 +12,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Arrays;
 
 /**
  * Protects {@code /mcp} with a shared secret header when anonymous access is disabled.
@@ -79,7 +78,9 @@ public class McpApiKeyAuthFilter extends OncePerRequestFilter {
         }
         byte[] left = a.getBytes(StandardCharsets.UTF_8);
         byte[] right = b.getBytes(StandardCharsets.UTF_8);
-        int max = Math.max(left.length, right.length);
-        return MessageDigest.isEqual(Arrays.copyOf(left, max), Arrays.copyOf(right, max));
+        if (left.length != right.length) {
+            return false;
+        }
+        return MessageDigest.isEqual(left, right);
     }
 }

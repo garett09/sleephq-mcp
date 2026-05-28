@@ -37,4 +37,14 @@ class McpApiKeyAuthFilterTest {
         assertThat(McpApiKeyAuthFilter.constantTimeEquals(null, "x")).isFalse();
         assertThat(McpApiKeyAuthFilter.constantTimeEquals("x", null)).isFalse();
     }
+
+    @Test
+    void constantTimeEquals_rejectsDifferentLengths() {
+        assertThat(McpApiKeyAuthFilter.constantTimeEquals("secret", "secretX")).isFalse();
+    }
+
+    @Test
+    void constantTimeEquals_rejectsNullByteSuffixPaddingAttack() {
+        assertThat(McpApiKeyAuthFilter.constantTimeEquals("secret\u0000", "secret")).isFalse();
+    }
 }
