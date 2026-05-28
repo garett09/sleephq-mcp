@@ -58,6 +58,8 @@ public class TokenManager {
         form.add("grant_type", "password");
         form.add("client_id", properties.clientId());
         form.add("client_secret", properties.clientSecret());
+        form.add("username", properties.clientId());
+        form.add("password", properties.clientSecret());
         form.add("scope", properties.oauthScope());
 
         TokenResponse response = tokenRestClient.post()
