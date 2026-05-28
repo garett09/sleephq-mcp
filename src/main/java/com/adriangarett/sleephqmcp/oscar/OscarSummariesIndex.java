@@ -22,11 +22,16 @@ import java.util.zip.GZIPInputStream;
 public final class OscarSummariesIndex {
 
     private static final Pattern SESSION_PATTERN = Pattern.compile(
-            "<session\\s+[^>]*events=\"(\\d+)\"[^>]*id=\"(\\d+)\"[^>]*enabled=\"(\\d+)\"[^>]*"
-                    + "first=\"(\\d+)\"[^>]*last=\"(\\d+)\"[^>]*>\\s*"
+            "<session\\s+([^>]*?)>\\s*"
                     + "<channels>([^<]*)</channels>\\s*"
                     + "<settings>([^<]*)</settings>",
             Pattern.DOTALL);
+
+    private static final Pattern ATTR_ID = Pattern.compile("\\bid=\"(\\d+)\"");
+    private static final Pattern ATTR_ENABLED = Pattern.compile("\\benabled=\"(\\d+)\"");
+    private static final Pattern ATTR_EVENTS = Pattern.compile("\\bevents=\"(\\d+)\"");
+    private static final Pattern ATTR_FIRST = Pattern.compile("\\bfirst=\"(\\d+)\"");
+    private static final Pattern ATTR_LAST = Pattern.compile("\\blast=\"(\\d+)\"");
 
     private final List<OscarSessionIndexEntry> sessions;
 
@@ -50,13 +55,17 @@ public final class OscarSummariesIndex {
         Matcher matcher = SESSION_PATTERN.matcher(xml);
         List<OscarSessionIndexEntry> entries = new ArrayList<>();
         while (matcher.find()) {
-            boolean hasEvents = "1".equals(matcher.group(1));
-            long sessionId = Long.parseLong(matcher.group(2));
-            boolean enabled = "1".equals(matcher.group(3));
-            long firstMs = Long.parseLong(matcher.group(4));
-            long lastMs = Long.parseLong(matcher.group(5));
-            List<Integer> channels = parseChannelList(matcher.group(6));
-            List<Integer> settings = parseChannelList(matcher.group(7));
+            String attrs = matcher.group(1);
+            Long sessionId = longAttr(ATTR_ID, attrs);
+            Long firstMs = longAttr(ATTR_FIRST, attrs);
+            Long lastMs = longAttr(ATTR_LAST, attrs);
+            if (sessionId == null || firstMs == null || lastMs == null) {
+                continue;
+            }
+            boolean enabled = "1".equals(strAttr(ATTR_ENABLED, attrs));
+            boolean hasEvents = "1".equals(strAttr(ATTR_EVENTS, attrs));
+            List<Integer> channels = parseChannelList(matcher.group(2));
+            List<Integer> settings = parseChannelList(matcher.group(3));
             entries.add(new OscarSessionIndexEntry(
                     sessionId,
                     enabled,
@@ -67,6 +76,16 @@ public final class OscarSummariesIndex {
                     settings));
         }
         return new OscarSummariesIndex(entries);
+    }
+
+    private static String strAttr(Pattern pattern, String attrs) {
+        Matcher m = pattern.matcher(attrs);
+        return m.find() ? m.group(1) : null;
+    }
+
+    private static Long longAttr(Pattern pattern, String attrs) {
+        String value = strAttr(pattern, attrs);
+        return value == null ? null : Long.parseLong(value);
     }
 
     public List<OscarSessionIndexEntry> sessions() {

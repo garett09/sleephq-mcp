@@ -12,6 +12,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OscarSummariesIndexTest {
 
     @Test
+    void parse_handlesRealAttributeOrder_idEnabledEventsFirstLast() {
+        String xml = """
+                <sessions version="1" count="1" profile="adriansian" loader="ResMed" serial="123">
+                 <session id="1776777120" enabled="1" events="1" first="1776777176000" last="1776800096000">
+                  <channels>1101,1100,1103,1105,1106</channels>
+                  <settings>e205,1020,1021,1200</settings>
+                 </session>
+                </sessions>
+                """;
+        OscarSummariesIndex index = OscarSummariesIndex.parse(xml);
+        assertThat(index.sessions()).hasSize(1);
+        OscarSessionIndexEntry s = index.sessions().get(0);
+        assertThat(s.sessionId()).isEqualTo(1776777120L);
+        assertThat(s.enabled()).isTrue();
+        assertThat(s.channelIds()).contains(0x1103, 0x1105, 0x1106); // TidVol, MinVent, RespRate
+    }
+
+    @Test
     void findPrimarySessionForDate_selectsLongestSessionOnDate() {
         String xml = """
                 <sessions>
