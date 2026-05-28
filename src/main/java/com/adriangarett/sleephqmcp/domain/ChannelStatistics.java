@@ -9,5 +9,10 @@ public record ChannelStatistics(
         double percentile,
         String minAt,
         String maxAt,
+        int minAtSeconds,
+        int maxAtSeconds,
         int sampleCount
-) {}
+) {
+    /** Session-relative offset is unknown (e.g. summary-only data with no sample timing). */
+    public static final int OFFSET_UNKNOWN = -1;
+}

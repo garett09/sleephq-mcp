@@ -42,19 +42,6 @@ public final class WaveformAnchorSupport {
         return label != null && label.toLowerCase(Locale.ROOT).contains("recording");
     }
 
-    public static long parseClockToSeconds(String clock) {
-        if (clock == null || clock.isBlank()) {
-            return 0L;
-        }
-        String[] parts = clock.split(":");
-        if (parts.length != 3) {
-            return 0L;
-        }
-        return Long.parseLong(parts[0]) * 3600L
-                + Long.parseLong(parts[1]) * 60L
-                + Long.parseLong(parts[2]);
-    }
-
     public static int startMinuteFromEventSeconds(double eventStartSeconds) {
         int leadInSeconds = LEAD_IN_MINUTES * 60;
         int startSeconds = (int) Math.max(0, Math.floor(eventStartSeconds) - leadInSeconds);

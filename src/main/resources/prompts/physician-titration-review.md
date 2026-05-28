@@ -35,7 +35,7 @@ Publish **in this order** so titration decisions are scannable:
 1. **`### Current device (live)`** — from **`get-device-context`**: mode, pressure/min-max, EPR, ramp, mask menu vs `registered_masks` (one short block).
 2. **`### Apnea trends (span)`** — **only after `get-comparison`**: bullets from **`apnea_trends.titration_decision_support.span_summary_bullets`** + **`suggested_pressure_action`** + **`pressure_signals`**.
 3. **`### Titration Configuration`** — one row per night from `get-comparison` → `nights[]` → **`table_display` only** (never invent).
-4. **`### Data completeness`** — `titration_readiness`, skipped nights, missing `therapy_summaries_present`, missing O2/journal.
+4. **`### Data completeness`** — `titration_readiness`, skipped nights, missing `therapy_summaries_present`, missing O2/journal. If OSCAR was read: one line on reachability + `event_counts_agree` + authority.
 5. Deep dives + **`## Physician assessment`** with explicit **pressure decision** in **FINAL RECOMMENDATIONS**.
 
 ---
@@ -55,6 +55,16 @@ Publish **in this order** so titration decisions are scannable:
 
 ---
 
+## Phase 1b — OSCAR cross-check (only if `get-oscar-status.reachable`)
+
+OSCAR is **confirmatory only** — SleepHQ `get-comparison` remains the decision authority (`decision_guardrails`, `apnea_trends`, `titration_decision_support`, per-hour `ahi_summary`). Skip this phase entirely if OSCAR is not configured/reachable; titration completes on SleepHQ alone.
+
+1. `get-oscar-trend(detail=summary)` over the same span — confirms **whether centrals exist and the count direction**, and covers nights SleepHQ lacks `machine_date`.
+2. **UNIT TRAP (MANDATORY):** OSCAR `summary_counts` are **raw counts**, not per-hour indices. Do **not** divide them by sleep hours to "verify" a CSA/AHI index (same rule as scan≠AHI). Threshold comparisons (CA ≥5/hr, AHI ≥5) use SleepHQ `ahi_summary` only; OSCAR confirms event **type/presence**, not the index value.
+3. Reconcile per `event_count_authority` + `event_counts_agree`. Report one line under `### Data completeness` ("OSCAR: reachable, event_counts_agree=true, authority=oscar_summary_000"); open a `### OSCAR cross-validation` block **only when `event_counts_agree=false`**.
+
+---
+
 ## Phase 2 — Deep dives (max 8 nights; large-context sessions)
 
 - First **3 nights** after each pressure/settings change
@@ -69,6 +79,7 @@ Per deep night (`nights[].date` only):
 - Worst leak: `get-waveform-by-date(anchor=worst_leak, maxMinutes=15–30)` — cite `window_selection.reason`
 - Worst SpO₂: `get-o2-oximetry(maxMinutes=45)` with pulse summary (or `mcp_payload_hints.o2_recommended_max_minutes`)
 - Disputed EVE↔scan: `anchor=auto`, `maxWindows=2` or `anchor=eve_scan_overlap` (`maxMinutes=10–15`)
+- CSA!/OSA! night (only if `get-oscar-status.reachable`): `get-night-analysis(date)` — confirm `event_count_authority` / `summary_counts` against SleepHQ `ahi_summary` (event **type/presence** only, never the index)
 
 ---
 
@@ -93,6 +104,20 @@ Per deep night (`nights[].date` only):
 | Journal | `journal_cell` |
 
 **Renderer:** pipe table only; no HTML; **—** if empty; **\*** on date if `settings_changed_from_prior_night`. Do **not** drop Usage, Press, EPAP, Apnea, Leak, Resp, or Flow lim.
+
+---
+
+## Decision self-check (MANDATORY — strict, before FINAL RECOMMENDATIONS)
+
+Before writing the pressure action, verify it against every gate. If **any** fails, **revise the action and re-run this check — do not publish a violating recommendation.**
+
+1. **Resources read this session** — handbook §5, `normal-ranges`, `patient/baseline` (cite the resource/tool calls in Evidence). No decision from memory.
+2. **Leak** — 95th <24 L/min and no unresolved `large_leak` on the nights driving the decision; else action = mask/leak first.
+3. **Usage** — ≥4 h on those nights.
+4. **CSA guardrail** — if `decision_guardrails.must_not_increase_pressure == true`, action ∈ {HOLD, −1}; **never +1**.
+5. **Trend, not a single night** — the action reflects span `apnea_trends`, not one outlier night.
+6. **OSCAR (if read)** — `event_counts_agree == true`, or the disagreement is explained and SleepHQ indices still govern.
+7. **Escalation not missed** — SpO₂ <85% or AHI persistently >20 despite titration → include in-person referral; screen ASV contraindications before any ASV suggestion.
 
 ---
 

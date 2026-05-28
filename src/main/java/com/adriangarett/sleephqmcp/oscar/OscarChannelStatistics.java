@@ -33,6 +33,8 @@ public final class OscarChannelStatistics {
                     round(summary.max()),
                     null,
                     null,
+                    ChannelStatistics.OFFSET_UNKNOWN,
+                    ChannelStatistics.OFFSET_UNKNOWN,
                     0);
             stats.put(field, OscarChannelUnitNormalizer.normalize(raw));
         }

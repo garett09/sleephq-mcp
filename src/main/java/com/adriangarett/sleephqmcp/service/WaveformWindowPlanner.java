@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 @Service
 public class WaveformWindowPlanner {
@@ -253,7 +254,11 @@ public class WaveformWindowPlanner {
         if (best == null) {
             return Optional.empty();
         }
-        long startSeconds = WaveformAnchorSupport.parseClockToSeconds(best.path("clock").asText(null));
+        OptionalLong offset = offsetSeconds(best);
+        if (offset.isEmpty()) {
+            return Optional.empty();
+        }
+        long startSeconds = offset.getAsLong();
         return Optional.of(buildPlan(
                 anchorRequested,
                 WaveformAnchorSupport.ANCHOR_WORST_LEAK,
@@ -273,7 +278,11 @@ public class WaveformWindowPlanner {
             if (moment.path("nearby_events").isEmpty()) {
                 continue;
             }
-            long startSeconds = WaveformAnchorSupport.parseClockToSeconds(moment.path("clock").asText(null));
+            OptionalLong offset = offsetSeconds(moment);
+            if (offset.isEmpty()) {
+                continue;
+            }
+            long startSeconds = offset.getAsLong();
             return Optional.of(buildPlan(
                     anchorRequested,
                     WaveformAnchorSupport.ANCHOR_NOTABLE_MOMENT,
@@ -311,6 +320,14 @@ public class WaveformWindowPlanner {
                 node.path("reason").asText(),
                 List.of(new WindowEvidence("journal", stageAnchor, (double) startSeconds, null)),
                 confidence);
+    }
+
+    private static OptionalLong offsetSeconds(JsonNode moment) {
+        JsonNode offset = moment.get("offset_seconds");
+        if (offset == null || !offset.isNumber() || offset.asLong() < 0) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(offset.asLong());
     }
 
     private static List<DeviceEvent> clinicalEveEvents(DeviceEventResult eve) {

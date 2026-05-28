@@ -88,4 +88,12 @@ public class StaticContextResources {
     public McpSchema.ReadResourceResult outputFormat() {
         return content.load("output-format.md", "sleephq://playbook/output-format");
     }
+
+    @McpResource(uri = "sleephq://playbook/autovisualiser",
+            name = "Autovisualiser playbook",
+            description = "When and how to chart SleepHQ MCP JSON with Goose autovisualiser (field paths, limits).",
+            mimeType = "text/markdown")
+    public McpSchema.ReadResourceResult autovisualiserPlaybook() {
+        return content.load("autovisualiser.md", "sleephq://playbook/autovisualiser");
+    }
 }

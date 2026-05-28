@@ -51,9 +51,13 @@ public final class McpResponses {
                     Map.of("kind", "classpath", "exception", e.getClass().getSimpleName())));
         } catch (Exception e) {
             log.warn("MCP remote call failed: {}", Encode.forJava(String.valueOf(e.getMessage())), e);
-            return errorJson(McpError.fatal(
-                    "Upstream request failed",
-                    Map.of("kind", "remote", "exception", e.getClass().getSimpleName())));
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("kind", "remote");
+            details.put("exception", e.getClass().getSimpleName());
+            if (e.getMessage() != null && !e.getMessage().isBlank()) {
+                details.put("detail", e.getMessage());
+            }
+            return errorJson(McpError.fatal("Upstream request failed", details));
         }
     }
 

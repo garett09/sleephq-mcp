@@ -61,6 +61,17 @@ Reads `~/Documents/OSCAR_Data` by default (`OSCAR_DATA_PATH`, `OSCAR_PROFILE_NAM
 
 **Prefer:** `get-combined-night-by-date` when you need SleepHQ therapy + journal + OSCAR in one call; `get-night-analysis` for OSCAR-only; `get-oscar-trend(detail=summary)` for multi-night OSCAR without raw waveforms.
 
+## Goose extensions (recipe / Desktop)
+
+| Extension | Type | Role |
+|-----------|------|------|
+| `sleephq` | streamable_http → `http://localhost:8080/mcp` | All 36 MCP tools |
+| `autovisualiser` | builtin | Inline charts from structured tool JSON (see `sleephq://playbook/autovisualiser`) |
+| `memory` | builtin | Optional durable notes |
+| `chatrecall` | platform | Prior session search — not a substitute for fresh MCP calls |
+
+Chartable payloads: `get-comparison` `nights[].table_display` (numeric `ahi`, `spo2_pct`, `usage_hours`), `journal.sleep_stages_summary.minutes_by_stage_for_reporting`, optional `get-oscar-trend` indices. Recipe: [`goose-recipe.yaml`](goose-recipe.yaml).
+
 ## MCP prompts (11)
 
 | Name | Use |

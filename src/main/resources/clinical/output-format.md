@@ -12,6 +12,10 @@
 
 Table cells: `90% (High)` not just `High`.
 
+## Inline charts (Goose autovisualiser)
+
+Optional **after** markdown tables exist for the same data. Max 2 charts on span reports; tables and **FINAL RECOMMENDATIONS** stay authoritative. See `sleephq://playbook/autovisualiser`.
+
 ## Therapy verdict (plain language — mandatory)
 
 Use a **headline rating** the patient can scan, then the clinical dimension. Always add **Confidence: NN% (High|Medium|Low)** on the same line.

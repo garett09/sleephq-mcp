@@ -59,6 +59,8 @@ auth/         AuthInterceptor (bearer token + 401 retry), TokenManager (token ca
 
 **Trend payload modes:** `get-oscar-trend(detail="summary"|"full")` — default `summary` emits one slim row per session (no `timed_sample`, no waveform channels, no `notable_moments`); `full` returns the same shape as `get-combined-night-by-date`. Each row also includes a SleepHQ overlay (`sleephq_ahi_per_hr`, `sleephq` block) when machine_date is available.
 
+**Goose autovisualiser:** Optional client-side charts from MCP JSON; no server chart API. Agent rules: `src/main/resources/clinical/autovisualiser.md` (`sleephq://playbook/autovisualiser`). Wired in `goose-recipe.yaml`. Smoke tests skip charts.
+
 ## Environment variables
 
 Required at runtime (set in `.env`):

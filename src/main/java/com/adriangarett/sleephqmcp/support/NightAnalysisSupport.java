@@ -31,8 +31,14 @@ public final class NightAnalysisSupport {
             if (stat.minAt() != null && !stat.minAt().isBlank()) {
                 ch.put("min_at", stat.minAt());
             }
+            if (stat.minAtSeconds() >= 0) {
+                ch.put("min_at_seconds", stat.minAtSeconds());
+            }
             if (stat.maxAt() != null && !stat.maxAt().isBlank()) {
                 ch.put("max_at", stat.maxAt());
+            }
+            if (stat.maxAtSeconds() >= 0) {
+                ch.put("max_at_seconds", stat.maxAtSeconds());
             }
             if (!stat.unit().isBlank()) {
                 ch.put("unit", stat.unit());

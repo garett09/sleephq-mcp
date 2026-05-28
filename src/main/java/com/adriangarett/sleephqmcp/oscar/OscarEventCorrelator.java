@@ -29,11 +29,13 @@ public final class OscarEventCorrelator {
         LocalDateTime sessionStart = LocalDateTime.parse(sessionStartIso.substring(0, 19), ISO_LOCAL);
         List<MomentCandidate> candidates = new ArrayList<>();
         for (ChannelStatistics stats : channels.values()) {
-            if (stats.maxAt() != null && !stats.maxAt().isBlank()) {
-                candidates.add(new MomentCandidate(stats.fieldName(), "max", stats.max(), stats.maxAt()));
+            if (stats.maxAtSeconds() >= 0) {
+                candidates.add(new MomentCandidate(stats.fieldName(), "max", stats.max(),
+                        stats.maxAtSeconds(), stats.maxAt()));
             }
-            if (stats.minAt() != null && !stats.minAt().isBlank()) {
-                candidates.add(new MomentCandidate(stats.fieldName(), "min", stats.min(), stats.minAt()));
+            if (stats.minAtSeconds() >= 0) {
+                candidates.add(new MomentCandidate(stats.fieldName(), "min", stats.min(),
+                        stats.minAtSeconds(), stats.minAt()));
             }
         }
         candidates.sort(Comparator.comparingDouble(MomentCandidate::value).reversed());
@@ -42,12 +44,12 @@ public final class OscarEventCorrelator {
             if (moments.size() >= maxMoments) {
                 break;
             }
-            LocalDateTime momentTime = sessionStart.plus(
-                    parseClock(candidate.clock()), ChronoUnit.SECONDS);
+            LocalDateTime momentTime = sessionStart.plusSeconds(candidate.offsetSeconds());
             ObjectNode node = com.adriangarett.sleephqmcp.support.JsonApi.mapper().createObjectNode();
             node.put("channel", candidate.channel());
             node.put("kind", candidate.kind());
             node.put("value", candidate.value());
+            node.put("offset_seconds", candidate.offsetSeconds());
             node.put("clock", candidate.clock());
             node.put("timestamp", momentTime.format(ISO_LOCAL));
             ArrayNode nearby = node.putArray("nearby_events");
@@ -73,15 +75,5 @@ public final class OscarEventCorrelator {
         return moments;
     }
 
-    private static long parseClock(String clock) {
-        String[] parts = clock.split(":");
-        if (parts.length != 3) {
-            return 0;
-        }
-        return Long.parseLong(parts[0]) * 3600L
-                + Long.parseLong(parts[1]) * 60L
-                + Long.parseLong(parts[2]);
-    }
-
-    private record MomentCandidate(String channel, String kind, double value, String clock) {}
+    private record MomentCandidate(String channel, String kind, double value, long offsetSeconds, String clock) {}
 }

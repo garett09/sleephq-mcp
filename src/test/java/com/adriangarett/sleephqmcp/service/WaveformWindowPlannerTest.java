@@ -135,6 +135,7 @@ class WaveformWindowPlannerTest {
         ObjectNode night = JsonApi.mapper().createObjectNode();
         ObjectNode moment = night.putArray("notable_moments").addObject();
         moment.put("channel", "leak");
+        moment.put("offset_seconds", 5821);
         moment.put("clock", "01:37:01");
         moment.put("value", 42.0);
         moment.put("timestamp", "2026-05-19T01:37:01");
@@ -145,6 +146,25 @@ class WaveformWindowPlannerTest {
 
         assertThat(plan.reason().toLowerCase()).contains("leak");
         assertThat(plan.startMinute()).isEqualTo(92);
+    }
+
+    @Test
+    void plan_worstLeak_noOffsetSeconds_doesNotFallBackToMinuteZero() {
+        when(waveformService.resolveBrpFileId(eq("team-1"), eq("2026-05-19"))).thenReturn("brp-file");
+        when(deviceEventService.loadDeviceEventsByDate(eq("team-1"), eq("2026-05-19"), isNull())).thenReturn(emptyEve());
+        when(waveformService.loadScanByDate(eq("team-1"), eq("2026-05-19"), isNull())).thenReturn(emptyScan());
+
+        ObjectNode night = JsonApi.mapper().createObjectNode();
+        ObjectNode moment = night.putArray("notable_moments").addObject();
+        moment.put("channel", "leak");
+        moment.put("clock", "01:37:01");
+        moment.put("value", 42.0);
+        when(nightAnalysisService.analyzeNight(eq("2026-05-19"))).thenReturn(Optional.of(night));
+
+        assertThatThrownBy(() -> planner.plan(
+                "team-1", "2026-05-19", WaveformAnchorSupport.ANCHOR_WORST_LEAK, 1, 0, null, 15, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no_anchor_candidates");
     }
 
     @Test
@@ -163,6 +183,7 @@ class WaveformWindowPlannerTest {
         ObjectNode night = JsonApi.mapper().createObjectNode();
         ObjectNode leak = night.putArray("notable_moments").addObject();
         leak.put("channel", "leak");
+        leak.put("offset_seconds", 5821);
         leak.put("clock", "01:37:01");
         leak.put("value", 50.0);
         when(nightAnalysisService.analyzeNight(eq("2026-05-19"))).thenReturn(Optional.of(night));

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sleephq-mcp (run.sh — canonical)",
+      "runtimeExecutable": "./run.sh",
+      "runtimeArgs": [],
+      "port": 8080
+    },
+    {
+      "name": "sleephq-mcp (mvnw spring-boot:run)",
+      "runtimeExecutable": "./mvnw",
+      "runtimeArgs": ["spring-boot:run"],
+      "port": 8080
+    }
+  ]
+}

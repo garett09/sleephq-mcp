@@ -1,0 +1,139 @@
+SleepHQ MCP — full smoke test. Do NOT write a clinical report or therapy advice.
+
+Prerequisites: `./run.sh` running (`Classpath sanity OK`); Goose extension `sleephq` → `http://localhost:8080/mcp` with header `X-SleepHQ-MCP-Key` = `.env` `SLEEPHQ_MCP_API_KEY`.
+
+Rules:
+- Call MCP tools only; do not invent numbers.
+- PASS/FAIL checklist only — no clinical interpretation.
+- If a tool errors: record FAIL + exact error text and continue.
+- Do NOT use autovisualiser or render charts — smoke is PASS/FAIL text only.
+
+Dates:
+- WAVEFORM_DATE = 2026-05-19 (or your newest CPAP night with BRP in SleepHQ).
+- OSCAR_DATE = `last_session_date` from get-oscar-status when reachable; else 2026-05-21.
+
+maxMinutes: omit on waveform calls unless testing a short slice (server uses `.env` default, e.g. 480).
+
+---
+
+## Phase 0 — connectivity
+
+0. get-configured-defaults
+   PASS if: `mcp_payload_hints.waveform_default_max_minutes` present and plausible.
+
+1. get-oscar-status
+   PASS if OSCAR not configured: `configured=false` (note SKIP for Phase B).
+   PASS if configured: `configured=true` AND `reachable=true` AND `session_count>0`.
+   Set OSCAR_DATE = `last_session_date` from this response when present.
+
+Optional: get-token-status + who-am-i — informational only (SleepHQ auth).
+
+---
+
+## Phase A — waveform windows (WAVEFORM_DATE)
+
+2. get-waveform-by-date(date=WAVEFORM_DATE, anchor=auto) — omit maxMinutes
+   | Check | PASS when |
+   |-------|-----------|
+   | window_selection | object present |
+   | not minute 0 | `start_minute` ≠ 0 OR `anchor_resolved` === manual |
+   | anchor_resolved | one of: eve_scan_overlap, worst_obstructive, worst_central, worst_leak, notable_moment, worst_spo2, manual |
+   | reason + evidence | `reason` non-empty; `evidence` is array |
+   | channels | `channels` array present |
+   | max_minutes | `window_selection.max_minutes` matches configured default from step 0 |
+
+3. get-waveform-by-date(date=WAVEFORM_DATE, anchor=worst_leak) — omit maxMinutes
+   PASS if: `window_selection.anchor_resolved` === worst_leak AND `reason` non-empty AND `evidence` array present.
+   `start_minute` may be 0 when peak leak is at session start — not a FAIL (differs from silent auto fallback to minute 0).
+
+4. get-waveform-by-date(date=WAVEFORM_DATE, anchor=eve_scan_overlap) — omit maxMinutes
+   PASS if: waveform OR structured error `no_anchor_candidates`
+   FAIL if: silent `start_minute` 0 without `window_selection`
+
+5. get-waveform-by-date(date=WAVEFORM_DATE, startMinute=<from step 2>, maxMinutes=15)
+   PASS if: `window_selection.anchor_resolved` === manual
+
+6. get-combined-night-by-date(date=WAVEFORM_DATE)
+   Let `j` = `journal.sleep_stages_summary`.
+   | Check | PASS when |
+   |-------|-----------|
+   | summary | `j` is object |
+   | schema | `summary_schema_version` >= 3 (if missing: FAIL — restart ./run.sh) |
+   | parity | `overlap_detected` bool, `journal_stage_mismatch` bool |
+   | reporting | `minutes_by_stage_for_reporting` object; `reporting_source` non-empty |
+   | ui note | if `journal_stage_mismatch` true → `ui_parity_note` non-empty |
+   | night_analysis | if OSCAR ok in step 1: top-level `night_analysis` present |
+
+---
+
+## Phase B — OSCAR (OSCAR_DATE; SKIP entire phase if step 1 not configured/reachable)
+
+7. get-night-analysis(date=OSCAR_DATE) — root IS night_analysis
+   | Check | PASS when |
+   |-------|-----------|
+   | no calendar_date | no field `calendar_date` |
+   | coverage | `coverage.oscar_edf_pld` and `coverage.oscar_edf_pld_stats` exist |
+   | event channels excluded | `channels` has NO keys: obstructive, clear_airway, hypopnea, rera, central_apnea, obstructive_apnea |
+   | canonical subset | every `events.counts` key in `events.summary_counts` with same integer |
+   | no legacy keys | `events.counts` has NO obstructive_apnea, central_apnea |
+   | event_counts_agree | true when `summary_counts` present |
+   | authority | `oscar_summary_000` when summary present; else `oscar_eve_edf` |
+   | no recording markers | `events.timed_sample` absent OR no label contains "Recording" |
+   | session_metric | if `channels.session_metric` exists: note "present — opaque" only |
+
+8. get-oscar-events(date=OSCAR_DATE, detail=summary)
+   PASS if: counts present; summary shape (not huge full event list)
+
+9. get-combined-night-by-date(date=OSCAR_DATE)
+   PASS if: `night_analysis` present; repeat key Phase B checks on that subtree only; SleepHQ `data`/`journal` still present
+
+10. get-oscar-trend(days=7) — default detail=summary
+    | Check | PASS when |
+    |-------|-----------|
+    | rows | `nights` length >= 1 |
+    | slim | rows lack: channels, timed_sample, notable_moments, data_sources, coverage, calendar_date |
+    | slim has | date, session, respiratory_indices, events, therapy |
+    | overlay | at least one row has `sleephq_ahi_per_hr` OR `sleephq` (else note SKIP overlay) |
+
+11. get-oscar-trend(days=7, detail=full)
+    PASS if: same night count as step 10; first row has `channels` and `coverage`
+
+12. get-mechanics(date=OSCAR_DATE)
+    PASS if: channels + respiratory_indices; no event-channel keys in channels.*
+
+---
+
+## Deliverable
+
+Reply with markdown only:
+
+### Smoke test — sleephq-mcp
+- WAVEFORM_DATE / OSCAR_DATE used
+- **OVERALL:** PASS only if required steps pass (see below)
+- Table: Step | PASS/FAIL/SKIP | Notes
+
+Required PASS (unless documented SKIP):
+- Phase 0 step 0
+- Phase A steps 2, 3, 5, 6
+- Phase B steps 7–12 when OSCAR configured
+
+May SKIP with reason: step 1 (OSCAR off), step 4 (no eve overlap), Phase B entirely
+
+Compact JSON appendix:
+```json
+{
+  "waveform_date": "...",
+  "oscar_date": "...",
+  "configured_payload_hints": {},
+  "oscar_status": {},
+  "auto_window_selection": {},
+  "worst_leak_window_selection": {},
+  "journal_sleep_stages_summary": {},
+  "night_analysis_events": {}
+}
+```
+
+End after the table and JSON. No therapy recommendations.
+
+Automated curl equivalent: `./scripts/smoke-waveform-mcp.sh WAVEFORM_DATE` and `./scripts/smoke-oscar-mcp.sh OSCAR_DATE`
+Full docs: docs/smoke-test-waveform-windows.md · docs/smoke-test-oscar-mcp.md
