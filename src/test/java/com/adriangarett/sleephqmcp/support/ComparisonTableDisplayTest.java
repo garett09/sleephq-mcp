@@ -218,4 +218,49 @@ class ComparisonTableDisplayTest {
         assertThat(row.path("table_display").path("osa_elevated").asBoolean()).isTrue();
         assertThat(row.path("table_display").path("csa_elevated").asBoolean()).isTrue();
     }
+
+    @Test
+    void attachJournal_prefersMinutesByStageForReporting_overRawMinutesByStage() {
+        ObjectNode attrs = JsonApi.mapper().createObjectNode();
+
+        ObjectNode summary = JsonApi.mapper().createObjectNode();
+        summary.put("asleep_minutes", 420.0);
+        ObjectNode rawByStage = summary.putObject("minutes_by_stage");
+        rawByStage.put("deep", 40.0);
+        rawByStage.put("rem",  60.0);
+        rawByStage.put("core", 200.0);
+        rawByStage.put("awake", 20.0);
+        ObjectNode resolvedByStage = summary.putObject("minutes_by_stage_for_reporting");
+        resolvedByStage.put("deep", 55.0);
+        resolvedByStage.put("rem",  75.0);
+        resolvedByStage.put("core", 220.0);
+        resolvedByStage.put("awake", 10.0);
+
+        ObjectNode journal = JsonApi.mapper().createObjectNode();
+        journal.set("sleep_stages_summary", summary);
+
+        ObjectNode display = ComparisonTableDisplay.build(attrs, journal);
+
+        assertThat(display.path("sleep_minutes").path("deep").asDouble()).isEqualTo(55.0);
+        assertThat(display.path("sleep_minutes").path("rem").asDouble()).isEqualTo(75.0);
+    }
+
+    @Test
+    void attachJournal_fallsBackToMinutesByStage_whenForReportingAbsent() {
+        ObjectNode attrs = JsonApi.mapper().createObjectNode();
+
+        ObjectNode summary = JsonApi.mapper().createObjectNode();
+        summary.put("asleep_minutes", 360.0);
+        ObjectNode rawByStage = summary.putObject("minutes_by_stage");
+        rawByStage.put("deep", 45.0);
+        rawByStage.put("rem", 65.0);
+        rawByStage.put("core", 180.0);
+
+        ObjectNode journal = JsonApi.mapper().createObjectNode();
+        journal.set("sleep_stages_summary", summary);
+
+        ObjectNode display = ComparisonTableDisplay.build(attrs, journal);
+
+        assertThat(display.path("sleep_minutes").path("deep").asDouble()).isEqualTo(45.0);
+    }
 }

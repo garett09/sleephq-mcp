@@ -226,7 +226,9 @@ public final class ComparisonTableDisplay {
         putIfPresent(sleep, "asleep", summary.path("asleep_minutes").isNumber()
                 ? summary.path("asleep_minutes").asDouble()
                 : null);
-        JsonNode byStage = summary.path("minutes_by_stage");
+        JsonNode byStage = summary.has("minutes_by_stage_for_reporting")
+                ? summary.path("minutes_by_stage_for_reporting")
+                : summary.path("minutes_by_stage");
         if (byStage.isObject()) {
             putIfPresent(sleep, "deep", stageMinutes(byStage, "deep"));
             putIfPresent(sleep, "rem", stageMinutes(byStage, "rem"));
