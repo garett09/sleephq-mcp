@@ -55,4 +55,20 @@ class O2ImportResolverTest {
         String fileId = O2ImportResolver.resolveFileIdByDate(client, "team-1", "81007", "2026-05-25");
         assertThat(fileId).isEqualTo("file-o2");
     }
+
+    @Test
+    void resolveFileIdByDate_prefersLargestMatchingImport() {
+        when(client.listImports("team-1", 1, 25)).thenReturn("""
+                {"data":[
+                  {"id":"imp-small","attributes":{"machine_id":"81007","file_size":30000,
+                    "name":"20260525","created_at":"2026-05-25 08:00:00 +0800"}},
+                  {"id":"imp-large","attributes":{"machine_id":"81007","file_size":90000,
+                    "name":"20260525-night","created_at":"2026-05-25 09:00:00 +0800"}}
+                ]}""");
+        when(client.listImportFiles("imp-large", 1, 10)).thenReturn(
+                "{\"data\":[{\"id\":\"file-big\",\"attributes\":{\"name\":\"x\"}}]}");
+
+        assertThat(O2ImportResolver.resolveFileIdByDate(client, "team-1", "81007", "2026-05-25"))
+                .isEqualTo("file-big");
+    }
 }

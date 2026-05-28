@@ -24,7 +24,7 @@ public final class O2ImportResolver {
         }
 
         String bestImportId = null;
-        long bestSize = Long.MAX_VALUE;
+        long bestSize = 0;
 
         int page = 1;
         while (page <= MAX_IMPORT_PAGES) {
@@ -49,7 +49,7 @@ public final class O2ImportResolver {
                 if (!dateMatch) {
                     continue;
                 }
-                if (fileSize < bestSize) {
+                if (fileSize > bestSize) {
                     bestSize = fileSize;
                     bestImportId = item.path("id").asText();
                 }
