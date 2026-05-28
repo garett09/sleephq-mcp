@@ -7,6 +7,7 @@ public record ChannelStatistics(
         double min,
         double max,
         double percentile,
+        double median,
         String minAt,
         String maxAt,
         int minAtSeconds,

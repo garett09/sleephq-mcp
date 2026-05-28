@@ -31,6 +31,7 @@ public final class OscarChannelStatistics {
                     round(summary.min()),
                     round(summary.max()),
                     round(summary.max()),
+                    Double.NaN,
                     null,
                     null,
                     ChannelStatistics.OFFSET_UNKNOWN,

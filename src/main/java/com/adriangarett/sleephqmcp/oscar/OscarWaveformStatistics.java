@@ -126,6 +126,7 @@ public final class OscarWaveformStatistics {
         sorted.sort(Double::compareTo);
         double avg = sorted.isEmpty() ? 0 : sum / sorted.size();
         double p = percentileValue(sorted, percentile);
+        double medianValue = percentileValue(sorted, 50);
         String minAt = clockAt(base, sampleRate, minIdx);
         String maxAt = clockAt(base, sampleRate, maxIdx);
         int minAtSeconds = offsetSeconds(sampleRate, minIdx);
@@ -135,7 +136,7 @@ public final class OscarWaveformStatistics {
             max = 0;
         }
         ChannelStatistics raw = new ChannelStatistics(fieldName, unit == null ? "" : unit,
-                round(avg), round(min), round(max), round(p), minAt, maxAt,
+                round(avg), round(min), round(max), round(p), round(medianValue), minAt, maxAt,
                 minAtSeconds, maxAtSeconds, sorted.size());
         return OscarChannelUnitNormalizer.normalize(raw);
     }

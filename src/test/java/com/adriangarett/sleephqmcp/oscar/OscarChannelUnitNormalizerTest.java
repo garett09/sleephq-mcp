@@ -51,8 +51,22 @@ class OscarChannelUnitNormalizerTest {
         assertThat(normalized.min()).isEqualTo(-113.4);
     }
 
+    @Test
+    void normalizeTidalVolume_scalesMedianWithOtherStats() {
+        ChannelStatistics raw = stat("tidal_volume", "L", 0.373, 0.0, 1.0, 0.5, 0.36);
+        ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);
+        assertThat(normalized.unit()).isEqualTo("mL");
+        assertThat(normalized.median()).isEqualTo(360.0);
+    }
+
     private static ChannelStatistics stat(
             String field, String unit, double avg, double min, double max, double p95) {
-        return new ChannelStatistics(field, unit, avg, min, max, p95, "00:00:00", "01:00:00", 0, 3600, 100);
+        return stat(field, unit, avg, min, max, p95, Double.NaN);
+    }
+
+    private static ChannelStatistics stat(
+            String field, String unit, double avg, double min, double max, double p95, double median) {
+        return new ChannelStatistics(field, unit, avg, min, max, p95, median,
+                "00:00:00", "01:00:00", 0, 3600, 100);
     }
 }
