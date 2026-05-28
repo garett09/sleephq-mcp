@@ -3,6 +3,7 @@ package com.adriangarett.sleephqmcp.service;
 import com.adriangarett.sleephqmcp.oscar.OscarRepository;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
+import com.adriangarett.sleephqmcp.support.VentilationSummarySupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -84,6 +85,10 @@ public class OscarTrendService {
                     bySessionId.put(sessionId, node);
                 }
             });
+        }
+        ObjectNode ventilation = VentilationSummarySupport.fromOscarChannels(bySessionId.values());
+        if (ventilation != null) {
+            root.set("ventilation_summary", ventilation);
         }
         bySessionId.values().forEach(node -> nights.add("full".equals(mode) ? node : slim(node)));
         try {
