@@ -27,11 +27,7 @@ public final class OscarSummariesIndex {
                     + "<settings>([^<]*)</settings>",
             Pattern.DOTALL);
 
-    private static final Pattern ATTR_ID = Pattern.compile("\\bid=\"(\\d+)\"");
-    private static final Pattern ATTR_ENABLED = Pattern.compile("\\benabled=\"(\\d+)\"");
-    private static final Pattern ATTR_EVENTS = Pattern.compile("\\bevents=\"(\\d+)\"");
-    private static final Pattern ATTR_FIRST = Pattern.compile("\\bfirst=\"(\\d+)\"");
-    private static final Pattern ATTR_LAST = Pattern.compile("\\blast=\"(\\d+)\"");
+    private static final Pattern ATTR = Pattern.compile("(\\w+)=\"([^\"]*)\"");
 
     private final List<OscarSessionIndexEntry> sessions;
 
@@ -56,14 +52,14 @@ public final class OscarSummariesIndex {
         List<OscarSessionIndexEntry> entries = new ArrayList<>();
         while (matcher.find()) {
             String attrs = matcher.group(1);
-            Long sessionId = longAttr(ATTR_ID, attrs);
-            Long firstMs = longAttr(ATTR_FIRST, attrs);
-            Long lastMs = longAttr(ATTR_LAST, attrs);
+            Long sessionId = longAttr(attrs, "id");
+            Long firstMs = longAttr(attrs, "first");
+            Long lastMs = longAttr(attrs, "last");
             if (sessionId == null || firstMs == null || lastMs == null) {
                 continue;
             }
-            boolean enabled = "1".equals(strAttr(ATTR_ENABLED, attrs));
-            boolean hasEvents = "1".equals(strAttr(ATTR_EVENTS, attrs));
+            boolean enabled = "1".equals(attr(attrs, "enabled"));
+            boolean hasEvents = "1".equals(attr(attrs, "events"));
             List<Integer> channels = parseChannelList(matcher.group(2));
             List<Integer> settings = parseChannelList(matcher.group(3));
             entries.add(new OscarSessionIndexEntry(
@@ -78,14 +74,19 @@ public final class OscarSummariesIndex {
         return new OscarSummariesIndex(entries);
     }
 
-    private static String strAttr(Pattern pattern, String attrs) {
-        Matcher m = pattern.matcher(attrs);
-        return m.find() ? m.group(1) : null;
+    private static String attr(String attrs, String name) {
+        Matcher m = ATTR.matcher(attrs);
+        while (m.find()) {
+            if (name.equals(m.group(1))) {
+                return m.group(2);
+            }
+        }
+        return null;
     }
 
-    private static Long longAttr(Pattern pattern, String attrs) {
-        String value = strAttr(pattern, attrs);
-        return value == null ? null : Long.parseLong(value);
+    private static Long longAttr(String attrs, String name) {
+        String value = attr(attrs, name);
+        return value == null || value.isEmpty() ? null : Long.parseLong(value);
     }
 
     public List<OscarSessionIndexEntry> sessions() {

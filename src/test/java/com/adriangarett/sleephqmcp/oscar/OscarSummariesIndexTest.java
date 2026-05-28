@@ -30,6 +30,21 @@ class OscarSummariesIndexTest {
     }
 
     @Test
+    void parse_acceptsDifferentAttributeOrder() {
+        String xml = """
+                <sessions>
+                 <session id="42" enabled="1" events="1" last="9000" first="1000">
+                  <channels>1101</channels>
+                  <settings>e210</settings>
+                 </session>
+                </sessions>
+                """;
+        OscarSummariesIndex index = OscarSummariesIndex.parse(xml);
+        assertThat(index.sessions()).hasSize(1);
+        assertThat(index.sessions().get(0).sessionId()).isEqualTo(42L);
+    }
+
+    @Test
     void findPrimarySessionForDate_selectsLongestSessionOnDate() {
         String xml = """
                 <sessions>
