@@ -25,6 +25,14 @@ Workflow:
 - **Journal:** `table_display.journal_cell` — comma-formatted steps, SleepHQ mood (e.g. `Okay (3)`), notes only
 - CPAP missing: `—` in therapy columns; journal/sleep still shown when present
 
+### Ventilation summary (span)
+
+When `get-comparison` returns `ventilation_summary.respiratory_rate_per_min` and/or `get-oscar-trend` returns `ventilation_summary`:
+
+- Render the AirView-style table (TV / RR / MV) per `sleephq://playbook/output-format` §Ventilation summary.
+- Skip this section entirely when neither block is present; do not mention its absence.
+- TV/MV omitted (show `—`) when OSCAR not called this session.
+
 ### Verdict (if physician block included)
 
 Use `sleephq://playbook/output-format` — **Perfect | On track | Needs change | Urgent** — **[dimension]:** + **Confidence: NN% (High|Medium|Low)**.

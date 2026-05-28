@@ -106,6 +106,27 @@ Only when OSCAR was already fetched and SleepHQ span lacks nights. Use `nights[]
 
 **Do not chart here:** waveform samples, EVE/scan event lists, raw `apnea_trends` JSON (use bullets for span summary).
 
+## Ventilation mechanics chart group
+
+A separate chart group, independent of the 5-chart titration cap. Render under `## Technologist read` → `### Ventilation mechanics (charts)`, immediately after the Ventilation summary table.
+
+**When:** only when `get-oscar-trend` was already called this session and returned `ventilation_summary` with at least one non-null metric.
+
+**Three line charts by night (render in this order):**
+
+| # | Chart | Type | Data source |
+|---|-------|------|-------------|
+| 1 | Tidal Volume (mL) by night | line | `get-oscar-trend` slim rows — per-night `tidal_volume.median` |
+| 2 | Respiratory Rate (br/min) by night | line | `get-comparison` nights — `resp_rate_summary.med` (preferred); fallback: `get-oscar-trend` slim rows `resp_rate.median` |
+| 3 | Minute Ventilation (L/min) by night | line | `get-oscar-trend` slim rows — per-night `minute_vent.median` |
+
+**Rules:**
+- Skip any chart whose data series is entirely missing or empty — do not invent values.
+- Use per-night **median** values only (not avg or max).
+- These charts do not count toward the 5-chart physician titration cap.
+- Smoke / PASS-FAIL checklists: **never** render these charts (same rule as the titration pack).
+- Caption: `get-oscar-trend YYYY-MM-DD–YYYY-MM-DD` (span dates).
+
 ## Autovisualiser usage
 
 1. Extract JSON arrays/objects as above from the latest tool result.

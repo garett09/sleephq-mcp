@@ -16,6 +16,25 @@ Table cells: `90% (High)` not just `High`.
 
 Optional **after** markdown tables exist for the same data. **physician_titration_review:** up to 5 span charts; **balanced:** max 2; tables and **FINAL RECOMMENDATIONS** stay authoritative. See `sleephq://playbook/autovisualiser`.
 
+## Ventilation summary (AirView-style span table)
+
+When `get-comparison` and/or `get-oscar-trend` returns a `ventilation_summary` block, render an AirView-style span summary table under `## Technologist read` → `### Ventilation summary (span)`:
+
+| Metric | Maximum (avg) | 95th % (avg) | Median (avg) |
+| :--- | ---: | ---: | ---: |
+| Tidal Volume (mL)          | 712  | 466 | 364 |
+| Respiratory Rate (br/min)  |  27  |  20 |  17 |
+| Minute Ventilation (L/min) | 12.4 | 7.8 | 6.2 |
+
+Source: RR from SleepHQ `resp_rate_summary` (N nights); TV & MV from OSCAR PLD (N nights). — = OSCAR not available.
+
+**Rules:**
+- Numbers are copied **verbatim** from `ventilation_summary` blocks — **never computed by the agent**.
+- Rounding: TV → integer mL, RR → integer br/min, MV → 1 decimal L/min.
+- TV/MV cells show `—` when the OSCAR block is absent; RR still renders from `get-comparison`.
+- `nights_used` can differ between sources (SleepHQ vs OSCAR PLD). Header span count = SleepHQ nights_used; note OSCAR nights on source line when different.
+- OSCAR maxima are higher than AirView (raw per-sample peaks vs AirView smoothed max) — expected; do not adjust numbers.
+
 ## Therapy verdict (plain language — mandatory)
 
 Use a **headline rating** the patient can scan, then the clinical dimension. Always add **Confidence: NN% (High|Medium|Low)** on the same line.

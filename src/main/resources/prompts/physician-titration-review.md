@@ -36,6 +36,7 @@ Publish **in this order** so titration decisions are scannable:
 2. **`### Apnea trends (span)`** — **only after `get-comparison`**: bullets from **`apnea_trends.titration_decision_support.span_summary_bullets`** + **`suggested_pressure_action`** + **`pressure_signals`**.
 3. **`### Titration Configuration`** — one row per night from `get-comparison` → `nights[]` → **`table_display` only** (never invent).
 4. **`### Span trends (charts)`** — after the table: up to **5** Goose **autovisualiser** charts from `get-comparison` JSON (see `sleephq://playbook/autovisualiser` physician pack): AHI line, OSA+CSA line, leak 95th bar, usage bar, SpO₂ min line or worst-night sleep-stage donut. Tables stay authoritative.
+4b. **`### Ventilation summary (span)`** — after the Span trends charts: one AirView-style table from `get-comparison` `ventilation_summary.respiratory_rate_per_min` (RR) and `get-oscar-trend` `ventilation_summary` (TV + MV). Copy numbers verbatim. TV/MV show `—` if OSCAR not available. See `sleephq://playbook/output-format` §Ventilation summary.
 5. **`### Data completeness`** — `titration_readiness`, skipped nights, missing `therapy_summaries_present`, missing O2/journal. If OSCAR was read: one line on reachability + `event_counts_agree` + authority.
 6. Deep dives + **`## Physician assessment`** with explicit **pressure decision** in **FINAL RECOMMENDATIONS**.
 
@@ -63,6 +64,7 @@ OSCAR is **confirmatory only** — SleepHQ `get-comparison` remains the decision
 1. `get-oscar-trend(detail=summary)` over the same span — confirms **whether centrals exist and the count direction**, and covers nights SleepHQ lacks `machine_date`.
 2. **UNIT TRAP (MANDATORY):** OSCAR `summary_counts` are **raw counts**, not per-hour indices. Do **not** divide them by sleep hours to "verify" a CSA/AHI index (same rule as scan≠AHI). Threshold comparisons (CA ≥5/hr, AHI ≥5) use SleepHQ `ahi_summary` only; OSCAR confirms event **type/presence**, not the index value.
 3. Reconcile per `event_count_authority` + `event_counts_agree`. Report one line under `### Data completeness` ("OSCAR: reachable, event_counts_agree=true, authority=oscar_summary_000"); open a `### OSCAR cross-validation` block **only when `event_counts_agree=false`**.
+4. If `get-oscar-trend` was called: read `ventilation_summary` from its response. Populate TV + MV columns of the `### Ventilation summary (span)` table from these values. Cross-check: OSCAR `respiratory_rate_per_min` should agree with SleepHQ `respiratory_rate_per_min` within ~10% (different smoothing/averaging); note any large discrepancy.
 
 ---
 
