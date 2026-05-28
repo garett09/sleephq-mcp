@@ -51,6 +51,52 @@ class ComparisonApneaTrendSupportTest {
                 .isTrue();
     }
 
+    @Test
+    void attach_recognisesAlternateAhiFieldNames_total_obstructiveApnea_clearAirway() {
+        ObjectNode root = JsonApi.mapper().createObjectNode();
+        ArrayNode nights = root.putArray("nights");
+        for (int i = 1; i <= 8; i++) {
+            ObjectNode row = JsonApi.mapper().createObjectNode();
+            row.put("date", "2026-05-0" + i);
+            row.putObject("data").putObject("attributes")
+                    .putObject("ahi_summary")
+                    .put("total", 0.5)
+                    .put("obstructive_apnea", 0.1)
+                    .put("clear_airway", 0.2)
+                    .put("hypopnea", 0.2);
+            nights.add(row);
+        }
+
+        ComparisonApneaTrendSupport.attach(root, nights);
+
+        assertThat(root.path("apnea_trends").path("nights_with_ahi_summary").asInt())
+                .isEqualTo(8);
+        assertThat(root.path("apnea_trends").path("ahi").path("available").asBoolean()).isTrue();
+        assertThat(root.path("apnea_trends").path("oa").path("available").asBoolean()).isTrue();
+        assertThat(root.path("apnea_trends").path("ca").path("available").asBoolean()).isTrue();
+    }
+
+    @Test
+    void attach_recognisesStringTypedNumbers_inAhiSummary() {
+        ObjectNode root = JsonApi.mapper().createObjectNode();
+        ArrayNode nights = root.putArray("nights");
+        for (int i = 1; i <= 4; i++) {
+            ObjectNode row = JsonApi.mapper().createObjectNode();
+            row.put("date", "2026-05-0" + i);
+            ObjectNode ahi = row.putObject("data").putObject("attributes").putObject("ahi_summary");
+            ahi.put("av", "0.45");
+            ahi.put("oa", "0.0");
+            ahi.put("ca", "0.12");
+            ahi.put("h", "0.33");
+            nights.add(row);
+        }
+
+        ComparisonApneaTrendSupport.attach(root, nights);
+
+        assertThat(root.path("apnea_trends").path("nights_with_ahi_summary").asInt()).isEqualTo(4);
+        assertThat(root.path("apnea_trends").path("ahi").path("available").asBoolean()).isTrue();
+    }
+
     private static ObjectNode night(String date, double ahi, double oa, double ca) {
         ObjectNode row = JsonApi.mapper().createObjectNode();
         row.put("date", date);

@@ -14,7 +14,15 @@ public final class AhiSummarySupport {
     /** Central apnea index — {@code sleephq://reference/normal-ranges}. */
     public static final double CA_ELEVATED_PER_HR = 5.0;
 
-    private static final String[] AVG_KEYS = {"av", "avg", "average"};
+    private static final String[] AVG_KEYS = {"av", "avg", "average", "total"};
+    private static final String[] OA_KEYS  = {"oa", "obstructive_apnea", "obstructive"};
+    private static final String[] CA_KEYS  = {"ca", "clear_airway", "central_apnea", "central"};
+    private static final String[] H_KEYS   = {"h",  "hypopnea", "hypopneas"};
+
+    static String[] oaKeys()  { return OA_KEYS.clone(); }
+    static String[] caKeys()  { return CA_KEYS.clone(); }
+    static String[] hKeys()   { return H_KEYS.clone(); }
+    static String[] avgKeys() { return AVG_KEYS.clone(); }
 
     private AhiSummarySupport() {
     }
@@ -32,9 +40,9 @@ public final class AhiSummarySupport {
         }
         return Optional.of(new Components(
                 ahi,
-                readNumeric(ahiSummary, "oa"),
-                readNumeric(ahiSummary, "ca"),
-                readNumeric(ahiSummary, "h")));
+                readNumeric(ahiSummary, OA_KEYS),
+                readNumeric(ahiSummary, CA_KEYS),
+                readNumeric(ahiSummary, H_KEYS)));
     }
 
     public static Optional<Components> readFromNightRow(JsonNode nightRow) {
@@ -61,6 +69,15 @@ public final class AhiSummarySupport {
             JsonNode node = summary.path(key);
             if (node.isNumber()) {
                 return node.asDouble();
+            }
+            if (node.isTextual()) {
+                String text = node.asText().trim();
+                if (!text.isEmpty()) {
+                    try {
+                        return Double.parseDouble(text);
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
             }
         }
         return null;
