@@ -21,6 +21,10 @@ public final class NightAnalysisSupport {
     private NightAnalysisSupport() {}
 
     public static ObjectNode channelStatsNode(Map<String, ChannelStatistics> stats) {
+        return channelStatsNode(stats, null);
+    }
+
+    public static ObjectNode channelStatsNode(Map<String, ChannelStatistics> stats, String oscarFreshness) {
         ObjectNode channels = JsonApi.mapper().createObjectNode();
         stats.forEach((key, stat) -> {
             ObjectNode ch = channels.putObject(key);
@@ -49,11 +53,18 @@ public final class NightAnalysisSupport {
             if (stat.sampleCount() > 0) {
                 ch.put("sample_count", stat.sampleCount());
             }
+            if (oscarFreshness != null) {
+                ch.put("freshness", oscarFreshness);
+            }
         });
         return channels;
     }
 
     public static ObjectNode summaryChannelNode(OscarSession session) {
+        return summaryChannelNode(session, null);
+    }
+
+    public static ObjectNode summaryChannelNode(OscarSession session, String oscarFreshness) {
         ObjectNode channels = JsonApi.mapper().createObjectNode();
         for (int channelId : session.availableChannelIds()) {
             if (OscarChannelIdClassification.isEventChannel(channelId)) {
@@ -72,6 +83,9 @@ public final class NightAnalysisSupport {
                 putIfPresent(ch, "wavg", summary.wavg());
             }
             ch.put("source", "oscar_summary");
+            if (oscarFreshness != null) {
+                ch.put("freshness", oscarFreshness);
+            }
         }
         return channels;
     }
@@ -115,6 +129,26 @@ public final class NightAnalysisSupport {
         coverage.put("oscar_edf_eve", eve);
         coverage.put("oscar_edf_brp", brp);
         coverage.put("channels_reported", channelCount);
+        return coverage;
+    }
+
+    public static ObjectNode coverageNode(
+            boolean sleephqCpap,
+            boolean summary,
+            boolean pldPresent,
+            boolean eve,
+            boolean brp,
+            int channelCount,
+            boolean pldHasStats,
+            Long oscarLagDays,
+            String oscarFreshness) {
+        ObjectNode coverage = coverageNode(sleephqCpap, summary, pldPresent, eve, brp, channelCount, pldHasStats);
+        if (oscarLagDays != null) {
+            coverage.put("oscar_lag_days", oscarLagDays);
+        }
+        if (oscarFreshness != null) {
+            coverage.put("oscar_freshness", oscarFreshness);
+        }
         return coverage;
     }
 

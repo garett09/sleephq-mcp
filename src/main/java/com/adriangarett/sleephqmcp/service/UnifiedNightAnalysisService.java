@@ -15,6 +15,7 @@ import com.adriangarett.sleephqmcp.oscar.OscarSummaryHeaderParser;
 import com.adriangarett.sleephqmcp.oscar.OscarWaveformStatistics;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.NightAnalysisSupport;
+import com.adriangarett.sleephqmcp.support.NightDataConflictAnalyzer;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -55,12 +56,39 @@ public class UnifiedNightAnalysisService {
         OscarProperties.Analysis analysis = resolveAnalysis();
         Optional<OscarSession> oscarSession = oscarRepository.loadSession(indexEntry);
 
+        // Compute freshness/lag
+        Optional<LocalDate> lastSessionDateOpt = oscarRepository.getLastSessionDate();
+        Long oscarLagDays = null;
+        String oscarFreshness = null;
+        if (lastSessionDateOpt.isPresent()) {
+            LocalDate lastSessionDate = lastSessionDateOpt.get();
+            LocalDate today = LocalDate.now(java.time.ZoneId.systemDefault());
+            long lag = java.time.temporal.ChronoUnit.DAYS.between(lastSessionDate, today);
+            oscarLagDays = Math.max(0L, lag);
+            if (oscarLagDays <= 0) {
+                oscarFreshness = "fresh";
+            } else if (oscarLagDays <= 6) {
+                oscarFreshness = "acceptable_lag";
+            } else if (oscarLagDays <= 29) {
+                oscarFreshness = "stale";
+            } else {
+                oscarFreshness = "very_stale";
+            }
+        }
+
         ObjectNode nightAnalysis = JsonApi.mapper().createObjectNode();
         nightAnalysis.put("date", date);
 
         OscarSummaryHeaderParser.SummaryHeader header =
                 oscarRepository.loadSummaryHeader(indexEntry).orElse(null);
-        nightAnalysis.set("session", NightAnalysisSupport.sessionNode(indexEntry, header));
+        
+        ObjectNode sessionNode = NightAnalysisSupport.sessionNode(indexEntry, header);
+        LocalDate sessionStartDate = indexEntry.firstInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+        LocalDate sessionEndDate = indexEntry.lastInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+        if (sessionStartDate.isBefore(localDate) && sessionEndDate.equals(localDate)) {
+            sessionNode.put("session_date_note", "matched_end_date");
+        }
+        nightAnalysis.set("session", sessionNode);
 
         Map<String, ChannelStatistics> channelStats = new LinkedHashMap<>();
         if (oscarSession.isPresent()) {
@@ -103,15 +131,23 @@ public class UnifiedNightAnalysisService {
             }
         }
 
-        ObjectNode channelsNode = NightAnalysisSupport.channelStatsNode(channelStats);
+        ObjectNode channelsNode = NightAnalysisSupport.channelStatsNode(channelStats, oscarFreshness);
         if (oscarSession.isPresent() && channelStats.isEmpty()) {
-            channelsNode = NightAnalysisSupport.summaryChannelNode(oscarSession.get());
+            channelsNode = NightAnalysisSupport.summaryChannelNode(oscarSession.get(), oscarFreshness);
         }
         nightAnalysis.set("channels", channelsNode);
         nightAnalysis.set("respiratory_indices",
                 NightAnalysisSupport.respiratoryIndices(oscarSession, machineDateAttrs));
 
         NightAnalysisSupport.attachSleepHq(nightAnalysis, machineDateAttrs, journalAttrs);
+
+        // Surfacing data conflicts
+        if (oscarSession.isPresent()) {
+            ArrayNode conflicts = NightDataConflictAnalyzer.analyze(machineDateAttrs, oscarSession.get());
+            if (conflicts != null && !conflicts.isEmpty()) {
+                nightAnalysis.set("data_conflicts", conflicts);
+            }
+        }
 
         ArrayNode sources = nightAnalysis.putArray("data_sources");
         if (machineDateAttrs != null) {
@@ -131,6 +167,47 @@ public class UnifiedNightAnalysisService {
             sources.add("oscar_brp_edf");
         }
 
+        // Detailed provenance mapping
+        ObjectNode provenance = nightAnalysis.putObject("provenance");
+        if (machineDateAttrs != null) {
+            ObjectNode shqProv = provenance.putObject("sleephq");
+            shqProv.put("type", "api");
+            shqProv.put("available", true);
+        }
+        ObjectNode oscarProv = provenance.putObject("oscar_summaries_xml");
+        oscarProv.put("type", "local_file");
+        oscarProv.put("available", true);
+        if (lastSessionDateOpt.isPresent()) {
+            oscarProv.put("last_session_date", lastSessionDateOpt.get().toString());
+            if (oscarLagDays != null) {
+                oscarProv.put("lag_days", oscarLagDays);
+            }
+            if (oscarFreshness != null) {
+                oscarProv.put("freshness", oscarFreshness);
+            }
+        }
+
+        if (oscarSession.isPresent() && !oscarSession.get().channels().isEmpty()) {
+            ObjectNode sum000Prov = provenance.putObject("oscar_summary_000");
+            sum000Prov.put("type", "local_file");
+            sum000Prov.put("available", true);
+        }
+        if (hasPld) {
+            ObjectNode pldProv = provenance.putObject("oscar_pld_edf");
+            pldProv.put("type", "local_file");
+            pldProv.put("available", true);
+        }
+        if (hasEve) {
+            ObjectNode eveProv = provenance.putObject("oscar_eve_edf");
+            eveProv.put("type", "local_file");
+            eveProv.put("available", true);
+        }
+        if (hasBrp) {
+            ObjectNode brpProv = provenance.putObject("oscar_brp_edf");
+            brpProv.put("type", "local_file");
+            brpProv.put("available", true);
+        }
+
         nightAnalysis.set("coverage", NightAnalysisSupport.coverageNode(
                 machineDateAttrs != null,
                 oscarSession.isPresent(),
@@ -138,7 +215,9 @@ public class UnifiedNightAnalysisService {
                 hasEve,
                 hasBrp,
                 channelsNode.size(),
-                pldHasStats));
+                pldHasStats,
+                oscarLagDays,
+                oscarFreshness));
 
         List<ObjectNode> moments = OscarEventCorrelator.buildNotableMoments(
                 channelStats,
