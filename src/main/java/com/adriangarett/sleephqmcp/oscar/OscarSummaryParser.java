@@ -64,7 +64,7 @@ public final class OscarSummaryParser {
     }
 
     static List<Integer> readAvailableChannelsFromTail(byte[] bytes) {
-        int minOffset = Math.min(32, Math.max(0, bytes.length - 256));
+        int minOffset = Math.max(32, bytes.length - 256);
         for (int offset = bytes.length - 4; offset >= minOffset; offset -= 4) {
             if (offset + 4 > bytes.length) {
                 continue;

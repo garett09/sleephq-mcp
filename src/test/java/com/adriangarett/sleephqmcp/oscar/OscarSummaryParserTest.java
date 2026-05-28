@@ -13,8 +13,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OscarSummaryParserTest {
 
     @Test
+    void readAvailableChannelsFromTail_scansOnlyLast256Bytes() {
+        int tailOffset = 400;
+        ByteBuffer buf = ByteBuffer.allocate(tailOffset + 16).order(ByteOrder.LITTLE_ENDIAN);
+        buf.position(tailOffset);
+        buf.putInt(3);
+        buf.putInt(0x1103);
+        buf.putInt(0x1106);
+        buf.putInt(0x1105);
+        // Decoy channel list at byte 32 — outside last-256 window, must not win
+        buf.position(32);
+        buf.putInt(3);
+        buf.putInt(0x1100);
+        buf.putInt(0x1101);
+        buf.putInt(0x1102);
+
+        List<Integer> ids = OscarSummaryParser.readAvailableChannelsFromTail(buf.array());
+        assertThat(ids).containsExactly(0x1103, 0x1106, 0x1105);
+    }
+
+    @Test
     void readAvailableChannelsFromTail_findsChannelList() {
-        ByteBuffer buf = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(288).order(ByteOrder.LITTLE_ENDIAN);
+        buf.position(256);
         buf.putInt(3);
         buf.putInt(0x1103);
         buf.putInt(0x1106);
