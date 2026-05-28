@@ -63,18 +63,20 @@ public class OscarRepository {
         if (device == null) {
             return new OscarSummariesIndex(List.of());
         }
-        if (summariesIndex != null && device.equals(cachedDeviceFolder)) {
-            return summariesIndex;
-        }
-        try {
-            summariesIndex = OscarSummariesIndex.load(device);
-            cachedDeviceFolder = device;
-            lastIndexError = null;
-            return summariesIndex;
-        } catch (Exception e) {
-            log.warn("Failed to load Summaries.xml.gz: {}", e.getMessage());
-            lastIndexError = e.getMessage();
-            return new OscarSummariesIndex(List.of());
+        synchronized (this) {
+            if (summariesIndex != null && device.equals(cachedDeviceFolder)) {
+                return summariesIndex;
+            }
+            try {
+                summariesIndex = OscarSummariesIndex.load(device);
+                cachedDeviceFolder = device;
+                lastIndexError = null;
+                return summariesIndex;
+            } catch (Exception e) {
+                log.warn("Failed to load Summaries.xml.gz: {}", e.getMessage());
+                lastIndexError = e.getMessage();
+                return new OscarSummariesIndex(List.of());
+            }
         }
     }
 
