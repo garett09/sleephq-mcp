@@ -173,4 +173,49 @@ class ComparisonTableDisplayTest {
 
         assertThat(row.path("table_display").isMissingNode()).isTrue();
     }
+
+    @Test
+    void buildApneaIndicesCell_populatesFromAlternateFieldNames() {
+        ObjectNode ahi = JsonApi.mapper().createObjectNode();
+        ahi.put("total", 0.82);
+        ahi.put("obstructive_apnea", 0.0);
+        ahi.put("clear_airway", 0.69);
+        ahi.put("hypopnea", 0.13);
+
+        String cell = ComparisonTableDisplay.buildApneaIndicesCell(ahi);
+
+        assertThat(cell).isNotBlank();
+        assertThat(cell).contains("AHI");
+        assertThat(cell).contains("CSA");
+    }
+
+    @Test
+    void build_apneaIndicesCell_populatesFromStringTypedNumbers() {
+        ObjectNode attrs = JsonApi.mapper().createObjectNode();
+        ObjectNode ahi = attrs.putObject("ahi_summary");
+        ahi.put("av", "0.45");
+        ahi.put("oa", "0.0");
+        ahi.put("ca", "0.12");
+        ahi.put("h", "0.33");
+
+        ObjectNode display = ComparisonTableDisplay.build(attrs, JsonApi.mapper().nullNode());
+
+        assertThat(display.path("apnea_indices_cell").asText()).isNotBlank();
+        assertThat(display.path("apnea_indices_cell").asText()).contains("AHI");
+    }
+
+    @Test
+    void attachIfPresent_setsOsaElevatedAndCsaElevated_usingAlternateKeys() {
+        ObjectNode row = JsonApi.mapper().createObjectNode();
+        row.putObject("data").putObject("attributes")
+                .putObject("ahi_summary")
+                .put("total", 7.0)
+                .put("obstructive_apnea", 2.5)
+                .put("clear_airway", 6.0);
+
+        ComparisonTableDisplay.attachIfPresent(row);
+
+        assertThat(row.path("table_display").path("osa_elevated").asBoolean()).isTrue();
+        assertThat(row.path("table_display").path("csa_elevated").asBoolean()).isTrue();
+    }
 }

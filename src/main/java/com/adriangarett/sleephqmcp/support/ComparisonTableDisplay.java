@@ -14,7 +14,7 @@ public final class ComparisonTableDisplay {
 
     private static final String[] SPO2_MIN_KEYS = {"mn", "min", "lower"};
     private static final String[] PERCENTILE_95_KEYS = {"95", "p95", "ninety_five", "95th"};
-    private static final String[] AVG_KEYS = {"av", "avg", "average"};
+    private static final String[] AVG_KEYS = AhiSummarySupport.avgKeys();
     private static final String[] AHI_COMPONENT_KEYS = {"oa", "ca", "h", "re", "ua", "ar", "rera"};
     private static final String[] AHI_ALL_KEYS = {"av", "avg", "average", "oa", "ca", "h", "re", "ua", "ar", "rera"};
 
@@ -294,6 +294,15 @@ public final class ComparisonTableDisplay {
             if (node.isNumber()) {
                 return node.asDouble();
             }
+            if (node.isTextual()) {
+                String text = node.asText().trim();
+                if (!text.isEmpty()) {
+                    try {
+                        return Double.parseDouble(text);
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
         }
         return null;
     }
@@ -346,15 +355,15 @@ public final class ComparisonTableDisplay {
             return "";
         }
         Double total = readSummaryValue(ahiSummary, AVG_KEYS);
-        Double oa = readSummaryValue(ahiSummary, "oa");
-        Double ca = readSummaryValue(ahiSummary, "ca");
+        Double oa    = readSummaryValue(ahiSummary, AhiSummarySupport.oaKeys());
+        Double ca    = readSummaryValue(ahiSummary, AhiSummarySupport.caKeys());
         if (total == null && oa == null && ca == null) {
             return "";
         }
         StringBuilder cell = new StringBuilder();
         appendApneaIndexPart(cell, "OSA", oa, AhiSummarySupport.isOaElevated(oa));
         appendApneaIndexPart(cell, "CSA", ca, AhiSummarySupport.isCaElevated(ca));
-        appendApneaIndexPart(cell, "H", readSummaryValue(ahiSummary, "h"), false);
+        appendApneaIndexPart(cell, "H",   readSummaryValue(ahiSummary, AhiSummarySupport.hKeys()), false);
         appendApneaIndexPart(cell, "AHI", total, false);
         return cell.toString();
     }
@@ -367,8 +376,8 @@ public final class ComparisonTableDisplay {
         if (total == null) {
             return "";
         }
-        boolean splitColumns = readSummaryValue(ahiSummary, "oa") != null
-                || readSummaryValue(ahiSummary, "ca") != null;
+        boolean splitColumns = readSummaryValue(ahiSummary, AhiSummarySupport.oaKeys()) != null
+                || readSummaryValue(ahiSummary, AhiSummarySupport.caKeys()) != null;
         if (splitColumns) {
             return formatApneaIndexPerHr(total);
         }
@@ -385,17 +394,17 @@ public final class ComparisonTableDisplay {
 
     /** Obstructive apnea index (OSA residual on therapy), events/hr. */
     static String buildOaCell(JsonNode ahiSummary) {
-        return buildSingleAhiIndexCell(ahiSummary, "oa");
+        return buildSingleAhiIndexCell(ahiSummary, AhiSummarySupport.oaKeys());
     }
 
     /** Central apnea index (CSA / TECSA signal), events/hr. */
     static String buildCaCell(JsonNode ahiSummary) {
-        return buildSingleAhiIndexCell(ahiSummary, "ca");
+        return buildSingleAhiIndexCell(ahiSummary, AhiSummarySupport.caKeys());
     }
 
     /** Hypopnea index (H), events/hr — often explains AHI above OSA + CSA alone. */
     static String buildHypopneaCell(JsonNode ahiSummary) {
-        return buildSingleAhiIndexCell(ahiSummary, "h");
+        return buildSingleAhiIndexCell(ahiSummary, AhiSummarySupport.hKeys());
     }
 
     private static void appendApneaIndexPart(StringBuilder cell, String label, Double perHr, boolean elevated) {
@@ -411,11 +420,11 @@ public final class ComparisonTableDisplay {
         }
     }
 
-    private static String buildSingleAhiIndexCell(JsonNode ahiSummary, String key) {
+    private static String buildSingleAhiIndexCell(JsonNode ahiSummary, String... keys) {
         if (!ahiSummary.isObject() || ahiSummary.isEmpty()) {
             return "";
         }
-        Double value = readSummaryValue(ahiSummary, key);
+        Double value = readSummaryValue(ahiSummary, keys);
         if (value == null) {
             return "";
         }
