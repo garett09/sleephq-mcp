@@ -30,14 +30,14 @@ public final class OscarEventCorrelator {
         for (ChannelStatistics stats : channels.values()) {
             if (stats.maxAtSeconds() >= 0) {
                 candidates.add(new MomentCandidate(stats.fieldName(), "max", stats.max(),
-                        stats.maxAtSeconds(), stats.maxAt()));
+                        stats.maxAtSeconds(), stats.maxAt(), stats.max() - stats.avg()));
             }
             if (stats.minAtSeconds() >= 0) {
                 candidates.add(new MomentCandidate(stats.fieldName(), "min", stats.min(),
-                        stats.minAtSeconds(), stats.minAt()));
+                        stats.minAtSeconds(), stats.minAt(), stats.avg() - stats.min()));
             }
         }
-        candidates.sort(Comparator.comparingDouble(MomentCandidate::value).reversed());
+        candidates.sort(Comparator.comparingDouble(MomentCandidate::deviation).reversed());
         List<ObjectNode> moments = new ArrayList<>();
         for (MomentCandidate candidate : candidates) {
             if (moments.size() >= maxMoments) {
@@ -51,20 +51,21 @@ public final class OscarEventCorrelator {
             node.put("offset_seconds", candidate.offsetSeconds());
             node.put("clock", candidate.clock());
             node.put("timestamp", momentTime.format(ISO_LOCAL));
-            ArrayNode nearby = node.putArray("nearby_events");
-            int added = 0;
-            for (DeviceEvent event : events) {
-                if (added >= maxNearbyEvents) {
-                    break;
-                }
-                long delta = Math.abs(Math.round(candidate.offsetSeconds() - event.startSeconds()));
+            List<long[]> inWindow = new ArrayList<>();
+            for (int i = 0; i < events.size(); i++) {
+                long delta = Math.abs(Math.round(candidate.offsetSeconds() - events.get(i).startSeconds()));
                 if (delta <= correlationWindowSeconds) {
-                    ObjectNode ev = nearby.addObject();
-                    ev.put("timestamp", event.timestamp());
-                    ev.put("label", event.label());
-                    ev.put("delta_seconds", delta);
-                    added++;
+                    inWindow.add(new long[]{delta, i});
                 }
+            }
+            inWindow.sort(Comparator.comparingLong(e -> e[0]));
+            ArrayNode nearby = node.putArray("nearby_events");
+            for (int i = 0; i < Math.min(maxNearbyEvents, inWindow.size()); i++) {
+                DeviceEvent event = events.get((int) inWindow.get(i)[1]);
+                ObjectNode ev = nearby.addObject();
+                ev.put("timestamp", event.timestamp());
+                ev.put("label", event.label());
+                ev.put("delta_seconds", inWindow.get(i)[0]);
             }
             if (!nearby.isEmpty()) {
                 moments.add(node);
@@ -73,5 +74,5 @@ public final class OscarEventCorrelator {
         return moments;
     }
 
-    private record MomentCandidate(String channel, String kind, double value, long offsetSeconds, String clock) {}
+    private record MomentCandidate(String channel, String kind, double value, long offsetSeconds, String clock, double deviation) {}
 }

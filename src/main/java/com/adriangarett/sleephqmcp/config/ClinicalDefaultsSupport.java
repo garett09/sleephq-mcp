@@ -38,7 +38,7 @@ public final class ClinicalDefaultsSupport {
         body.put("cpap_machine_id", blankToNull(clinical.defaultCpapMachineId()));
         body.put("o2_machine_id", blankToNull(clinical.defaultO2MachineId()));
         int cpapAdjustEnv = CpapClockAlignment.resolveAdjust(clinical, null, OptionalInt.empty()).adjustSeconds();
-        if (cpapAdjustEnv > 0) {
+        if (cpapAdjustEnv != 0) {
             body.put("cpap_clock_adjust_seconds_env_fallback", cpapAdjustEnv);
             body.put("cpap_clock_source_note", "EDF tools prefer machine_date.time_offset when date is provided");
             body.put("clock_reference", CpapClockAlignment.REFERENCE_CLOCK);

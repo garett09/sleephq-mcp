@@ -56,6 +56,34 @@ class OscarSummaryEventCountsTest {
     }
 
     @Test
+    void scan_findsCntHashNearEndOfFile_beyondOld256Guard() {
+        // Hash at byte 243 in a 490-byte file: old guard stopped at 490-256=234, missing the hash.
+        // Each entry is 12 bytes (4 channelId + 8 double); 8 entries = 96 bytes + 4 entryCount = 100 bytes.
+        // Hash occupies bytes 243..342, well within the 490-byte file.
+        int fileSize = 490;
+        int hashOffset = 243;
+        int entryCount = 8;
+        ByteBuffer buf = ByteBuffer.allocate(fileSize).order(ByteOrder.LITTLE_ENDIAN);
+        buf.position(hashOffset);
+        buf.putInt(entryCount);
+        int[][] entries = {
+            {OscarChannelIds.CPAP_ClearAirway, 3},
+            {OscarChannelIds.CPAP_Obstructive, 0},
+            {OscarChannelIds.CPAP_Hypopnea, 2},
+            {OscarChannelIds.CPAP_Apnea, 0},
+            {0x1100, 1}, {0x1101, 1}, {0x1102, 1}, {0x1103, 1}
+        };
+        for (int[] entry : entries) {
+            buf.putInt(entry[0]);
+            buf.putDouble(entry[1]);
+        }
+        byte[] bytes = buf.array();
+        Map<String, Integer> counts = OscarSummaryEventCounts.scan(bytes, List.of());
+        assertThat(counts).containsEntry("clear_airway", 3);
+        assertThat(counts).containsEntry("hypopnea", 2);
+    }
+
+    @Test
     void buildSummary_mergesSummaryCounts() {
         var eve = new com.adriangarett.sleephqmcp.domain.DeviceEventResult(
                 "EVE.edf", "2026-05-20T21:00:00", 3600, "device_eve", List.of());

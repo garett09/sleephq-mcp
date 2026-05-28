@@ -88,6 +88,15 @@ class CpapClockAlignmentTest {
     }
 
     @Test
+    void resolveAdjust_negativeEnvFallback_applied() {
+        // Fast-running CPAP clocks need a negative offset; env-fallback must not discard it
+        var clinical = new ClinicalContextProperties("t", "c", "o", -DRIFT_SECONDS);
+        var resolution = CpapClockAlignment.resolveAdjust(clinical, null, OptionalInt.empty());
+        assertThat(resolution.adjustSeconds()).isEqualTo(-DRIFT_SECONDS);
+        assertThat(resolution.source()).isEqualTo(CpapClockAlignment.SOURCE_ENV);
+    }
+
+    @Test
     void resolveAdjust_negativeOverride_throwsWhenOutOfBounds() {
         assertThatThrownBy(() -> CpapClockAlignment.resolveAdjust(null, -100_000, OptionalInt.empty()))
                 .isInstanceOf(IllegalArgumentException.class)

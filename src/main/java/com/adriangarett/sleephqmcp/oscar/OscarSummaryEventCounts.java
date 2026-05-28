@@ -45,7 +45,7 @@ public final class OscarSummaryEventCounts {
             return Map.of();
         }
         Set<Integer> allowed = buildAllowed(availableChannelIds);
-        int scanEnd = Math.max(HEADER_BYTES + 4, summaryBytes.length - 256);
+        int scanEnd = summaryBytes.length - 3;
         Map<Integer, Integer> best = Map.of();
         int bestOffset = -1;
         // m_cnt hash offset is not always 32-aligned (e.g. ResMed 6a0db26c.000 at byte 243).

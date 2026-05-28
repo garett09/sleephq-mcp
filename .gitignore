@@ -34,6 +34,7 @@ build/
 
 ### Secrets ###
 .env
+/docs/superpowers/
 
 ### run.sh runtime ###
 .sleephq-mcp.run.lock.d

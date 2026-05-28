@@ -64,7 +64,7 @@ public final class CpapClockAlignment {
         if (machineDateOffset != null && machineDateOffset.isPresent() && machineDateOffset.getAsInt() != 0) {
             return new CpapClockAdjustResolution(machineDateOffset.getAsInt(), SOURCE_SLEEPHQ_MACHINE_DATE);
         }
-        if (clinical != null && clinical.cpapClockAdjustSeconds() != null && clinical.cpapClockAdjustSeconds() > 0) {
+        if (clinical != null && clinical.cpapClockAdjustSeconds() != null && clinical.cpapClockAdjustSeconds() != 0) {
             return new CpapClockAdjustResolution(clinical.cpapClockAdjustSeconds(), SOURCE_ENV);
         }
         return new CpapClockAdjustResolution(0, SOURCE_NONE);
