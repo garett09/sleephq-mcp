@@ -10,13 +10,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.Map;
 
+/**
+ * Compares overlapping SleepHQ machine_date metrics with OSCAR session summary values.
+ * Central apnea uses a tighter warn threshold (0.3/hr) than obstructive/hypopnea (0.5/hr).
+ */
 public final class NightDataConflictAnalyzer {
 
     private static final String[] AVG_KEYS = AhiSummarySupport.avgKeys();
     private static final String[] OA_KEYS  = AhiSummarySupport.oaKeys();
     private static final String[] CA_KEYS  = AhiSummarySupport.caKeys();
     private static final String[] H_KEYS   = AhiSummarySupport.hKeys();
-    private static final String[] PERCENTILE_95_KEYS = {"95", "p95", "ninety_five", "95th"};
 
     private NightDataConflictAnalyzer() {}
 
@@ -48,7 +51,7 @@ public final class NightDataConflictAnalyzer {
     }
 
     private static void compareAhi(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
-        Double shqAhi = readNumeric(attrs.path("ahi_summary"), AVG_KEYS);
+        Double shqAhi = AhiSummarySupport.readNumeric(attrs.path("ahi_summary"), AVG_KEYS);
         ChannelSummary oscarAhiSummary = session.channels().get(OscarChannelIds.CPAP_AHI);
         Double oscarAhi = (oscarAhiSummary != null) ? oscarAhiSummary.avg() : null;
 
@@ -68,7 +71,7 @@ public final class NightDataConflictAnalyzer {
     }
 
     private static void compareOa(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
-        Double shqOa = readNumeric(attrs.path("ahi_summary"), OA_KEYS);
+        Double shqOa = AhiSummarySupport.readNumeric(attrs.path("ahi_summary"), OA_KEYS);
         double durationHours = session.durationSeconds() / 3600.0;
         if (shqOa != null && durationHours > 0.0) {
             Map<String, Integer> eventCounts = OscarSummaryEventCounts.fromSession(session);
@@ -91,7 +94,7 @@ public final class NightDataConflictAnalyzer {
     }
 
     private static void compareCa(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
-        Double shqCa = readNumeric(attrs.path("ahi_summary"), CA_KEYS);
+        Double shqCa = AhiSummarySupport.readNumeric(attrs.path("ahi_summary"), CA_KEYS);
         double durationHours = session.durationSeconds() / 3600.0;
         if (shqCa != null && durationHours > 0.0) {
             Map<String, Integer> eventCounts = OscarSummaryEventCounts.fromSession(session);
@@ -114,7 +117,7 @@ public final class NightDataConflictAnalyzer {
     }
 
     private static void compareHypopnea(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
-        Double shqH = readNumeric(attrs.path("ahi_summary"), H_KEYS);
+        Double shqH = AhiSummarySupport.readNumeric(attrs.path("ahi_summary"), H_KEYS);
         double durationHours = session.durationSeconds() / 3600.0;
         if (shqH != null && durationHours > 0.0) {
             Map<String, Integer> eventCounts = OscarSummaryEventCounts.fromSession(session);
@@ -137,7 +140,7 @@ public final class NightDataConflictAnalyzer {
     }
 
     private static void comparePressure(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
-        Double shqPres = readNumeric(attrs.path("pressure_summary"), AVG_KEYS);
+        Double shqPres = AhiSummarySupport.readNumeric(attrs.path("pressure_summary"), AVG_KEYS);
         ChannelSummary oscarPresSummary = session.channels().get(OscarChannelIds.CPAP_Pressure);
         Double oscarPres = (oscarPresSummary != null) ? oscarPresSummary.avg() : null;
 
@@ -157,7 +160,7 @@ public final class NightDataConflictAnalyzer {
     }
 
     private static void compareLeak(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
-        Double shqLeakAvg = readNumeric(attrs.path("leak_rate_summary"), AVG_KEYS);
+        Double shqLeakAvg = AhiSummarySupport.readNumeric(attrs.path("leak_rate_summary"), AVG_KEYS);
         ChannelSummary oscarLeakSummary = session.channels().get(OscarChannelIds.CPAP_Leak);
         Double oscarLeakAvg = (oscarLeakSummary != null) ? oscarLeakSummary.avg() : null;
 
@@ -186,25 +189,4 @@ public final class NightDataConflictAnalyzer {
         c.put("note", note);
     }
 
-    private static Double readNumeric(JsonNode summary, String... keys) {
-        if (summary == null || !summary.isObject()) {
-            return null;
-        }
-        for (String key : keys) {
-            JsonNode node = summary.path(key);
-            if (node.isNumber()) {
-                return node.asDouble();
-            }
-            if (node.isTextual()) {
-                String text = node.asText().trim();
-                if (!text.isEmpty()) {
-                    try {
-                        return Double.parseDouble(text);
-                    } catch (NumberFormatException ignored) {
-                    }
-                }
-            }
-        }
-        return null;
-    }
 }

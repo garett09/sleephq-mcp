@@ -16,6 +16,7 @@ import com.adriangarett.sleephqmcp.oscar.OscarWaveformStatistics;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.NightAnalysisSupport;
 import com.adriangarett.sleephqmcp.support.NightDataConflictAnalyzer;
+import com.adriangarett.sleephqmcp.support.OscarFreshness;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,24 +58,13 @@ public class UnifiedNightAnalysisService {
         OscarProperties.Analysis analysis = resolveAnalysis();
         Optional<OscarSession> oscarSession = oscarRepository.loadSession(indexEntry);
 
-        // Compute freshness/lag
         Optional<LocalDate> lastSessionDateOpt = oscarRepository.getLastSessionDate();
-        Long oscarLagDays = null;
-        String oscarFreshness = null;
+        Long oscarExportLagDays = null;
+        String oscarExportFreshness = null;
         if (lastSessionDateOpt.isPresent()) {
-            LocalDate lastSessionDate = lastSessionDateOpt.get();
-            LocalDate today = LocalDate.now(java.time.ZoneId.systemDefault());
-            long lag = java.time.temporal.ChronoUnit.DAYS.between(lastSessionDate, today);
-            oscarLagDays = Math.max(0L, lag);
-            if (oscarLagDays <= 0) {
-                oscarFreshness = "fresh";
-            } else if (oscarLagDays <= 6) {
-                oscarFreshness = "acceptable_lag";
-            } else if (oscarLagDays <= 29) {
-                oscarFreshness = "stale";
-            } else {
-                oscarFreshness = "very_stale";
-            }
+            LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            oscarExportLagDays = OscarFreshness.exportLagDays(lastSessionDateOpt.get(), today);
+            oscarExportFreshness = OscarFreshness.categoryFromExportLagDays(oscarExportLagDays);
         }
 
         ObjectNode nightAnalysis = JsonApi.mapper().createObjectNode();
@@ -131,9 +122,9 @@ public class UnifiedNightAnalysisService {
             }
         }
 
-        ObjectNode channelsNode = NightAnalysisSupport.channelStatsNode(channelStats, oscarFreshness);
+        ObjectNode channelsNode = NightAnalysisSupport.channelStatsNode(channelStats);
         if (oscarSession.isPresent() && channelStats.isEmpty()) {
-            channelsNode = NightAnalysisSupport.summaryChannelNode(oscarSession.get(), oscarFreshness);
+            channelsNode = NightAnalysisSupport.summaryChannelNode(oscarSession.get());
         }
         nightAnalysis.set("channels", channelsNode);
         nightAnalysis.set("respiratory_indices",
@@ -144,7 +135,7 @@ public class UnifiedNightAnalysisService {
         // Surfacing data conflicts
         if (oscarSession.isPresent()) {
             ArrayNode conflicts = NightDataConflictAnalyzer.analyze(machineDateAttrs, oscarSession.get());
-            if (conflicts != null && !conflicts.isEmpty()) {
+            if (!conflicts.isEmpty()) {
                 nightAnalysis.set("data_conflicts", conflicts);
             }
         }
@@ -179,12 +170,18 @@ public class UnifiedNightAnalysisService {
         oscarProv.put("available", true);
         if (lastSessionDateOpt.isPresent()) {
             oscarProv.put("last_session_date", lastSessionDateOpt.get().toString());
-            if (oscarLagDays != null) {
-                oscarProv.put("lag_days", oscarLagDays);
+            oscarProv.put("freshness_scope", OscarFreshness.SCOPE_EXPORT);
+            if (oscarExportLagDays != null) {
+                oscarProv.put("export_lag_days", oscarExportLagDays);
             }
-            if (oscarFreshness != null) {
-                oscarProv.put("freshness", oscarFreshness);
+            if (oscarExportFreshness != null) {
+                oscarProv.put("export_freshness", oscarExportFreshness);
             }
+        }
+        if (journalAttrs != null && journalAttrs.isObject()) {
+            ObjectNode journalProv = provenance.putObject("sleephq_journal");
+            journalProv.put("type", "api");
+            journalProv.put("available", true);
         }
 
         if (oscarSession.isPresent() && !oscarSession.get().channels().isEmpty()) {
@@ -216,8 +213,8 @@ public class UnifiedNightAnalysisService {
                 hasBrp,
                 channelsNode.size(),
                 pldHasStats,
-                oscarLagDays,
-                oscarFreshness));
+                oscarExportLagDays,
+                oscarExportFreshness));
 
         List<ObjectNode> moments = OscarEventCorrelator.buildNotableMoments(
                 channelStats,

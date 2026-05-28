@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -58,8 +57,7 @@ public final class OscarEventCorrelator {
                 if (added >= maxNearbyEvents) {
                     break;
                 }
-                LocalDateTime eventTime = LocalDateTime.parse(event.timestamp().substring(0, 19), ISO_LOCAL);
-                long delta = Math.abs(ChronoUnit.SECONDS.between(momentTime, eventTime));
+                long delta = Math.abs(Math.round(candidate.offsetSeconds() - event.startSeconds()));
                 if (delta <= correlationWindowSeconds) {
                     ObjectNode ev = nearby.addObject();
                     ev.put("timestamp", event.timestamp());

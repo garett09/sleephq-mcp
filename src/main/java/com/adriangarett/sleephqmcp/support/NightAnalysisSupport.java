@@ -21,10 +21,6 @@ public final class NightAnalysisSupport {
     private NightAnalysisSupport() {}
 
     public static ObjectNode channelStatsNode(Map<String, ChannelStatistics> stats) {
-        return channelStatsNode(stats, null);
-    }
-
-    public static ObjectNode channelStatsNode(Map<String, ChannelStatistics> stats, String oscarFreshness) {
         ObjectNode channels = JsonApi.mapper().createObjectNode();
         stats.forEach((key, stat) -> {
             ObjectNode ch = channels.putObject(key);
@@ -53,18 +49,11 @@ public final class NightAnalysisSupport {
             if (stat.sampleCount() > 0) {
                 ch.put("sample_count", stat.sampleCount());
             }
-            if (oscarFreshness != null) {
-                ch.put("freshness", oscarFreshness);
-            }
         });
         return channels;
     }
 
     public static ObjectNode summaryChannelNode(OscarSession session) {
-        return summaryChannelNode(session, null);
-    }
-
-    public static ObjectNode summaryChannelNode(OscarSession session, String oscarFreshness) {
         ObjectNode channels = JsonApi.mapper().createObjectNode();
         for (int channelId : session.availableChannelIds()) {
             if (OscarChannelIdClassification.isEventChannel(channelId)) {
@@ -83,9 +72,6 @@ public final class NightAnalysisSupport {
                 putIfPresent(ch, "wavg", summary.wavg());
             }
             ch.put("source", "oscar_summary");
-            if (oscarFreshness != null) {
-                ch.put("freshness", oscarFreshness);
-            }
         }
         return channels;
     }
@@ -140,14 +126,14 @@ public final class NightAnalysisSupport {
             boolean brp,
             int channelCount,
             boolean pldHasStats,
-            Long oscarLagDays,
-            String oscarFreshness) {
+            Long oscarExportLagDays,
+            String oscarExportFreshness) {
         ObjectNode coverage = coverageNode(sleephqCpap, summary, pldPresent, eve, brp, channelCount, pldHasStats);
-        if (oscarLagDays != null) {
-            coverage.put("oscar_lag_days", oscarLagDays);
+        if (oscarExportLagDays != null) {
+            coverage.put("oscar_export_lag_days", oscarExportLagDays);
         }
-        if (oscarFreshness != null) {
-            coverage.put("oscar_freshness", oscarFreshness);
+        if (oscarExportFreshness != null) {
+            coverage.put("oscar_export_freshness", oscarExportFreshness);
         }
         return coverage;
     }
