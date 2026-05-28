@@ -85,6 +85,12 @@ public class OscarDeviceResolver {
         if (path == null || path.isBlank()) {
             return null;
         }
-        return Path.of(path.replace("~", System.getProperty("user.home")));
+        if (path.equals("~")) {
+            return Path.of(System.getProperty("user.home"));
+        }
+        if (path.startsWith("~/")) {
+            return Path.of(System.getProperty("user.home"), path.substring(2));
+        }
+        return Path.of(path);
     }
 }
