@@ -45,7 +45,7 @@ public final class CpapClockAlignment {
             return OptionalInt.empty();
         }
         long raw = node.asLong();
-        if (raw < 0 || raw > MAX_REASONABLE_OFFSET_SECONDS) {
+        if (raw == 0 || Math.abs(raw) > MAX_REASONABLE_OFFSET_SECONDS) {
             return OptionalInt.empty();
         }
         return OptionalInt.of((int) raw);
@@ -54,12 +54,14 @@ public final class CpapClockAlignment {
     public static CpapClockAdjustResolution resolveAdjust(ClinicalContextProperties clinical, Integer toolOverride,
                                                           OptionalInt machineDateOffset) {
         if (toolOverride != null) {
-            if (toolOverride < 0) {
-                throw new IllegalArgumentException("cpapClockAdjustSeconds must be non-negative");
+            if (toolOverride != 0 && Math.abs(toolOverride) > MAX_REASONABLE_OFFSET_SECONDS) {
+                throw new IllegalArgumentException(
+                        "cpapClockAdjustSeconds absolute value must not exceed "
+                                + MAX_REASONABLE_OFFSET_SECONDS);
             }
             return new CpapClockAdjustResolution(toolOverride, SOURCE_TOOL_OVERRIDE);
         }
-        if (machineDateOffset != null && machineDateOffset.isPresent() && machineDateOffset.getAsInt() > 0) {
+        if (machineDateOffset != null && machineDateOffset.isPresent() && machineDateOffset.getAsInt() != 0) {
             return new CpapClockAdjustResolution(machineDateOffset.getAsInt(), SOURCE_SLEEPHQ_MACHINE_DATE);
         }
         if (clinical != null && clinical.cpapClockAdjustSeconds() != null && clinical.cpapClockAdjustSeconds() > 0) {

@@ -50,6 +50,20 @@ class CpapClockAlignmentTest {
     }
 
     @Test
+    void parseMachineDateTimeOffset_negative_returnsValue() {
+        var attrs = JsonNodeFactory.instance.objectNode().put("time_offset", -1428);
+        assertThat(CpapClockAlignment.parseMachineDateTimeOffset(attrs)).hasValue(-1428);
+    }
+
+    @Test
+    void resolveAdjust_negativeMachineDateOffset_applied() {
+        var clinical = new ClinicalContextProperties("t", "c", "o", 100);
+        var resolution = CpapClockAlignment.resolveAdjust(clinical, null, OptionalInt.of(-1428));
+        assertThat(resolution.adjustSeconds()).isEqualTo(-1428);
+        assertThat(resolution.source()).isEqualTo(CpapClockAlignment.SOURCE_SLEEPHQ_MACHINE_DATE);
+    }
+
+    @Test
     void resolveAdjust_toolOverrideWinsOverMachineDateAndEnv() {
         var clinical = new ClinicalContextProperties("t", "c", "o", 100);
         var resolution = CpapClockAlignment.resolveAdjust(clinical, DRIFT_SECONDS, OptionalInt.of(500));
@@ -74,10 +88,10 @@ class CpapClockAlignmentTest {
     }
 
     @Test
-    void resolveAdjust_negativeOverride_throws() {
-        assertThatThrownBy(() -> CpapClockAlignment.resolveAdjust(null, -1, OptionalInt.empty()))
+    void resolveAdjust_negativeOverride_throwsWhenOutOfBounds() {
+        assertThatThrownBy(() -> CpapClockAlignment.resolveAdjust(null, -100_000, OptionalInt.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("non-negative");
+                .hasMessageContaining("absolute value must not exceed");
     }
 
     @Test
