@@ -8,6 +8,7 @@ import com.adriangarett.sleephqmcp.support.ComparisonTableDisplay;
 import com.adriangarett.sleephqmcp.support.JournalOverlaySupport;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.SleepHqPathParams;
+import com.adriangarett.sleephqmcp.support.VentilationSummarySupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -101,6 +102,11 @@ public class ComparisonService {
         ComparisonTableDisplay.markSettingsChanges(nights);
         ComparisonApneaTrendSupport.attach(root, nights);
         attachTitrationReadiness(root);
+
+        ObjectNode ventilation = VentilationSummarySupport.respiratoryRateFromSleepHq(nights);
+        if (ventilation != null) {
+            root.putObject("ventilation_summary").set("respiratory_rate_per_min", ventilation);
+        }
 
         try {
             return JsonApi.mapper().writeValueAsString(root);
