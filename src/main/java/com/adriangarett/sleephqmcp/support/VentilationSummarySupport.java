@@ -88,7 +88,13 @@ public final class VentilationSummarySupport {
         if (!ch.isObject() || ch.isEmpty()) {
             return;
         }
-        list.add(new NightTriple(num(ch, "max"), num(ch, "p95"), num(ch, "median")));
+        double median = num(ch, "median");
+        if (Double.isNaN(median)) {
+            // OSCAR summary-only nights emit max/p95 = 0 with no per-sample median; their
+            // percentiles are degenerate, so exclude the whole night (avoids p95_avg < median_avg).
+            return;
+        }
+        list.add(new NightTriple(num(ch, "max"), num(ch, "p95"), median));
     }
 
     private static void putAvg(ObjectNode out, String key, List<Double> values, int decimals) {

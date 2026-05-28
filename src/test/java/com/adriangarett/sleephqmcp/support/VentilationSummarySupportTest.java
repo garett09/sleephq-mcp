@@ -77,4 +77,26 @@ class VentilationSummarySupportTest {
         night.putObject("channels").putObject("pressure").put("max", 11.0).put("p95", 10.8);
         assertThat(VentilationSummarySupport.fromOscarChannels(List.of(night))).isNull();
     }
+
+    @Test
+    void fromOscarChannels_excludesSummaryOnlyNightsLackingMedian() {
+        ObjectNode pldNight = JsonApi.mapper().createObjectNode();
+        pldNight.putObject("channels").putObject("tidal_volume")
+                .put("max", 1260.0).put("p95", 480.0).put("median", 380.0);
+
+        ObjectNode summaryOnlyNight = JsonApi.mapper().createObjectNode();
+        // summary-only: max/p95 present as 0.0, NO median key
+        summaryOnlyNight.putObject("channels").putObject("tidal_volume")
+                .put("max", 0.0).put("p95", 0.0);
+
+        ObjectNode vent = VentilationSummarySupport.fromOscarChannels(
+                java.util.List.of(pldNight, summaryOnlyNight));
+        ObjectNode tv = (ObjectNode) vent.get("tidal_volume_ml");
+        assertThat(tv.path("nights_used").asInt()).isEqualTo(1);
+        assertThat(tv.path("median_avg").asDouble()).isEqualTo(380.0);
+        assertThat(tv.path("p95_avg").asDouble()).isEqualTo(480.0);
+        assertThat(tv.path("max_avg").asDouble()).isEqualTo(1260.0);
+        // sanity: 95th percentile must never be below the median
+        assertThat(tv.path("p95_avg").asDouble()).isGreaterThanOrEqualTo(tv.path("median_avg").asDouble());
+    }
 }
