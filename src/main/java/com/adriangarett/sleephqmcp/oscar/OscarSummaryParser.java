@@ -143,8 +143,10 @@ public final class OscarSummaryParser {
             return Map.of();
         }
         int count = reader.readUInt32();
-        Map<Integer, Double> map = new LinkedHashMap<>(count);
-        for (int i = 0; i < count && reader.remaining() >= 12; i++) {
+        long bytesNeeded = (long) count * 12;
+        int entries = bytesNeeded > reader.remaining() ? reader.remaining() / 12 : count;
+        Map<Integer, Double> map = new LinkedHashMap<>(entries);
+        for (int i = 0; i < entries; i++) {
             map.put(reader.readUInt32(), reader.readDouble());
         }
         return map;
@@ -155,7 +157,11 @@ public final class OscarSummaryParser {
             return;
         }
         int count = reader.readUInt32();
-        reader.position(reader.position() + count * 12);
+        long bytesNeeded = (long) count * 12;
+        if (bytesNeeded > reader.remaining()) {
+            return;
+        }
+        reader.position(reader.position() + (int) bytesNeeded);
     }
 
     private static List<Integer> readChannelList(OscarBinaryReader reader) {
