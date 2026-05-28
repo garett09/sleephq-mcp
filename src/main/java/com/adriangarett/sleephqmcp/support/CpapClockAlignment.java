@@ -162,7 +162,7 @@ public final class CpapClockAlignment {
     public static String serializeWithAlignment(Object result, CpapClockAdjustResolution resolution) {
         try {
             ObjectNode root = JsonApi.mapper().valueToTree(result);
-            if (resolution.adjustSeconds() > 0) {
+            if (resolution.adjustSeconds() != 0) {
                 root.set("clock_alignment", alignmentMeta(resolution));
             }
             return JsonApi.mapper().writeValueAsString(root);

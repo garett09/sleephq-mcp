@@ -137,4 +137,15 @@ class CpapClockAlignmentTest {
         assertThat(json).contains("\"cpap_adjust_seconds\":1428");
         assertThat(json).contains("\"source\":\"sleephq_machine_date\"");
     }
+
+    @Test
+    void serializeWithAlignment_includesMetadataWhenAdjustNegative() {
+        DeviceEventResult aligned = new DeviceEventResult("f", "2026-05-12T23:00:00", 10, "device_eve", List.of());
+        var resolution = new CpapClockAlignment.CpapClockAdjustResolution(
+                -1428, CpapClockAlignment.SOURCE_SLEEPHQ_MACHINE_DATE);
+        String json = CpapClockAlignment.serializeWithAlignment(aligned, resolution);
+        assertThat(json).contains("\"clock_alignment\"");
+        assertThat(json).contains("\"cpap_adjust_seconds\":-1428");
+        assertThat(json).contains("\"source\":\"sleephq_machine_date\"");
+    }
 }
