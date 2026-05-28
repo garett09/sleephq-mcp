@@ -1,6 +1,7 @@
 package com.adriangarett.sleephqmcp.tools;
 
 import com.adriangarett.sleephqmcp.oscar.OscarRepository;
+import com.adriangarett.sleephqmcp.oscar.OscarSummariesIndex;
 import com.adriangarett.sleephqmcp.service.OscarEventsService;
 import com.adriangarett.sleephqmcp.service.OscarMechanicsService;
 import com.adriangarett.sleephqmcp.service.OscarPlmdService;
@@ -95,7 +96,18 @@ public class OscarTools {
             oscarRepository.deviceFolder().ifPresentOrElse(
                     path -> root.put("device_folder", path.toString()),
                     () -> root.putNull("device_folder"));
-            root.put("session_count", oscarRepository.summariesIndex().sessions().size());
+            OscarSummariesIndex index = oscarRepository.summariesIndex();
+            root.put("session_count", index.sessions().size());
+            String indexError = oscarRepository.getLastIndexError();
+            root.put("index_healthy", indexError == null);
+            if (indexError != null) {
+                root.put("index_error", indexError);
+                root.put("index_error_hint",
+                        "OSCAR data directory is reachable but Summaries index failed to parse. "
+                        + "Possible causes: OSCAR app running (file lock), corrupt Summaries.xml.gz, "
+                        + "or permission error. session_count=0 does NOT mean no sessions exist. "
+                        + "Try restarting the MCP server after closing the OSCAR application.");
+            }
             oscarRepository.getLastSessionDate()
                     .ifPresent(d -> root.put("last_session_date", d.toString()));
             root.put("oscar_status", oscarRepository.isReachable() ? "ok" : "unavailable");

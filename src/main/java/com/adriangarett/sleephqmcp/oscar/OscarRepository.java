@@ -33,6 +33,7 @@ public class OscarRepository {
     private final OscarDeviceResolver deviceResolver;
     private volatile OscarSummariesIndex summariesIndex;
     private volatile Path cachedDeviceFolder;
+    private volatile String lastIndexError;
 
     public OscarRepository(OscarProperties properties) {
         this.properties = properties;
@@ -68,9 +69,11 @@ public class OscarRepository {
         try {
             summariesIndex = OscarSummariesIndex.load(device);
             cachedDeviceFolder = device;
+            lastIndexError = null;
             return summariesIndex;
         } catch (Exception e) {
             log.warn("Failed to load Summaries.xml.gz: {}", e.getMessage());
+            lastIndexError = e.getMessage();
             return new OscarSummariesIndex(List.of());
         }
     }
@@ -80,6 +83,11 @@ public class OscarRepository {
                 .filter(OscarSessionIndexEntry::enabled)
                 .map(s -> s.lastInstant().atZone(ZoneId.systemDefault()).toLocalDate())
                 .max(Comparator.naturalOrder());
+    }
+
+    /** Returns the error message from the last failed index load, or {@code null} if the last load succeeded. */
+    public String getLastIndexError() {
+        return lastIndexError;
     }
 
     public Optional<OscarSessionIndexEntry> findSessionForDate(LocalDate date) {
