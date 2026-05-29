@@ -41,5 +41,23 @@ class OscarPlmdServiceTest {
         assertThat(out.has("vt_delta")).isFalse();
         assertThat(out.has("rr_delta")).isFalse();
         assertThat(out.get("comparison_available").asBoolean()).isFalse();
+        // mean([300.0, 320.0, 340.0]) = 320.0 → rounded = 320.0
+        assertThat(out.get("mean_vt_pld").asDouble()).isEqualTo(320.0);
+        // mean([14.0, 16.0, 18.0]) = 16.0 → rounded = 16.0
+        assertThat(out.get("mean_rr_pld").asDouble()).isEqualTo(16.0);
+    }
+
+    @Test
+    void plmdNight_whenNoPld_returnsUnavailable() throws Exception {
+        OscarRepository repo = mock(OscarRepository.class);
+        SleepHqClient client = mock(SleepHqClient.class);
+        ClinicalContextProperties clinical = mock(ClinicalContextProperties.class);
+
+        when(repo.loadPldWaveform(LocalDate.parse("2026-05-02"))).thenReturn(Optional.empty());
+
+        OscarPlmdService service = new OscarPlmdService(repo, client, clinical);
+        JsonNode out = JsonApi.parse(service.plmdNight("2026-05-02", null));
+
+        assertThat(out.get("oscar_status").asText()).isEqualTo("unavailable");
     }
 }

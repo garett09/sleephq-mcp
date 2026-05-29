@@ -107,7 +107,7 @@ public class OscarPlmdService {
         double sum = 0;
         int count = 0;
         for (Double sample : samples) {
-            if (sample != null && !sample.isNaN(sample)) {
+            if (sample != null && !Double.isNaN(sample)) {
                 sum += sample;
                 count++;
             }
