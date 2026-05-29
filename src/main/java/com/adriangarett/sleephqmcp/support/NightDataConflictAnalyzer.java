@@ -29,17 +29,19 @@ public final class NightDataConflictAnalyzer {
             return conflicts;
         }
 
+        Map<String, Integer> eventCounts = OscarSummaryEventCounts.fromSession(oscarSession);
+
         // 1. AHI Comparison
         compareAhi(conflicts, machineDateAttrs, oscarSession);
 
         // 2. OA Comparison
-        compareOa(conflicts, machineDateAttrs, oscarSession);
+        compareOa(conflicts, machineDateAttrs, oscarSession, eventCounts);
 
         // 3. CA Comparison
-        compareCa(conflicts, machineDateAttrs, oscarSession);
+        compareCa(conflicts, machineDateAttrs, oscarSession, eventCounts);
 
         // 4. Hypopnea Comparison
-        compareHypopnea(conflicts, machineDateAttrs, oscarSession);
+        compareHypopnea(conflicts, machineDateAttrs, oscarSession, eventCounts);
 
         // 5. Pressure Comparison
         comparePressure(conflicts, machineDateAttrs, oscarSession);
@@ -70,11 +72,10 @@ public final class NightDataConflictAnalyzer {
         }
     }
 
-    private static void compareOa(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
+    private static void compareOa(ArrayNode conflicts, JsonNode attrs, OscarSession session, Map<String, Integer> eventCounts) {
         Double shqOa = AhiSummarySupport.readNumeric(attrs.path("ahi_summary"), OA_KEYS);
         double durationHours = session.durationSeconds() / 3600.0;
         if (shqOa != null && durationHours > 0.0) {
-            Map<String, Integer> eventCounts = OscarSummaryEventCounts.fromSession(session);
             Integer count = eventCounts.get("obstructive");
             if (count != null) {
                 double oscarOa = count / durationHours;
@@ -93,11 +94,10 @@ public final class NightDataConflictAnalyzer {
         }
     }
 
-    private static void compareCa(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
+    private static void compareCa(ArrayNode conflicts, JsonNode attrs, OscarSession session, Map<String, Integer> eventCounts) {
         Double shqCa = AhiSummarySupport.readNumeric(attrs.path("ahi_summary"), CA_KEYS);
         double durationHours = session.durationSeconds() / 3600.0;
         if (shqCa != null && durationHours > 0.0) {
-            Map<String, Integer> eventCounts = OscarSummaryEventCounts.fromSession(session);
             Integer count = eventCounts.get("clear_airway");
             if (count != null) {
                 double oscarCa = count / durationHours;
@@ -116,11 +116,10 @@ public final class NightDataConflictAnalyzer {
         }
     }
 
-    private static void compareHypopnea(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
+    private static void compareHypopnea(ArrayNode conflicts, JsonNode attrs, OscarSession session, Map<String, Integer> eventCounts) {
         Double shqH = AhiSummarySupport.readNumeric(attrs.path("ahi_summary"), H_KEYS);
         double durationHours = session.durationSeconds() / 3600.0;
         if (shqH != null && durationHours > 0.0) {
-            Map<String, Integer> eventCounts = OscarSummaryEventCounts.fromSession(session);
             Integer count = eventCounts.get("hypopnea");
             if (count != null) {
                 double oscarH = count / durationHours;
