@@ -39,7 +39,7 @@ public class WaveformTools {
             name = "get-waveform",
             description = "Downloads and parses an EDF device file from SleepHQ, returning time-series channel data. " +
                     "Requires fileId from list-files or list-import-files. " +
-                    "Returns: filename, start_datetime (ISO-8601), duration_seconds (full recording), and channels[] " +
+                    "Returns: filename, start_datetime (ISO-8601), duration_seconds (returned window), and channels[] " +
                     "each with label, sample_rate (Hz), unit, and samples[]. " +
                     "ResMed PLD.edf channels: Flow, Pressure, Leak, Snore, FlowLimitation at 25 Hz. " +
                     "Sample window capped at maxMinutes (server default from sleephq.mcp.payload.waveform-default-max-minutes). " +

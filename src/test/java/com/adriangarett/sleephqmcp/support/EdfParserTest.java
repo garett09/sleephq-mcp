@@ -152,6 +152,46 @@ class EdfParserTest {
                 .isEqualTo(full.channels().getFirst().samples());
     }
 
+    @Test
+    void parse_truncatedFile_reportsDurationOfCompletedRecordsOnly() {
+        // 10-record header but only 5 records of actual data bytes
+        int headerBytes = 256 + 256;
+        int fullDataBytes = 10 * 2 * 2; // 10 records × 2 samples × 2 bytes
+        int truncatedDataBytes = 5 * 2 * 2; // only 5 records present
+        byte[] edf = new byte[headerBytes + truncatedDataBytes];
+        Arrays.fill(edf, (byte) ' ');
+
+        writeString(edf, 0, "0");
+        writeString(edf, 168, "20.05.26");
+        writeString(edf, 176, "21.09.00");
+        writeString(edf, 184, "512");
+        writeString(edf, 236, "10"); // declares 10 records, but only 5 are present
+        writeString(edf, 244, "1.0");
+        writeString(edf, 252, "1");
+        writeString(edf, 256, "Flow");
+        writeString(edf, 256 + 96, "L/s");
+        writeString(edf, 256 + 104, "-5.0");
+        writeString(edf, 256 + 112, "5.0");
+        writeString(edf, 256 + 120, "-2048");
+        writeString(edf, 256 + 128, "2047");
+        writeString(edf, 256 + 216, "2");
+        int pos = headerBytes;
+        for (int rec = 0; rec < 5; rec++) {
+            short val1 = (short) (rec * 200 + 100);
+            short val2 = (short) (rec * 200 + 200);
+            edf[pos++] = (byte) (val1 & 0xFF);
+            edf[pos++] = (byte) ((val1 >> 8) & 0xFF);
+            edf[pos++] = (byte) (val2 & 0xFF);
+            edf[pos++] = (byte) ((val2 >> 8) & 0xFF);
+        }
+
+        WaveformResult result = EdfParser.parse(edf, 0, 100);
+
+        // Only 5 records actually present → 5.0s returned, not the declared 10.0s
+        assertThat(result.durationSeconds()).isEqualTo(5.0);
+        assertThat(result.channels().getFirst().samples()).hasSize(10); // 5 records × 2 samples
+    }
+
     private void writeString(byte[] buf, int offset, String s) {
         byte[] bytes = s.getBytes(StandardCharsets.US_ASCII);
         System.arraycopy(bytes, 0, buf, offset, bytes.length);
