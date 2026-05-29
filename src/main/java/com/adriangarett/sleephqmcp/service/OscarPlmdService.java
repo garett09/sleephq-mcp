@@ -62,10 +62,7 @@ public class OscarPlmdService {
         root.put("movement_summary_av", round(movementAvg));
         root.put("mean_vt_pld", round(vtMean));
         root.put("mean_rr_pld", round(rrMean));
-        root.put("mean_vt_baseline", round(vtMean));
-        root.put("mean_rr_baseline", round(rrMean));
-        root.put("vt_delta", 0);
-        root.put("rr_delta", 0);
+        root.put("comparison_available", false);
         root.putArray("data_sources").add("oscar_pld_edf").add("sleephq_movement_summary");
         root.put("note", "Movement bursts use nightly movement_summary.av threshold; "
                 + "per-burst PLD windows require burst timestamps (future).");
