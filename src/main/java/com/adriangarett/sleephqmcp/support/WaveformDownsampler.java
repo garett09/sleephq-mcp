@@ -58,10 +58,10 @@ public final class WaveformDownsampler {
         if (n <= maxCount) {
             return samples;
         }
-        int step = stepFor(n, maxCount);
         List<Double> out = new ArrayList<>(maxCount);
-        for (int i = 0; i < n && out.size() < maxCount; i += step) {
-            out.add(samples.get(i));
+        for (int i = 0; i < maxCount; i++) {
+            int idx = (int) Math.round((double) i * (n - 1) / (maxCount - 1));
+            out.add(samples.get(idx));
         }
         return out;
     }

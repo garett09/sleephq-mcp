@@ -45,4 +45,16 @@ class WaveformDownsamplerTest {
         assertThat(ch.sampleCountOriginal()).isEqualTo(15_000);
         assertThat(ch.downsampleStep()).isGreaterThan(1);
     }
+
+    @Test
+    void decimate_nearCap_returnsExactlyCapSamples() {
+        java.util.List<Double> samples = new java.util.ArrayList<>();
+        for (int i = 0; i < 501; i++) {
+            samples.add((double) i);
+        }
+        java.util.List<Double> out = WaveformDownsampler.decimate(samples, 500);
+        assertThat(out).hasSize(500);
+        assertThat(out.get(0)).isEqualTo(0.0);
+        assertThat(out.get(out.size() - 1)).isEqualTo(500.0);
+    }
 }
