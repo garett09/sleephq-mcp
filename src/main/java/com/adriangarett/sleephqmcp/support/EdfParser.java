@@ -47,11 +47,13 @@ public final class EdfParser {
         }
 
         int startOffset = header.headerBytes() + skipRecords * recordSizeBytes;
+        int recordsRead = 0;
         for (int rec = 0; rec < recordsToRead; rec++) {
             int recStart = startOffset + rec * recordSizeBytes;
             if (recStart + recordSizeBytes > edf.length) {
                 break;
             }
+            recordsRead++;
             int pos = recStart;
             for (int i = 0; i < ns; i++) {
                 int nSamples = samplesPerRec[i];
@@ -87,7 +89,7 @@ public final class EdfParser {
             channels.add(new WaveformChannel(labels[i], sampleRate, units[i], samples));
         }
 
-        double durationSeconds = nRecords >= 0 ? nRecords * recDuration : (skipRecords + recordsToRead) * recDuration;
+        double durationSeconds = recordsRead * recDuration;
         return new WaveformResult(null, startDatetime.toString(), durationSeconds, channels);
     }
 
@@ -134,11 +136,13 @@ public final class EdfParser {
 
         List<Double> flowSamples = new ArrayList<>(samplesPerRec[flowIndex] * recordsToRead);
         int startOffset = header.headerBytes() + skipRecords * recordSizeBytes;
+        int recordsRead = 0;
         for (int rec = 0; rec < recordsToRead; rec++) {
             int recStart = startOffset + rec * recordSizeBytes;
             if (recStart + recordSizeBytes > edf.length) {
                 break;
             }
+            recordsRead++;
             int pos = recStart;
             for (int i = 0; i < ns; i++) {
                 int nSamples = samplesPerRec[i];
@@ -162,7 +166,7 @@ public final class EdfParser {
         }
 
         WaveformChannel flowChannel = new WaveformChannel(labels[flowIndex], sampleRate, units[flowIndex], flowSamples);
-        double durationSeconds = nRecords >= 0 ? nRecords * recDuration : (skipRecords + recordsToRead) * recDuration;
+        double durationSeconds = recordsRead * recDuration;
         return new WaveformResult(null, startDatetime.toString(), durationSeconds, List.of(flowChannel));
     }
 }

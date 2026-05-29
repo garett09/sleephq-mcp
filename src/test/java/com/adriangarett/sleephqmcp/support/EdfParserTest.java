@@ -63,7 +63,8 @@ class EdfParserTest {
         WaveformResult result = EdfParser.parse(edf, 2, 3);
 
         assertThat(result.startDatetime()).isEqualTo("2026-05-20T21:09:02"); // shifted 2 seconds
-        assertThat(result.durationSeconds()).isEqualTo(10.0);
+        // 3 records read (skip 2, maxSeconds 3) at 1.0s each = 3.0s of returned data
+        assertThat(result.durationSeconds()).isEqualTo(3.0);
 
         assertThat(result.channels()).hasSize(1);
         WaveformChannel flow = result.channels().getFirst();
@@ -78,6 +79,41 @@ class EdfParserTest {
         assertThat(flow.samples()).hasSize(6);
         assertThat(flow.samples().get(0)).isCloseTo(expectedPhys1, org.assertj.core.api.Assertions.within(0.001));
         assertThat(flow.samples().get(1)).isCloseTo(expectedPhys2, org.assertj.core.api.Assertions.within(0.001));
+    }
+
+    @Test
+    void parse_fullRead_reportsFullDuration() {
+        byte[] edf = new byte[256 + 256 + 10 * 2 * 2];
+        Arrays.fill(edf, (byte) ' ');
+        writeString(edf, 0, "0");
+        writeString(edf, 168, "20.05.26");
+        writeString(edf, 176, "21.09.00");
+        writeString(edf, 184, "512");
+        writeString(edf, 236, "10");
+        writeString(edf, 244, "1.0");
+        writeString(edf, 252, "1");
+        writeString(edf, 256, "Flow");
+        writeString(edf, 256 + 96, "L/s");
+        writeString(edf, 256 + 104, "-5.0");
+        writeString(edf, 256 + 112, "5.0");
+        writeString(edf, 256 + 120, "-2048");
+        writeString(edf, 256 + 128, "2047");
+        writeString(edf, 256 + 216, "2");
+        int pos = 512;
+        for (int rec = 0; rec < 10; rec++) {
+            short val1 = (short) (rec * 200 + 100);
+            short val2 = (short) (rec * 200 + 200);
+            edf[pos++] = (byte) (val1 & 0xFF);
+            edf[pos++] = (byte) ((val1 >> 8) & 0xFF);
+            edf[pos++] = (byte) (val2 & 0xFF);
+            edf[pos++] = (byte) ((val2 >> 8) & 0xFF);
+        }
+
+        WaveformResult result = EdfParser.parse(edf, 0, 100);
+
+        assertThat(result.startDatetime()).isEqualTo("2026-05-20T21:09"); // LocalDateTime.toString() omits :00 seconds
+        assertThat(result.durationSeconds()).isEqualTo(10.0);
+        assertThat(result.channels().getFirst().samples()).hasSize(20);
     }
 
     @Test
