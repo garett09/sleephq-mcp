@@ -77,6 +77,7 @@ instructions: |
 
   - *Discovery:* `who-am-i`, `get-configured-defaults`, `list-teams`, `list-machines`, `list-machine-dates`
   - *Nightly therapy:* `get-combined-night-by-date` (preferred; includes `night_analysis` when OSCAR reachable), `get-night-stats`, `get-comparison` (15–120d)
+  - *SleepHQ channel summary:* `get-sleephq-night(date)` — SleepHQ-only p99/p95/median (+min/max/avg, clinical markers, self-validation vs machine_date) for pressure, epap, mask_pressure, leak_rate, resp_rate, tidal_volume, minute_vent, snore, flow_limit (PLD) and spo2, pulse_rate, movement (O2 ring). Reads the local mirror first (RESMED_DATA/SLEEPHQ_O2_RING), else the API. `provenance.cpap_source`/`o2_source` = `local`|`sleephq_api`. Sleep stage/AHI are NOT here — combine with `get-combined-night-by-date`. Authority order for channel percentiles: cloud summary (fast) → get-sleephq-night (detail) → OSCAR (fallback only). See MCP index.
   - *OSCAR local backup (optional):* `get-oscar-status` first; `get-night-analysis`, `get-mechanics`, `get-oscar-trend` (`detail=summary` default), `get-oscar-events` (`detail=summary` default), `get-plmd-night` — see `sleephq-mcp-capabilities.md` and `docs/smoke-test-oscar-mcp.md`
   - *OSCAR data accuracy on `night_analysis` (when SleepHQ + OSCAR both present):* **`provenance`** lists active sources (`sleephq`, `oscar_summaries_xml`, `oscar_summary_000`, EDF paths, `sleephq_journal`). **`coverage.oscar_export_lag_days`** / **`oscar_export_freshness`** with **`provenance.oscar_summaries_xml.freshness_scope`** = `export` → age of the **local OSCAR backup** (newest indexed session vs today), **not** how old the analyzed calendar night is. **`data_conflicts`** = structured SleepHQ vs OSCAR metric deltas (AHI, OA/CA/hypopnea indices, avg pressure, avg leak); severities `info` | `warn` | `critical` — cite in reconciliation; **SleepHQ `ahi_summary` stays primary** for titration/decisions. **`session.session_date_note`** = `matched_end_date` when the session started before midnight but was matched by its **end** calendar date.
   - *Waveform anchors smoke:* `docs/smoke-test-waveform-windows.md` — `./scripts/goose-smoke-waveform.sh`
@@ -125,9 +126,9 @@ instructions: |
 
   | workflow_mode | MCP prompt | Required tools (in order) | Also invoke when triggered |
   |---------------|------------|---------------------------|----------------------------|
-  | physician_titration_review | physician-titration-review | list-machine-dates (if session_date auto), **get-comparison**, get-device-context; if OSCAR reachable: get-oscar-trend (summary, same span); deep nights: get-device-events, scan-apnea-events, get-waveform-by-date, get-o2-oximetry (+ get-night-analysis on CSA!/OSA! nights when OSCAR reachable) | central-apnea-investigation, obstructive-residual-investigation, leak-diagnosis, event-reconciliation, titration-decision |
+  | physician_titration_review | physician-titration-review | list-machine-dates (if session_date auto), **get-comparison**, get-device-context; if OSCAR reachable: get-oscar-trend (summary, same span); deep nights: get-device-events, scan-apnea-events, get-waveform-by-date, get-o2-oximetry, get-sleephq-night (deep nights) (+ get-night-analysis on CSA!/OSA! nights when OSCAR reachable) | central-apnea-investigation, obstructive-residual-investigation, leak-diagnosis, event-reconciliation, titration-decision |
   | balanced | weekly-trend | **get-comparison** (7d), get-device-context; if escalate: get-device-events, scan-apnea-events on worst night | nightly-review, obstructive-residual-investigation, central-apnea-investigation |
-  | clinical_deep_dive | clinical-deep-dive | get-combined-night-by-date, get-device-events, scan-apnea-events, get-waveform-by-date, get-o2-oximetry, get-device-context | event-reconciliation, o2-desat-review, leak-diagnosis |
+  | clinical_deep_dive | clinical-deep-dive | get-combined-night-by-date, get-sleephq-night, get-device-events, scan-apnea-events, get-waveform-by-date, get-o2-oximetry, get-device-context | event-reconciliation, o2-desat-review, leak-diagnosis |
   | mask_leak_with_pressure | leak-diagnosis | get-device-context, list-masks, get-combined-night-by-date, get-waveform-by-date | get-comparison (7d leak trend), scan-apnea-events |
   | morning_brief_only | morning-brief | get-combined-night-by-date | get-device-context |
 
@@ -149,6 +150,7 @@ instructions: |
   {% if workflow_mode == "clinical_deep_dive" %}
   **clinical_deep_dive** — one focal night (full triangulation):
     1. `get-combined-night-by-date(date)` — anchor AHI, pressure, leak, usage, SpO₂, **pulse_rate_summary**, sleep stages, journal; read top-level **`night_analysis`** when present (OSCAR): `provenance`, `coverage` export freshness, **`data_conflicts`** (if any), `session.session_date_note`. If OSCAR-only needed: `get-night-analysis(date)` after `get-oscar-status`.
+    1b. `get-sleephq-night(date)` — SleepHQ-only channel summary (p99/p95/median + markers). Render in **`### Nightly channel summary`** (below), combined with the journal sleep-stage line from step 1.
     2. `get-device-events(date)` — EVE flags; ignore "Recording starts".
     3. `scan-apnea-events(date)` — flow events; compare to EVE + `ahi_summary`.
     4. Choose the anchor for 1–2 windows (`eve_scan_overlap`, `worst_leak`, `worst_obstructive`, or `auto`) — see the anchor menu in Shared tool literacy.
@@ -198,6 +200,24 @@ instructions: |
   - **CPAP Therapy:** list **OSA**, **CSA**, **Hypopneas (H)**, and **total AHI** from `therapy_display.apnea` or `therapy_display.apnea_indices_cell` — **do not** show total AHI alone when components exist. Add usage, pressure, leak from `therapy_display` / attributes.
   - **Sleep Time & Stages:** `journal.sleep_stages_summary.minutes_by_stage_for_reporting` (core = light sleep); cite `reporting_source`.
   - **Oxygen & Heart Rate:** `spo2_summary`, `pulse_rate_summary` when present.
+
+  ### Nightly channel summary (get-sleephq-night + journal sleep stage)
+
+  When `get-sleephq-night` returns, render one combined block. **Copy every number verbatim from the
+  `get-sleephq-night` JSON — never compute, average, or infer a value the tool did not return:**
+  - **Channel table** from `get-sleephq-night`: one row per channel present in `cpap.channels` /
+    `oximetry.channels` (pressure, EPAP, mask pressure, leak rate, resp rate, tidal volume, minute
+    vent, snore, flow limit, SpO2, pulse rate, movement) with columns **p99 · p95 · median · min ·
+    max · avg** read directly from each channel object. Append marker notes where `markers` is present
+    (SpO2 nadir / T88, leak time>24 L/min, pressure time-at-max). Use **—** for any channel absent
+    from the JSON; never fill a gap with a guessed number.
+  - **Sleep stage line** from `get-combined-night-by-date` `journal.sleep_stages_summary.minutes_by_stage_for_reporting`
+    (core = light), cited per the journal-wellness rules. Sleep stage stays journal-sourced.
+  - Cite `provenance.cpap_source`/`o2_source` (`local` vs `sleephq_api`), `session_count`, and — when
+    the source was `local` — `provenance.local_mirror_synced_at` / `local_mirror_age_hours` (how fresh
+    the mirror is; if stale, note that the API path is more current). Note any session with an
+    `error`/`note`. Surface any `validation` entry where `agree=false` in `### Data completeness` as a
+    SleepHQ-vs-computed grouping caveat (a sanity-band difference, not necessarily a defect).
 
   {% if session_date == '' or session_date == 'auto' %}
   {% if workflow_mode == "balanced" %}
@@ -318,10 +338,10 @@ instructions: |
 
   ## MCP index (sleephq)
 
-  **Tools (36)** — live `tools/list` is authoritative:
+  **Tools (37)** — live `tools/list` is authoritative:
     Auth: who-am-i, get-token-status, get-configured-defaults
     Machines: get-device-context, list-teams, list-machines, get-machine-details, get-latest-device-settings (alias), list-machine-dates, get-machine-date-by-date
-    Night: get-night-stats, get-combined-night-by-date (optional top-level night_analysis when OSCAR ok)
+    Night: get-night-stats, get-combined-night-by-date (optional top-level night_analysis when OSCAR ok), get-sleephq-night (SleepHQ-only per-channel p99/p95/median; local mirror first, API fallback)
     Team: list-sleep-tests, list-journals, list-masks, list-devices, list-patients
     Imports/files: list-imports, get-import, list-import-files, get-import-file, list-files
     Journals: get-journal, get-journal-by-date
@@ -330,6 +350,22 @@ instructions: |
     OSCAR (local; get-oscar-status first): get-night-analysis, get-mechanics, get-oscar-trend, get-oscar-events, get-plmd-night
 
   **OSCAR vs SleepHQ EVE/scan:** Use SleepHQ `get-device-events` / `scan-apnea-events` / `get-comparison` for cloud therapy tables and titration. Use OSCAR tools for local ResMed backup fidelity, `night_analysis`, multi-night `get-oscar-trend`, or when SleepHQ has no `machine_date`. Reconcile explicitly when both exist — do not merge counts without stating authority. **Event counts in `night_analysis`:** `counts` is **sparse** (EVE events only); `summary_counts` is **full** (all counted `.000` channels incl. zeros) — prefer `summary_counts` for totals. Cite **`event_count_authority`** (`oscar_summary_000` when summary present, else `oscar_eve_edf`) and check **`event_counts_agree`** before reconciling against SleepHQ EVE/scan. **`data_conflicts`** (when present): structured metric deltas (AHI, indices, pressure, leak) with `severity` — SleepHQ values govern titration; explain conflicts, do not average sources. **`provenance`** + **`coverage.oscar_export_*`**: backup recency (`freshness_scope` = `export`); not the analyzed night's age. **`session_metric`** (channel `0x1158`) is opaque — **do not interpret it clinically**.
+
+  **Nightly per-channel percentiles — single authority, no duplicate numbers:** pressure, epap,
+  mask_pressure, leak_rate, resp_rate, tidal_volume, minute_vent, snore, flow_limit, spo2, pulse_rate,
+  movement all derive from the **same ResMed SD-card EDF** across the cloud, the local SleepHQ mirror,
+  and OSCAR — same bytes, identical p95/median (shared ceil-rank math + unit normalization). So choose
+  by **freshness/coverage, never present two sets**:
+  1. **Fast summary** (p95/median/max, subset of channels) → SleepHQ **cloud** `machine_date`
+     (`get-comparison` / `get-combined-night-by-date`). Use when a quick number is enough.
+  2. **Full detail** (true **p99** + **tidal_volume/minute_vent/snore/movement** + clinical markers) →
+     **`get-sleephq-night`** (local SD mirror, API fallback). Its `validation` block confirms agreement
+     with #1; cite `cpap_source`/`o2_source`.
+  3. **OSCAR** (`get-mechanics` / `get-oscar-trend`) → **fallback only** when a night is absent from
+     both SleepHQ paths. OSCAR `data_conflicts` reconciliation stays scoped to **processed indices
+     (AHI / event counts)** — NOT channel percentiles, which are byte-identical across copies.
+  Never show OSCAR and `get-sleephq-night` channel numbers side by side as if they were independent
+  measurements; pick one per the order above and note a coverage gap if OSCAR had to fill in.
 
   **Prompts (11):** morning-brief, nightly-review, weekly-trend, leak-diagnosis, titration-decision, o2-desat-review, central-apnea-investigation, obstructive-residual-investigation, clinical-deep-dive, physician-titration-review, event-reconciliation
 
@@ -375,7 +411,7 @@ activities:
       - Weekly dashboard → workflow `balanced`
       - Change pressure/mask/EPR → workflow `physician_titration_review` + span `30` (or `15` after a change)
       - This run: workflow={{ workflow_mode }} · span={{ review_span_days }}d · night={{ session_date }}
-      - MCP must be up (`./run.sh`). Stop when done: `./stop.sh`. Full index: `sleephq-mcp-capabilities.md` (36 tools incl. OSCAR). OSCAR smoke: `docs/smoke-test-oscar-mcp.md`
+      - MCP must be up (`./run.sh`). Stop when done: `./stop.sh`. Full index: `sleephq-mcp-capabilities.md` (37 tools incl. OSCAR). OSCAR smoke: `docs/smoke-test-oscar-mcp.md`
   - |
     message: |
       **Session start (all workflows):** `who-am-i` or `get-configured-defaults` if auth fails → `get-device-context` → read `sleephq://playbook/workflows` → invoke the **MCP prompt** for your workflow_mode (see instructions matrix) → run **Required tools** for that mode.
@@ -393,7 +429,7 @@ extensions:
   - type: streamable_http
     name: sleephq
     description: >
-      SleepHQ MCP: 36 tools (30 SleepHQ API + 6 OSCAR local), 11 prompts; live device/context from SleepHQ; get-comparison up to 120d; optional OSCAR night_analysis on combined night and get-oscar-trend.
+      SleepHQ MCP: 37 tools (31 SleepHQ API + 6 OSCAR local), 11 prompts; live device/context from SleepHQ; get-comparison up to 120d; get-sleephq-night per-channel p99/p95/median; optional OSCAR night_analysis on combined night and get-oscar-trend.
     uri: http://localhost:8080/mcp
     timeout: 30
     headers:
