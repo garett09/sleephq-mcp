@@ -97,4 +97,24 @@ public final class OscarChannelUnitNormalizer {
     private static double scaleValue(double value, double factor) {
         return Double.isNaN(value) ? Double.NaN : round(value * factor);
     }
+
+    /** Display-unit conversion for a {@code get-sleephq-night} field given its raw EDF unit. */
+    public record UnitConversion(String unit, double factor) {}
+
+    /**
+     * Display unit + multiplicative factor for raw PLD samples. ResMed PLD stores leak in L/s and
+     * tidal volume in L; SleepHQ/AirView show L/min and mL. Other fields are identity.
+     */
+    public static UnitConversion conversionFor(String fieldName, String rawUnit) {
+        String lower = rawUnit == null ? "" : rawUnit.trim().toLowerCase(Locale.ROOT);
+        return switch (fieldName) {
+            case "leak_rate" -> lower.contains("/s")
+                    ? new UnitConversion("L/min", 60.0)
+                    : new UnitConversion(rawUnit == null || rawUnit.isBlank() ? "L/min" : rawUnit, 1.0);
+            case "tidal_volume" -> (lower.contains("ml") || lower.contains("milli"))
+                    ? new UnitConversion("mL", 1.0)
+                    : new UnitConversion("mL", 1000.0);
+            default -> new UnitConversion(rawUnit == null ? "" : rawUnit, 1.0);
+        };
+    }
 }
