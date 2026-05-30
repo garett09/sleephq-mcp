@@ -64,7 +64,7 @@ public final class AhiSummarySupport {
         return caPerHr != null && caPerHr >= CA_ELEVATED_PER_HR;
     }
 
-    static Double readNumeric(JsonNode summary, String... keys) {
+    public static Double readNumeric(JsonNode summary, String... keys) {
         for (String key : keys) {
             JsonNode node = summary.path(key);
             if (node.isNumber()) {
