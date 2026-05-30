@@ -12,6 +12,14 @@ This MCP server issues HTTP requests only to paths that appear in the published 
 - **`get-combined-night-by-date`** — Same documented per-date GET(s); merges summary fields in-process when CPAP and O2 machines are configured. When CPAP `machine_date` is absent (e.g. no Magic Uploader), returns O2 `machine_date` as `data` and/or top-level `journal` with `coverage` flags; fails only when all three are missing.
 - **`get-device-events`** — Downloads `EVE.edf` via `get-import-file` + S3; parses EDF+ TAL annotations locally (ResMed device flags).
 - **`get-o2-oximetry`** — Resolves O2 import file via `list-imports` / `list-import-files`; parses Viatom binary locally (O2Ring S `0x0301` or VLD3; not EDF).
+- **`get-sleephq-night`** — SleepHQ-only per-night channel summary (p99/p95/median + markers). Reads a
+  **local SleepHQ mirror** first (`sleephq.local.data-path` = RESMED_DATA, `sleephq.local.o2-path` =
+  SLEEPHQ_O2_RING; produced by the external `ezscript/sleephq_download.py`), and falls back to the
+  documented API (`list-files`, `list-imports`/`list-import-files`, `get-import-file` + S3). CPAP
+  sessions are grouped by ResMed's `DATALOG/<YYYYMMDD>/` folder; flat O2 files by a noon-split.
+  Self-validates computed p95/median against documented `machine_date` summaries
+  (`getMachineDateByDate`); model via `getMachine`. p99 is computed locally (machine_date/STR expose
+  only p95/median). Ti/Te are not produced (no source data — see the Ti/Te follow-up spec).
 - **`get-waveform`**, **`get-waveform-by-date`**, **`scan-apnea-events`** — EDF parse/detect on `BRP.edf` (and other EDF uploads) via `get-import-file` + S3.
 - **`get-journal-by-date`** — Paged `list-journals` + local date index (no upstream find-by-date route).
 - **Journal overlay on night tools** — `get-night-stats`, `get-combined-night-by-date`, and `get-comparison` attach top-level `journal` from team journals (not from `machine_date`).
