@@ -1,0 +1,68 @@
+package com.adriangarett.sleephqmcp.support;
+
+import com.adriangarett.sleephqmcp.domain.NightChannelSummary;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
+
+class NightSummaryComputerTest {
+
+    @Test
+    void mapPldLabel_mapsVerifiedResMedLabels() {
+        assertThat(NightSummaryComputer.mapPldLabel("MaskPress.2s")).isEqualTo("mask_pressure");
+        assertThat(NightSummaryComputer.mapPldLabel("EprPress.2s")).isEqualTo("epap");
+        assertThat(NightSummaryComputer.mapPldLabel("Press.2s")).isEqualTo("pressure");
+        assertThat(NightSummaryComputer.mapPldLabel("Leak.2s")).isEqualTo("leak_rate");
+        assertThat(NightSummaryComputer.mapPldLabel("RespRate.2s")).isEqualTo("resp_rate");
+        assertThat(NightSummaryComputer.mapPldLabel("TidVol.2s")).isEqualTo("tidal_volume");
+        assertThat(NightSummaryComputer.mapPldLabel("MinVent.2s")).isEqualTo("minute_vent");
+        assertThat(NightSummaryComputer.mapPldLabel("Snore.2s")).isEqualTo("snore");
+        assertThat(NightSummaryComputer.mapPldLabel("FlowLim.2s")).isEqualTo("flow_limit");
+        assertThat(NightSummaryComputer.mapPldLabel("Crc16")).isNull();
+        assertThat(NightSummaryComputer.mapPldLabel("Flow.40ms")).isNull();
+    }
+
+    @Test
+    void summarise_leakRate_convertsLpsToLpm_andComputesMarkers() {
+        List<Double> raw = new ArrayList<>();
+        for (int i = 0; i < 90; i++) raw.add(0.1);   // 6 L/min
+        for (int i = 0; i < 10; i++) raw.add(0.5);   // 30 L/min
+        NightChannelSummary s = NightSummaryComputer.summarise("leak_rate", "L/s", raw, 0.5);
+        assertThat(s.unit()).isEqualTo("L/min");
+        assertThat(s.max()).isCloseTo(30.0, within(0.01));
+        assertThat(s.median()).isCloseTo(6.0, within(0.01));
+        assertThat(s.count()).isEqualTo(100);
+        assertThat(s.markers().get("time_above_24_l_min_seconds")).isCloseTo(20.0, within(0.01));
+        assertThat(s.markers().get("time_above_24_l_min_pct")).isCloseTo(10.0, within(0.01));
+    }
+
+    @Test
+    void summarise_spo2_computesNadirAndT88() {
+        List<Double> spo2 = new ArrayList<>();
+        for (int i = 0; i < 95; i++) spo2.add(95.0);
+        for (int i = 0; i < 5; i++) spo2.add(85.0);
+        NightChannelSummary s = NightSummaryComputer.summarise("spo2", "%", spo2, 1.0);
+        assertThat(s.markers().get("nadir")).isEqualTo(85.0);
+        assertThat(s.markers().get("time_below_88_pct_seconds")).isCloseTo(5.0, within(0.01));
+        assertThat(s.markers().get("time_below_88_pct")).isCloseTo(5.0, within(0.01));
+    }
+
+    @Test
+    void summarise_pressure_computesTimeAtMax() {
+        List<Double> p = new ArrayList<>();
+        for (int i = 0; i < 90; i++) p.add(8.0);
+        for (int i = 0; i < 10; i++) p.add(12.0);
+        NightChannelSummary s = NightSummaryComputer.summarise("pressure", "cmH2O", p, 0.5);
+        assertThat(s.markers().get("max_pressure")).isEqualTo(12.0);
+        assertThat(s.markers().get("time_at_max_seconds")).isCloseTo(20.0, within(0.01));
+    }
+
+    @Test
+    void summarise_emptySamples_returnsNull() {
+        assertThat(NightSummaryComputer.summarise("pressure", "cmH2O", List.of(), 0.5)).isNull();
+    }
+}
