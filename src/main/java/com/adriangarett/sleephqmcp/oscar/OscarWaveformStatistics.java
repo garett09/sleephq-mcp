@@ -3,6 +3,7 @@ package com.adriangarett.sleephqmcp.oscar;
 import com.adriangarett.sleephqmcp.domain.ChannelStatistics;
 import com.adriangarett.sleephqmcp.domain.WaveformChannel;
 import com.adriangarett.sleephqmcp.domain.WaveformResult;
+import com.adriangarett.sleephqmcp.support.ChannelPercentiles;
 import com.adriangarett.sleephqmcp.support.EdfParser;
 
 import java.nio.file.Files;
@@ -125,8 +126,8 @@ public final class OscarWaveformStatistics {
         sorted.removeIf(v -> Double.isNaN(v));
         sorted.sort(Double::compareTo);
         double avg = sorted.isEmpty() ? 0 : sum / sorted.size();
-        double p = percentileValue(sorted, percentile);
-        double medianValue = percentileValue(sorted, 50);
+        double p = ChannelPercentiles.percentile(sorted, percentile);
+        double medianValue = ChannelPercentiles.percentile(sorted, 50);
         String minAt = clockAt(base, sampleRate, minIdx);
         String maxAt = clockAt(base, sampleRate, maxIdx);
         int minAtSeconds = offsetSeconds(sampleRate, minIdx);
@@ -139,15 +140,6 @@ public final class OscarWaveformStatistics {
                 round(avg), round(min), round(max), round(p), round(medianValue), minAt, maxAt,
                 minAtSeconds, maxAtSeconds, sorted.size());
         return OscarChannelUnitNormalizer.normalize(raw);
-    }
-
-    private static double percentileValue(List<Double> sorted, int percentile) {
-        if (sorted.isEmpty()) {
-            return 0;
-        }
-        int idx = (int) Math.ceil(percentile / 100.0 * sorted.size()) - 1;
-        idx = Math.max(0, Math.min(sorted.size() - 1, idx));
-        return sorted.get(idx);
     }
 
     private static String clockAt(LocalDateTime base, double sampleRate, int index) {
