@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 
 /**
@@ -59,6 +61,12 @@ public final class JournalOverlaySupport {
         if (out.path("feeling_score").isNumber()) {
             int score = out.path("feeling_score").asInt();
             JournalFeelingScore.labelFor(score).ifPresent(label -> out.put("feeling_label", label));
+        }
+        JsonNode joules = journalAttributes.get("active_energy_joules");
+        if (joules != null && joules.isNumber()) {
+            BigDecimal bd = new BigDecimal(joules.asLong());
+            double kcal = bd.divide(new BigDecimal("4184"), 1, RoundingMode.HALF_UP).doubleValue();
+            out.put("calories_kcal", kcal);
         }
         JsonNode stages = journalAttributes.path("sleep_stages");
         if (stages.isTextual()) {

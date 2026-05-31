@@ -61,4 +61,29 @@ class JournalOverlaySupportTest {
         String out = JournalOverlaySupport.enrichEnvelopeJson(envelope, null);
         assertThat(JsonApi.parse(out).path("journal").isMissingNode()).isTrue();
     }
+
+    @Test
+    void buildWellnessObject_derivesCaloriesKcal_fromActiveEnergyJoules() throws Exception {
+        String journals = new String(getClass().getResourceAsStream("/journal/list-journals-sample.json").readAllBytes(),
+                StandardCharsets.UTF_8);
+        var attrs = JsonApi.parse(journals).path("data").get(0).path("attributes");
+        // fixture has active_energy_joules = 1234000
+
+        ObjectNode wellness = JournalOverlaySupport.buildWellnessObject(attrs);
+
+        assertThat(wellness.path("active_energy_joules").asLong()).isEqualTo(1234000L);
+        // 1234000 / 4184 = 294.933... → rounded to 1 decimal = 294.9
+        assertThat(wellness.path("calories_kcal").asDouble()).isEqualTo(294.9);
+    }
+
+    @Test
+    void buildWellnessObject_noCaloriesKcal_whenActiveEnergyAbsent() {
+        var attrs = JsonApi.mapper().createObjectNode();
+        attrs.put("date", "2026-05-24");
+        attrs.put("step_count", 100);
+
+        ObjectNode wellness = JournalOverlaySupport.buildWellnessObject(attrs);
+
+        assertThat(wellness.path("calories_kcal").isMissingNode()).isTrue();
+    }
 }
