@@ -69,8 +69,26 @@ public final class OscarWaveformStatistics {
         if (lower.startsWith("flowhires") || lower.startsWith("flowrate2") || lower.equals("flow rate (hi-res)")) {
             return "flow_rate_hi_res";
         }
+        if (lower.startsWith("flowlim")) {
+            return "flow_limit";
+        }
         if (lower.startsWith("flow")) {
             return "flow";
+        }
+        if (lower.startsWith("maskpress")) {
+            return "mask_pressure";
+        }
+        if (lower.startsWith("eprpress") || lower.startsWith("epapres")) {
+            return "epap";
+        }
+        if (lower.startsWith("snore")) {
+            return "snore";
+        }
+        if (lower.equals("ti") || lower.startsWith("ti.")) {
+            return "insp_time";
+        }
+        if (lower.equals("te") || lower.startsWith("te.")) {
+            return "exp_time";
         }
         if (lower.startsWith("press")) {
             return "pressure";
