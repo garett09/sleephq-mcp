@@ -78,6 +78,16 @@ class NightSummaryComputerTest {
     }
 
     @Test
+    void summarise_pressure_p99_5_isPresentAndPlausible() {
+        List<Double> p = new ArrayList<>();
+        for (int i = 0; i < 90; i++) p.add(8.0);
+        for (int i = 0; i < 10; i++) p.add(12.0);
+        NightChannelSummary s = NightSummaryComputer.summarise("pressure", "cmH2O", p, 0.5);
+        assertThat(s.p995()).isGreaterThanOrEqualTo(s.p95());
+        assertThat(s.p995()).isCloseTo(12.0, within(0.01));
+    }
+
+    @Test
     void summarise_emptySamples_returnsNull() {
         assertThat(NightSummaryComputer.summarise("pressure", "cmH2O", List.of(), 0.5)).isNull();
     }

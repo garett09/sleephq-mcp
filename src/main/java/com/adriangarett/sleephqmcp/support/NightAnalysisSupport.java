@@ -28,6 +28,9 @@ public final class NightAnalysisSupport {
             ch.put("min", stat.min());
             ch.put("max", stat.max());
             ch.put("p95", stat.percentile());
+            if (!Double.isNaN(stat.p995())) {
+                ch.put("p99_5", stat.p995());
+            }
             if (!Double.isNaN(stat.median())) {
                 ch.put("median", stat.median());
             }
