@@ -47,8 +47,8 @@ Rules:
    | date | `date` === TEST_DATE |
    | coverage flags | `coverage.cpap` and `coverage.oximetry` are booleans |
    | cpap block | IF `coverage.cpap` true: `cpap.channels` exists with at least `pressure` |
-   | cpap stats shape | Each channel has: `unit`, `p99`, `p95`, `median`, `min`, `max`, `avg`, `count` |
-   | p99 present | `pressure.p99` is a number (not only p95 from machine_date) |
+   | cpap stats shape | Each channel has: `unit`, `p99`, `p99_5`, `p95`, `median`, `min`, `max`, `avg`, `count` |
+   | p99 present | `pressure.p99` is a number (not only p95 from machine_date); `p99_5` also present |
    | cpap omitted when false | IF `coverage.cpap` false: no `cpap` object; `coverage.cpap_reason` present (e.g. `no_sleephq_pld`) |
    | o2 omitted when false | IF `coverage.oximetry` false: no `oximetry` object; `coverage.oximetry_reason` if no O2 |
    | provenance | `provenance` exists: `cpap_source` and/or `o2_source` in `local` \| `sleephq_api` when that side has data |
@@ -83,6 +83,7 @@ Rules:
 - **API fallback:** `provenance.cpap_source` = `sleephq_api`, sessions include `file_id`
 - **Nine PLD fields** (when device reports them): `mask_pressure`, `pressure`, `epap`, `leak_rate`, `resp_rate`, `tidal_volume`, `minute_vent`, `snore`, `flow_limit`
 - **Leak unit:** `leak_rate.unit` = `L/min` (not L/s)
+- **Per-channel stats fields:** `unit`, `p99`, `p99_5` (99.5th percentile, matches OSCAR UI display), `p95`, `median`, `min`, `max`, `avg`, `count`
 
 ## Source / percentile notes
 
