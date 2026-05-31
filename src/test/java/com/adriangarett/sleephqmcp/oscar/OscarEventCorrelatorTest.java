@@ -16,7 +16,7 @@ class OscarEventCorrelatorTest {
     void notableMoment_usesSessionRelativeOffset_notWallClock() {
         // Session starts at 22:00; channel peak is 10 minutes in (offset 600s, wall clock 22:10:00).
         ChannelStatistics leak = new ChannelStatistics(
-                "leak", "L/min", 10.0, 0.0, 42.0, 30.0, 20.0,
+                "leak", "L/min", 10.0, 0.0, 42.0, 30.0, Double.NaN, 20.0,
                 "", "22:10:00", ChannelStatistics.OFFSET_UNKNOWN, 600, 100);
         // A device event 30s after the peak should correlate within the 120s window.
         DeviceEvent event = new DeviceEvent(
@@ -41,7 +41,7 @@ class OscarEventCorrelatorTest {
     @Test
     void notableMoment_correlatesEventWithMinutePrecisionTimestamp() {
         ChannelStatistics leak = new ChannelStatistics(
-                "leak", "L/min", 10.0, 0.0, 42.0, 30.0, 20.0,
+                "leak", "L/min", 10.0, 0.0, 42.0, 30.0, Double.NaN, 20.0,
                 "", "22:10:00", ChannelStatistics.OFFSET_UNKNOWN, 600, 100);
         // LocalDateTime.toString() omits seconds when zero — 16 chars, not 19.
         DeviceEvent event = new DeviceEvent(
@@ -65,10 +65,10 @@ class OscarEventCorrelatorTest {
         // spo2 min=85 (avg=97) → deviation 12; higher raw value than leak
         // leak max=42 (avg=10) → deviation 32; should rank first
         ChannelStatistics spo2 = new ChannelStatistics(
-                "spo2", "%", 97.0, 85.0, 98.0, 96.0, Double.NaN,
+                "spo2", "%", 97.0, 85.0, 98.0, 96.0, Double.NaN, Double.NaN,
                 "22:10:00", "", 600, ChannelStatistics.OFFSET_UNKNOWN, 100);
         ChannelStatistics leak = new ChannelStatistics(
-                "leak", "L/min", 10.0, 2.0, 42.0, 30.0, Double.NaN,
+                "leak", "L/min", 10.0, 2.0, 42.0, 30.0, Double.NaN, Double.NaN,
                 "", "22:15:00", ChannelStatistics.OFFSET_UNKNOWN, 900, 100);
         DeviceEvent event = new DeviceEvent(
                 "00:10:30", 630.0, 12.0, "2026-05-19T22:10:30", "Hypopnea", "H");
@@ -88,7 +88,7 @@ class OscarEventCorrelatorTest {
         // Channel max at 500s; events at 100s (delta=400), 490s (delta=10), 495s (delta=5), 510s (delta=10)
         // maxNearbyEvents=2 — should pick the 2 closest, not the 2 earliest
         ChannelStatistics leak = new ChannelStatistics(
-                "leak", "L/min", 10.0, 0.0, 42.0, 30.0, Double.NaN,
+                "leak", "L/min", 10.0, 0.0, 42.0, 30.0, Double.NaN, Double.NaN,
                 "", "22:08:20", ChannelStatistics.OFFSET_UNKNOWN, 500, 100);
         List<DeviceEvent> events = List.of(
                 new DeviceEvent("00:01:40", 100.0, 5.0, "2026-05-19T22:01:40", "Hypopnea", "H"),
@@ -112,7 +112,7 @@ class OscarEventCorrelatorTest {
     @Test
     void notableMoment_skipsChannelWithUnknownOffset() {
         ChannelStatistics summaryOnly = new ChannelStatistics(
-                "leak", "L/min", 10.0, 0.0, 42.0, 30.0, Double.NaN,
+                "leak", "L/min", 10.0, 0.0, 42.0, 30.0, Double.NaN, Double.NaN,
                 "", "", ChannelStatistics.OFFSET_UNKNOWN, ChannelStatistics.OFFSET_UNKNOWN, 0);
         DeviceEvent event = new DeviceEvent(
                 "00:10:30", 630.0, 12.0, "2026-05-19T22:10:30", "Hypopnea", "H");

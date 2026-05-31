@@ -83,6 +83,7 @@ public final class OscarChannelUnitNormalizer {
                 round(stat.min() * factor),
                 round(stat.max() * factor),
                 round(stat.percentile() * factor),
+                scaleValue(stat.p995(), factor),
                 scaleValue(stat.median(), factor),
                 stat.minAt(),
                 stat.maxAt(),

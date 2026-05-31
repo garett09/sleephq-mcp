@@ -73,7 +73,7 @@ class OscarChannelUnitNormalizerTest {
 
     private static ChannelStatistics stat(
             String field, String unit, double avg, double min, double max, double p95, double median) {
-        return new ChannelStatistics(field, unit, avg, min, max, p95, median,
+        return new ChannelStatistics(field, unit, avg, min, max, p95, Double.NaN, median,
                 "00:00:00", "01:00:00", 0, 3600, 100);
     }
 }

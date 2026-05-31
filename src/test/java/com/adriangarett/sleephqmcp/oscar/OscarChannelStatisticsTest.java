@@ -60,4 +60,12 @@ class OscarChannelStatisticsTest {
         assertThat(pressure.percentile()).isNaN();
         assertThat(pressure.max()).isEqualTo(14.0);
     }
+
+    @Test
+    void fromSummarySession_p995IsNaNWhenUnknown() {
+        Map<String, ChannelStatistics> stats = OscarChannelStatistics.fromSummarySession(mixedSession());
+        ChannelStatistics pressure = stats.get("pressure");
+        assertThat(pressure).isNotNull();
+        assertThat(pressure.p995()).isNaN();
+    }
 }
