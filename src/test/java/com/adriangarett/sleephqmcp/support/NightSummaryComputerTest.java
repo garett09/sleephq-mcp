@@ -101,4 +101,17 @@ class NightSummaryComputerTest {
         assertThat(merged.min()).isEqualTo(2.0);
         assertThat(merged.max()).isEqualTo(12.0);
     }
+
+    @Test
+    void mapPldLabel_inspAndExpTime() {
+        assertThat(NightSummaryComputer.mapPldLabel("Ti.1s")).isEqualTo("insp_time");
+        assertThat(NightSummaryComputer.mapPldLabel("Ti")).isEqualTo("insp_time");
+        assertThat(NightSummaryComputer.mapPldLabel("Te.1s")).isEqualTo("exp_time");
+        assertThat(NightSummaryComputer.mapPldLabel("Te")).isEqualTo("exp_time");
+    }
+
+    @Test
+    void mapPldLabel_epapresAlias() {
+        assertThat(NightSummaryComputer.mapPldLabel("EpapRes.2s")).isEqualTo("epap");
+    }
 }

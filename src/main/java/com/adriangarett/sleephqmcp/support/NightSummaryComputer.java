@@ -31,7 +31,7 @@ public final class NightSummaryComputer {
         }
         String lower = label.toLowerCase(Locale.ROOT);
         if (lower.startsWith("maskpress")) return "mask_pressure";
-        if (lower.startsWith("eprpress")) return "epap";
+        if (lower.startsWith("eprpress") || lower.startsWith("epapres")) return "epap";
         if (lower.startsWith("press")) return "pressure";
         if (lower.startsWith("leak")) return "leak_rate";
         if (lower.startsWith("resprate")) return "resp_rate";
@@ -39,6 +39,8 @@ public final class NightSummaryComputer {
         if (lower.startsWith("minvent")) return "minute_vent";
         if (lower.startsWith("snore")) return "snore";
         if (lower.startsWith("flowlim")) return "flow_limit";
+        if (lower.equals("ti") || lower.startsWith("ti.")) return "insp_time";
+        if (lower.equals("te") || lower.startsWith("te.")) return "exp_time";
         return null;
     }
 
