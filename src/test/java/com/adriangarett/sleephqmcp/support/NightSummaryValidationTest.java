@@ -27,6 +27,21 @@ class NightSummaryValidationTest {
     }
 
     @Test
+    void build_leakRate_prefersLeak95thOverSummaryUpper() {
+        Map<String, NightChannelSummary> channels = new LinkedHashMap<>();
+        channels.put("leak_rate", new NightChannelSummary("L/min", 14, 13.0, 2, 0, 20, 4, 100, null));
+        JsonNode cpapAttrs = JsonApi.parse(
+                "{ \"leak_95th\": 13.2, \"leak_rate_summary\": { \"upper\": 28.8, \"med\": 2.0 } }");
+
+        ObjectNode result = NightSummaryValidation.build(channels, cpapAttrs, null);
+
+        JsonNode leak = result.path("leak_rate");
+        assertThat(leak.path("sleephq_p95").asDouble()).isEqualTo(13.2);
+        assertThat(leak.path("compared_to").asText()).isEqualTo("leak_95th");
+        assertThat(leak.path("agree").asBoolean()).isTrue();
+    }
+
+    @Test
     void build_flagsDisagreement_whenBeyondTolerance() {
         Map<String, NightChannelSummary> channels = new LinkedHashMap<>();
         channels.put("leak_rate", new NightChannelSummary("L/min", 22, 18.0, 2, 0, 38, 4, 100, null));

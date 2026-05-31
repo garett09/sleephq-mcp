@@ -1,2825 +1,2559 @@
 {
-  "info": {
-    "title": "SleepHQ",
-    "description": "SleepHQ is an online platform for CPAP users to view, share and analyse their data to get the best night's sleep possible. Visit https://sleephq.com for more details.",
-    "version": "1.0.0"
-  },
-  "swagger": "2.0",
-  "produces": [
-    "application/vnd.api+json",
-    "application/json"
-  ],
-  "securityDefinitions": {
-    "oauth2": {
-      "type": "oauth2",
-      "flow": "password",
-      "tokenUrl": "/oauth/token",
-      "scopes": {
-        "read": "Read access to the API",
-        "write": "Write access to the API",
-        "delete": "Delete resources using the API"
-      }
-    }
-  },
-  "security": [
-    {
-      "oauth2": [
-        "read",
-        "write",
-        "delete"
-      ]
-    }
-  ],
-  "host": "sleephq.com",
-  "basePath": "/api",
-  "tags": [
-    {
-      "name": "Masks",
-      "description": "Operations about Masks"
+    "info": {
+        "title": "SleepHQ",
+        "description": "SleepHQ is an online platform for CPAP users to view, share and analyse their data to get the best night's sleep possible. Visit https://sleephq.com for more details.",
+        "version": "1.0.0"
     },
-    {
-      "name": "Sleep Tests (by team)",
-      "description": "Operations about Sleep Tests (by team)s"
-    },
-    {
-      "name": "added_by",
-      "description": "Operations about added_bys"
-    },
-    {
-      "name": "active_storage",
-      "description": "Operations about active_storages"
-    },
-    {
-      "name": "admin",
-      "description": "Operations about admins"
-    },
-    {
-      "name": "Current User",
-      "description": "Endpoints relating to the current user as defined by the API key being used"
-    },
-    {
-      "name": "Teams",
-      "description": "Teams are the internal representation of accounts in the system. Each user can belong to multiple teams and each team can have multiple users"
-    },
-    {
-      "name": "Patients",
-      "description": "For SleepHQ Consult accounts, query information about your patients with this endpoint"
-    },
-    {
-      "name": "Machines",
-      "description": "The Machine class represents both CPAP and pulse oximeters (eg O2 Rings) in the system."
-    },
-    {
-      "name": "Machine Dates",
-      "description": "The MachineDate class represents a particular date of data for a given machine."
-    },
-    {
-      "name": "Imports",
-      "description": "The Import class represents a single instance of a data import for a device. Each import will have one or more files associated with it"
-    },
-    {
-      "name": "Import Files",
-      "description": "Import Files represent each individual file that is uploaded for a given import."
-    },
-    {
-      "name": "Journals",
-      "description": "There is one journal entry per user per day and it can be used to track metrics outside of devices like weight, feeling score, etc."
-    },
-    {
-      "name": "Devices",
-      "description": "The Device class represents the type of device being used. For example, ResMed AirSense 11."
-    }
-  ],
-  "paths": {
-    "/v1/me": {
-      "post": {
-        "description": "Update the current user",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "consumes": [
-          "multipart/form-data",
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "formData",
-            "name": "first_name",
-            "description": "First name",
-            "type": "string",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "last_name",
-            "description": "Last name",
-            "type": "string",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "email",
-            "description": "Email",
-            "type": "string",
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_UserSerializer"
+    "swagger": "2.0",
+    "produces": [
+        "application/vnd.api+json",
+        "application/json"
+    ],
+    "securityDefinitions": {
+        "oauth2": {
+            "type": "oauth2",
+            "flow": "password",
+            "tokenUrl": "/oauth/token",
+            "scopes": {
+                "read": "Read access to the API",
+                "write": "Write access to the API",
+                "delete": "Delete resources using the API"
             }
-          },
-          "400": {
-            "description": "Missing or Bad Parameters"
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "406": {
-            "description": "Validation Errors"
-          },
-          "422": {
-            "description": "Record Not Saved"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Current User"
-        ],
-        "operationId": "postV1Me"
-      },
-      "get": {
-        "description": "Details about the current user",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_UserSerializer"
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Current User"
-        ],
-        "operationId": "getV1Me"
-      }
+        }
     },
-    "/v1/teams/{team_id}/journals": {
-      "post": {
-        "description": "Add a New Journal",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "consumes": [
-          "multipart/form-data",
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "description": "Team ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "date",
-            "description": "Date",
-            "type": "string",
-            "format": "date",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "step_count",
-            "description": "Step Count",
-            "type": "string",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "weight_grams",
-            "description": "Weight (Grams)",
-            "type": "integer",
-            "format": "int32",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "feeling_score",
-            "description": "Feeling Score",
-            "type": "string",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "active_energy_joules",
-            "description": "Active Energy (Joules)",
-            "type": "integer",
-            "format": "int32",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "notes",
-            "description": "Notes",
-            "type": "string",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "sleep_stages",
-            "description": "Sleep Stages",
-            "type": "string",
-            "required": false
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_JournalSerializer"
-            }
-          },
-          "400": {
-            "description": "Missing or Bad Parameters"
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "406": {
-            "description": "Validation Errors"
-          },
-          "422": {
-            "description": "Record Not Saved"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+    "security": [
+        {
+            "oauth2": [
+                "read",
+                "write",
+                "delete"
+            ]
+        }
+    ],
+    "host": "sleephq.com",
+    "basePath": "/api",
+    "tags": [
+        {
+            "name": "Masks",
+            "description": "Operations about Masks"
         },
-        "tags": [
-          "Journals"
-        ],
-        "operationId": "postV1TeamsTeamIdJournals"
-      },
-      "get": {
-        "description": "List Journals",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "description": "Team ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_JournalSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+        {
+            "name": "added_by",
+            "description": "Operations about added_bys"
         },
-        "tags": [
-          "Journals"
-        ],
-        "operationId": "getV1TeamsTeamIdJournals"
-      }
-    },
-    "/v1/teams/{team_id}/patients": {
-      "get": {
-        "description": "List Patients",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "description": "Your clinic account team ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_PatientSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+        {
+            "name": "Current User",
+            "description": "Endpoints relating to the current user as defined by the API key being used"
         },
-        "tags": [
-          "Patients"
-        ],
-        "operationId": "getV1TeamsTeamIdPatients"
-      }
-    },
-    "/v1/teams/{team_id}/masks": {
-      "get": {
-        "description": "List Masks",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "description": "Team ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_MaskSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+        {
+            "name": "Teams",
+            "description": "Teams are the internal representation of accounts in the system. Each user can belong to multiple teams and each team can have multiple users"
         },
-        "tags": [
-          "Masks"
-        ],
-        "operationId": "getV1TeamsTeamIdMasks"
-      }
-    },
-    "/v1/teams/{team_id}/machines": {
-      "get": {
-        "description": "List Machines",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "description": "Team ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_MachineSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+        {
+            "name": "Patients",
+            "description": "For SleepHQ Consult accounts, query information about your patients with this endpoint"
         },
-        "tags": [
-          "Machines"
-        ],
-        "operationId": "getV1TeamsTeamIdMachines"
-      }
-    },
-    "/v1/teams/{team_id}/imports": {
-      "post": {
-        "description": "Add a New Import",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "consumes": [
-          "multipart/form-data",
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "description": "Team ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "programatic",
-            "description": "Deprecated.",
-            "type": "boolean",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "device_id",
-            "description": "The device type that the data is from. Find a list of device ids using the /devices endpoint.",
-            "type": "integer",
-            "format": "int32",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "mask_id",
-            "description": "The mask used for this import. Find the team's masks using the /teams/:team_id/masks endpoint.",
-            "type": "integer",
-            "format": "int32",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "name",
-            "description": "The name of the import to show in the UI.",
-            "type": "string",
-            "required": false
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_ImportSerializer"
-            }
-          },
-          "400": {
-            "description": "Missing or Bad Parameters"
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "406": {
-            "description": "Validation Errors"
-          },
-          "422": {
-            "description": "Record Not Saved"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+        {
+            "name": "Machines",
+            "description": "The Machine class represents both CPAP and pulse oximeters (eg O2 Rings) in the system."
         },
-        "tags": [
-          "Imports"
-        ],
-        "operationId": "postV1TeamsTeamIdImports"
-      },
-      "get": {
-        "description": "List Imports",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "description": "Team ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_ImportSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+        {
+            "name": "Machine Dates",
+            "description": "The MachineDate class represents a particular date of data for a given machine."
         },
-        "tags": [
-          "Imports"
-        ],
-        "operationId": "getV1TeamsTeamIdImports"
-      }
-    },
-    "/v1/teams/{team_id}/sleep_tests": {
-      "get": {
-        "description": "List sleep tests for a team (clinic or enterprise \u2014 enterprise rolls up across child clinics)",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "description": "Team ID (clinic or enterprise)",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "bucket",
-            "description": "Filter to one of the clinic dashboard pipeline columns. `unstarted` (no recordings yet, status New), `in_progress` (recording in flight), `scorable` (all nights captured, awaiting report), `scored` (report locked / signed).",
-            "type": "string",
-            "enum": [
-              "unstarted",
-              "in_progress",
-              "scorable",
-              "scored"
-            ],
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_Teams_SleepTestSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+        {
+            "name": "Imports",
+            "description": "The Import class represents a single instance of a data import for a device. Each import will have one or more files associated with it"
         },
-        "tags": [
-          "Sleep Tests (by team)"
-        ],
-        "operationId": "getV1TeamsTeamIdSleepTests"
-      }
-    },
-    "/v1/teams/{team_id}/files": {
-      "get": {
-        "description": "List files",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "description": "Team ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_Imports_FileSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+        {
+            "name": "Import Files",
+            "description": "Import Files represent each individual file that is uploaded for a given import."
         },
-        "tags": [
-          "Import Files"
-        ],
-        "operationId": "getV1TeamsTeamIdFiles"
-      }
-    },
-    "/v1/teams": {
-      "get": {
-        "description": "List Accounts",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_TeamSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
+        {
+            "name": "Journals",
+            "description": "There is one journal entry per user per day and it can be used to track metrics outside of devices like weight, feeling score, etc."
         },
-        "tags": [
-          "Teams"
-        ],
-        "operationId": "getV1Teams"
-      }
-    },
-    "/v1/imports/{id}": {
-      "delete": {
-        "description": "Delete a Import",
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "Import ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "purge_files",
-            "description": "If true, the files associated with the import will be deleted. Defaults to false.",
-            "type": "boolean",
-            "required": false
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Delete a Import"
-          }
-        },
-        "tags": [
-          "Imports"
-        ],
-        "operationId": "deleteV1ImportsId"
-      },
-      "get": {
-        "description": "Retrieve a Import",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "Import ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_ImportSerializer"
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Imports"
-        ],
-        "operationId": "getV1ImportsId"
-      }
-    },
-    "/v1/imports/{import_id}/files": {
-      "post": {
-        "description": "Add a New File",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "consumes": [
-          "multipart/form-data",
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "import_id",
-            "description": "The id of the Import",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "name",
-            "description": "The name of the file",
-            "type": "string",
-            "required": true,
-            "example": "STR.edf"
-          },
-          {
-            "in": "formData",
-            "name": "path",
-            "description": "The path to the file relative to the SD card root.",
-            "type": "string",
-            "required": true,
-            "example": "\"./\" for a file that is at the root. \"./DATALOG/20230924/\" for a file in a DATALOG folder. Note do not include the quote marks (\")"
-          },
-          {
-            "in": "formData",
-            "name": "file",
-            "description": "The file object. Optional if the file has already been uploaded.",
-            "type": "file",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "content_hash",
-            "description": "The calculated content_hash of the file. See the /v1/imports/files/calculate_content_hash endpoint for more information",
-            "type": "string",
-            "required": true,
-            "example": "d41d8cd98f00b204e9800998ecf8427e"
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_Imports_FileSerializer"
-            }
-          },
-          "400": {
-            "description": "Missing or Bad Parameters"
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "406": {
-            "description": "Validation Errors"
-          },
-          "422": {
-            "description": "Record Not Saved"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Import Files"
-        ],
-        "operationId": "postV1ImportsImportIdFiles"
-      },
-      "get": {
-        "description": "List files",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "import_id",
-            "description": "The id of the Import",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_Imports_FileSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Import Files"
-        ],
-        "operationId": "getV1ImportsImportIdFiles"
-      }
-    },
-    "/v1/imports/{id}/process_files": {
-      "post": {
-        "description": "Start processing the files from the import",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "consumes": [
-          "multipart/form-data",
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "Import ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_ImportSerializer"
-            }
-          },
-          "400": {
-            "description": "Missing or Bad Parameters"
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "406": {
-            "description": "Validation Errors"
-          },
-          "422": {
-            "description": "Record Not Saved"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Imports"
-        ],
-        "operationId": "postV1ImportsIdProcessFiles"
-      }
-    },
-    "/v1/imports/files/{id}": {
-      "delete": {
-        "description": "Delete a File",
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "File id",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Delete a File"
-          }
-        },
-        "tags": [
-          "Import Files"
-        ],
-        "operationId": "deleteV1ImportsFilesId"
-      },
-      "get": {
-        "description": "Retrieve a File. Note: the download_url param is a signed URL that will expire in 5 minutes.",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "File id",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_Imports_FileSerializer"
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Import Files"
-        ],
-        "operationId": "getV1ImportsFilesId"
-      }
-    },
-    "/v1/imports/files/calculate_content_hash": {
-      "post": {
-        "description": "Calculate the content hash of a file when testing your content_hash algorithm.\nNote - do not use this end point to calculate the content in your finished application.\nThis end point is only for use when validating your own implementation of the content_hash algorithm.\nExcessive use of this end point may result in your account being rate limited.\nThe content_hash is a MD5 hash of the file's content and name joined together.\nFor example, if the file's name is \"file.txt\" and the file's content is \"Hello, World!\",\nthe content_hash would be the MD5 hash of the string \"Hello, World!file.txt\"\nDo not include the file's path when calculating the content hash.\n",
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "formData",
-            "name": "name",
-            "description": "The name of the file",
-            "type": "string",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "file",
-            "description": "The file to calculate the content hash for",
-            "type": "file",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "tags": [
-          "Import Files"
-        ],
-        "operationId": "postV1ImportsFilesCalculateContentHash"
-      }
-    },
-    "/v1/machines/{id}": {
-      "get": {
-        "description": "Retrieve a Machine",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "Machine ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_MachineSerializer"
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Machines"
-        ],
-        "operationId": "getV1MachinesId"
-      }
-    },
-    "/v1/machines/{machine_id}/machine_dates/{date}": {
-      "get": {
-        "description": "Find a Machine Date",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "machine_id",
-            "description": "Machine ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "path",
-            "name": "date",
-            "description": "Date",
-            "type": "string",
-            "format": "date",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_MachineDateSerializer"
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Machine Dates"
-        ],
-        "operationId": "getV1MachinesMachineIdMachineDatesDate"
-      }
-    },
-    "/v1/machines/{machine_id}/machine_dates": {
-      "get": {
-        "description": "List Machine Dates",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "machine_id",
-            "description": "Machine ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "sort_order",
-            "description": "Sort Order defaults to desc so the most recent record will be first",
-            "type": "string",
-            "default": "desc",
-            "enum": [
-              "asc",
-              "desc"
-            ],
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "description": "Page of results to fetch.",
-            "type": "integer",
-            "format": "int32",
-            "default": 1,
-            "required": false
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "description": "Number of results to return per page.",
-            "type": "integer",
-            "format": "int32",
-            "default": 100,
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_MachineDateSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Machine Dates"
-        ],
-        "operationId": "getV1MachinesMachineIdMachineDates"
-      }
-    },
-    "/v1/devices": {
-      "get": {
-        "description": "List Devices",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Api_V1_DeviceSerializer"
-              }
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Devices"
-        ],
-        "operationId": "getV1Devices"
-      }
-    },
-    "/v1/machine_dates/{id}": {
-      "put": {
-        "description": "Update a Machine Date",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "consumes": [
-          "multipart/form-data",
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "Machine Date ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "time_offset",
-            "description": "Time Offset",
-            "type": "integer",
-            "format": "int32",
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_MachineDateSerializer"
-            }
-          },
-          "400": {
-            "description": "Missing or Bad Parameters"
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "406": {
-            "description": "Validation Errors"
-          },
-          "422": {
-            "description": "Record Not Saved"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Machine Dates"
-        ],
-        "operationId": "putV1MachineDatesId"
-      },
-      "get": {
-        "description": "Retrieve a Machine Date",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "Machine Date ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_MachineDateSerializer"
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Machine Dates"
-        ],
-        "operationId": "getV1MachineDatesId"
-      }
-    },
-    "/v1/added_by/{added_by_id}/files/batch": {
-      "post": {
-        "description": "Batch create files for an Uploader or Import",
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "added_by_id",
-            "description": "The serial number of the uploader adding the file or the ID of the Import",
-            "type": "string",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "added_by_type",
-            "description": "The type of the added_by object. Either 'Uploader' or 'Import'",
-            "type": "string",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "files[][name]",
-            "description": "Name",
-            "type": "array",
-            "required": true,
-            "items": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "formData",
-            "name": "files[][path]",
-            "description": "Path",
-            "type": "array",
-            "required": true,
-            "items": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "formData",
-            "name": "files[][content_hash]",
-            "description": "Content Hash",
-            "type": "array",
-            "required": true,
-            "items": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "formData",
-            "name": "files[][file]",
-            "description": "File",
-            "type": "array",
-            "required": false,
-            "items": {
-              "type": "file"
-            }
-          },
-          {
-            "in": "formData",
-            "name": "files[][fingerprint_base64]",
-            "description": "Fingerprint",
-            "type": "array",
-            "required": false,
-            "items": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "formData",
-            "name": "files[][size]",
-            "description": "Size",
-            "type": "array",
-            "required": false,
-            "items": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Batch create files for an Uploader or Import"
-          }
-        },
-        "tags": [
-          "added_by"
-        ],
-        "operationId": "postV1AddedByAddedByIdFilesBatch"
-      }
-    },
-    "/v1/journals/{id}": {
-      "put": {
-        "description": "Update a Journal",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "consumes": [
-          "multipart/form-data",
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "Journal ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "date",
-            "description": "Date",
-            "type": "string",
-            "format": "date",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "step_count",
-            "description": "Step Count",
-            "type": "string",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "weight_grams",
-            "description": "Weight (Grams)",
-            "type": "integer",
-            "format": "int32",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "feeling_score",
-            "description": "Feeling Score",
-            "type": "string",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "active_energy_joules",
-            "description": "Active Energy (Joules)",
-            "type": "integer",
-            "format": "int32",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "notes",
-            "description": "Notes",
-            "type": "string",
-            "required": false
-          },
-          {
-            "in": "formData",
-            "name": "sleep_stages",
-            "description": "Sleep Stages",
-            "type": "string",
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_JournalSerializer"
-            }
-          },
-          "400": {
-            "description": "Missing or Bad Parameters"
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "406": {
-            "description": "Validation Errors"
-          },
-          "422": {
-            "description": "Record Not Saved"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Journals"
-        ],
-        "operationId": "putV1JournalsId"
-      },
-      "get": {
-        "description": "Retrieve a Journal",
-        "produces": [
-          "application/vnd.api+json"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "description": "Journal ID",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/Api_V1_JournalSerializer"
-            }
-          },
-          "401": {
-            "description": "Not Authorized"
-          },
-          "403": {
-            "description": "Permission Denied"
-          },
-          "404": {
-            "description": "Record Not Found"
-          },
-          "429": {
-            "description": "API Rate Limit Exceeded"
-          }
-        },
-        "tags": [
-          "Journals"
-        ],
-        "operationId": "getV1JournalsId"
-      }
-    },
-    "/v1/active_storage/blobs": {
-      "post": {
-        "description": "Direct upload blobs",
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "formData",
-            "name": "blob[filename]",
-            "description": "The name of the file including extension.",
-            "type": "string",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "blob[content_type]",
-            "description": "The content type of the file.",
-            "type": "string",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "blob[byte_size]",
-            "description": "The size of the file in bytes.",
-            "type": "integer",
-            "format": "int32",
-            "required": true
-          },
-          {
-            "in": "formData",
-            "name": "blob[checksum]",
-            "description": "The base64 encoded MD5 checksum of the file.",
-            "type": "string",
-            "required": true
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Direct upload blobs"
-          }
-        },
-        "tags": [
-          "active_storage"
-        ],
-        "operationId": "postV1ActiveStorageBlobs"
-      }
-    },
-    "/v1/admin/users": {
-      "get": {
-        "description": "Look up a user by email",
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "email",
-            "description": "Email address of the user to look up",
-            "type": "string",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Look up a user by email"
-          }
-        },
-        "tags": [
-          "admin"
-        ],
-        "operationId": "getV1AdminUsers"
-      }
-    }
-  },
-  "definitions": {
-    "Api_V1_UserSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "email": {
-                  "type": "string"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "first_name": {
-                  "type": "string"
-                },
-                "last_name": {
-                  "type": "string"
-                },
-                "time_zone": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                }
-              }
-            },
-            "relationships": {
-              "type": "object",
-              "properties": {
-                "teams": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer"
-                          },
-                          "type": {
-                            "type": "string"
-                          }
-                        }
-                      }
+        {
+            "name": "Devices",
+            "description": "The Device class represents the type of device being used. For example, ResMed AirSense 11."
+        }
+    ],
+    "paths": {
+        "/v1/me": {
+            "post": {
+                "description": "Update the current user",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "formData",
+                        "name": "first_name",
+                        "description": "First name",
+                        "type": "string",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "last_name",
+                        "description": "Last name",
+                        "type": "string",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "email",
+                        "description": "Email",
+                        "type": "string",
+                        "required": false
                     }
-                  }
-                },
-                "memberships": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer"
-                          },
-                          "type": {
-                            "type": "string"
-                          }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_UserSerializer"
                         }
-                      }
+                    },
+                    "400": {
+                        "description": "Missing or Bad Parameters"
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "406": {
+                        "description": "Validation Errors"
+                    },
+                    "422": {
+                        "description": "Record Not Saved"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
                     }
-                  }
-                }
-              }
-            }
-          },
-          "example": {
-            "id": 1,
-            "type": "user",
-            "attributes": {
-              "id": 1013702062,
-              "email": "excepturi",
-              "name": "sint",
-              "first_name": "dolor",
-              "last_name": "nulla",
-              "time_zone": "itaque",
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800"
+                },
+                "tags": [
+                    "Current User"
+                ],
+                "operationId": "postV1Me"
             },
-            "relationships": {
-              "teams": {
-                "data": [
-                  {
-                    "id": 1,
-                    "type": "teams"
-                  }
-                ]
-              },
-              "memberships": {
-                "data": [
-                  {
-                    "id": 1,
-                    "type": "memberships"
-                  }
-                ]
-              }
-            }
-          }
-        }
-      },
-      "description": "Api_V1_UserSerializer model"
-    },
-    "Api_V1_JournalSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "team_id": {
-                  "type": "integer"
-                },
-                "date": {
-                  "type": "string",
-                  "format": "date"
-                },
-                "step_count": {
-                  "type": "integer"
-                },
-                "weight_grams": {
-                  "type": "integer"
-                },
-                "feeling_score": {
-                  "type": "integer"
-                },
-                "sleep_stages": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "notes": {
-                  "type": "string"
-                }
-              }
-            },
-            "relationships": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "example": {
-            "id": 1,
-            "type": "journal",
-            "attributes": {
-              "id": 8328430014,
-              "team_id": 5513399511,
-              "date": "2026-05-24",
-              "step_count": 8390827484,
-              "weight_grams": 5625245699,
-              "feeling_score": 2156779575,
-              "sleep_stages": "Soluta et neque. Tempora totam doloribus. Occaecati quibusdam quo.",
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800",
-              "notes": "quas"
-            },
-            "relationships": {}
-          }
-        }
-      },
-      "description": "Api_V1_JournalSerializer model"
-    },
-    "Api_V1_PatientSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "team_id": {
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                }
-              }
-            },
-            "relationships": {
-              "type": "object",
-              "properties": {
-                "machines": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer"
-                          },
-                          "type": {
-                            "type": "string"
-                          }
+            "get": {
+                "description": "Details about the current user",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_UserSerializer"
                         }
-                      }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
                     }
-                  }
-                }
-              }
+                },
+                "tags": [
+                    "Current User"
+                ],
+                "operationId": "getV1Me"
             }
-          },
-          "example": {
-            "id": 1,
-            "type": "patient",
-            "attributes": {
-              "id": 1422717970,
-              "team_id": 3835806504,
-              "name": "aut",
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800"
-            },
-            "relationships": {
-              "machines": {
-                "data": [
-                  {
-                    "id": 1,
-                    "type": "machines"
-                  }
-                ]
-              }
-            }
-          }
-        }
-      },
-      "description": "Api_V1_PatientSerializer model"
-    },
-    "Api_V1_MaskSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "nickname": {
-                  "type": "string"
-                },
-                "purchase_date": {
-                  "type": "string",
-                  "format": "date"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "average_ahi": {
-                  "type": "number"
-                },
-                "average_pressure": {
-                  "type": "number"
-                },
-                "average_leak_rate": {
-                  "type": "number"
-                },
-                "average_usage_per_night": {
-                  "type": "integer"
-                },
-                "last_used_on": {
-                  "type": "string"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "description": {
-                  "type": "string"
-                },
-                "image_url": {
-                  "type": "string"
-                }
-              }
-            },
-            "relationships": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "example": {
-            "id": 1,
-            "type": "mask",
-            "attributes": {
-              "id": 2300038084,
-              "nickname": "ut",
-              "purchase_date": "2026-05-24",
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800",
-              "average_ahi": "asperiores",
-              "average_pressure": "at",
-              "average_leak_rate": "corporis",
-              "average_usage_per_night": 4863403279,
-              "last_used_on": "minus",
-              "name": "quisquam",
-              "description": "voluptatem",
-              "image_url": "aut"
-            },
-            "relationships": {}
-          }
-        }
-      },
-      "description": "Api_V1_MaskSerializer model"
-    },
-    "Api_V1_MachineSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "team_id": {
-                  "type": "integer"
-                },
-                "model": {
-                  "type": "string"
-                },
-                "brand": {
-                  "type": "string"
-                },
-                "serial_number": {
-                  "type": "string"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                }
-              }
-            },
-            "relationships": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "example": {
-            "id": 1,
-            "type": "machine",
-            "attributes": {
-              "id": 4372596358,
-              "team_id": 1116674181,
-              "model": "autem",
-              "brand": "inventore",
-              "serial_number": "doloribus",
-              "name": "possimus",
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800"
-            },
-            "relationships": {}
-          }
-        }
-      },
-      "description": "Api_V1_MachineSerializer model"
-    },
-    "Api_V1_ImportSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "team_id": {
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "status": {
-                  "type": "integer"
-                },
-                "file_size": {
-                  "type": "integer"
-                },
-                "progress": {
-                  "type": "integer"
-                },
-                "machine_id": {
-                  "type": "integer"
-                },
-                "device_id": {
-                  "type": "integer"
-                },
-                "mask_id": {
-                  "type": "integer"
-                },
-                "programatic": {
-                  "type": "boolean"
-                },
-                "failed_reason": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                }
-              }
-            },
-            "relationships": {
-              "type": "object",
-              "properties": {
-                "files": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer"
-                          },
-                          "type": {
-                            "type": "string"
-                          }
+        },
+        "/v1/teams/{team_id}/journals": {
+            "post": {
+                "description": "Add a New Journal",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "team_id",
+                        "description": "Team ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "formData",
+                        "name": "date",
+                        "description": "Date",
+                        "type": "string",
+                        "format": "date",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "step_count",
+                        "description": "Step Count",
+                        "type": "string",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "weight_grams",
+                        "description": "Weight (Grams)",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "feeling_score",
+                        "description": "Feeling Score",
+                        "type": "string",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "active_energy_joules",
+                        "description": "Active Energy (Joules)",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "notes",
+                        "description": "Notes",
+                        "type": "string",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "sleep_stages",
+                        "description": "Sleep Stages",
+                        "type": "string",
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_JournalSerializer"
                         }
-                      }
+                    },
+                    "400": {
+                        "description": "Missing or Bad Parameters"
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "406": {
+                        "description": "Validation Errors"
+                    },
+                    "422": {
+                        "description": "Record Not Saved"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
                     }
-                  }
-                }
-              }
-            }
-          },
-          "example": {
-            "id": 1,
-            "type": "import",
-            "attributes": {
-              "id": 5175397539,
-              "team_id": 8406759831,
-              "name": "ad",
-              "status": 7540109138,
-              "file_size": 8663681900,
-              "progress": 5546515034,
-              "machine_id": 9535521741,
-              "device_id": 7947522850,
-              "mask_id": 8776646849,
-              "programatic": true,
-              "failed_reason": "nam",
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800"
+                },
+                "tags": [
+                    "Journals"
+                ],
+                "operationId": "postV1TeamsTeamIdJournals"
             },
-            "relationships": {
-              "files": {
-                "data": [
-                  {
-                    "id": 1,
-                    "type": "files"
-                  }
-                ]
-              }
-            }
-          }
-        }
-      },
-      "description": "Api_V1_ImportSerializer model"
-    },
-    "Api_V1_Teams_SleepTestSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "nights": {
-                  "type": "integer"
-                },
-                "patient_id": {
-                  "type": "integer"
-                },
-                "status": {
-                  "type": "string"
-                },
-                "locked": {
-                  "type": "boolean"
-                },
-                "locked_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "closed_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "archived_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "completion_status": {
-                  "type": "string"
-                },
-                "summary": {
-                  "type": "string"
-                }
-              }
-            },
-            "relationships": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "example": {
-            "id": 1,
-            "type": "sleep_test",
-            "attributes": {
-              "id": 4490693545,
-              "nights": 8280462636,
-              "patient_id": 5735543282,
-              "status": "quibusdam",
-              "locked": true,
-              "locked_at": "2026-05-25 00:35:29 +0800",
-              "closed_at": "2026-05-25 00:35:29 +0800",
-              "archived_at": "2026-05-25 00:35:29 +0800",
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800",
-              "completion_status": "ea",
-              "summary": "sint"
-            },
-            "relationships": {}
-          }
-        }
-      },
-      "description": "Api_V1_Teams_SleepTestSerializer model"
-    },
-    "Api_V1_Imports_FileSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "added_by_id": {
-                  "type": "integer"
-                },
-                "added_by_type": {
-                  "type": "string"
-                },
-                "content_hash": {
-                  "type": "string"
-                },
-                "team_id": {
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "path": {
-                  "type": "string"
-                },
-                "size": {
-                  "type": "integer"
-                },
-                "fingerprint_base64": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "download_url": {
-                  "type": "string"
-                }
-              }
-            },
-            "relationships": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "example": {
-            "id": 1,
-            "type": "imports/file",
-            "attributes": {
-              "id": 3402971726,
-              "added_by_id": 9258295599,
-              "added_by_type": "eaque",
-              "content_hash": "illo",
-              "team_id": 8809787436,
-              "name": "minima",
-              "path": "accusantium",
-              "size": 4762786406,
-              "fingerprint_base64": "reprehenderit",
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800",
-              "download_url": "cupiditate"
-            },
-            "relationships": {}
-          }
-        }
-      },
-      "description": "Api_V1_Imports_FileSerializer model"
-    },
-    "Api_V1_TeamSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "owner_id": {
-                  "type": "integer"
-                },
-                "time_zone": {
-                  "type": "string"
-                },
-                "locale": {
-                  "type": "string"
-                },
-                "energy_unit": {
-                  "type": "string"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "teams_type": {
-                  "type": "string"
-                }
-              }
-            },
-            "relationships": {
-              "type": "object",
-              "properties": {
-                "machines": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer"
-                          },
-                          "type": {
-                            "type": "string"
-                          }
+            "get": {
+                "description": "List Journals",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "team_id",
+                        "description": "Team ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Page of results to fetch.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 1,
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "description": "Number of results to return per page.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 100,
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_JournalSerializer"
+                            }
                         }
-                      }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
                     }
-                  }
-                }
-              }
+                },
+                "tags": [
+                    "Journals"
+                ],
+                "operationId": "getV1TeamsTeamIdJournals"
             }
-          },
-          "example": {
-            "id": 1,
-            "type": "team",
-            "attributes": {
-              "id": 7029536557,
-              "name": "eum",
-              "owner_id": 4253560456,
-              "time_zone": "qui",
-              "locale": "ea",
-              "energy_unit": "quia",
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800",
-              "teams_type": "quae"
+        },
+        "/v1/teams/{team_id}/patients": {
+            "get": {
+                "description": "List Patients",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "team_id",
+                        "description": "Your clinic account team ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Page of results to fetch.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 1,
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "description": "Number of results to return per page.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 100,
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_PatientSerializer"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Patients"
+                ],
+                "operationId": "getV1TeamsTeamIdPatients"
+            }
+        },
+        "/v1/teams/{team_id}/masks": {
+            "get": {
+                "description": "List Masks",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "team_id",
+                        "description": "Team ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Page of results to fetch.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 1,
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "description": "Number of results to return per page.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 100,
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_MaskSerializer"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Masks"
+                ],
+                "operationId": "getV1TeamsTeamIdMasks"
+            }
+        },
+        "/v1/teams/{team_id}/machines": {
+            "get": {
+                "description": "List Machines",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "team_id",
+                        "description": "Team ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Page of results to fetch.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 1,
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "description": "Number of results to return per page.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 100,
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_MachineSerializer"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Machines"
+                ],
+                "operationId": "getV1TeamsTeamIdMachines"
+            }
+        },
+        "/v1/teams/{team_id}/imports": {
+            "post": {
+                "description": "Add a New Import",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "team_id",
+                        "description": "Team ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "formData",
+                        "name": "programatic",
+                        "description": "Deprecated.",
+                        "type": "boolean",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "device_id",
+                        "description": "The device type that the data is from. Find a list of device ids using the /devices endpoint.",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "mask_id",
+                        "description": "The mask used for this import. Find the team's masks using the /teams/:team_id/masks endpoint.",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "name",
+                        "description": "The name of the import to show in the UI.",
+                        "type": "string",
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_ImportSerializer"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or Bad Parameters"
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "406": {
+                        "description": "Validation Errors"
+                    },
+                    "422": {
+                        "description": "Record Not Saved"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Imports"
+                ],
+                "operationId": "postV1TeamsTeamIdImports"
             },
-            "relationships": {
-              "machines": {
-                "data": [
-                  {
-                    "id": 1,
-                    "type": "machine"
-                  }
-                ]
-              }
+            "get": {
+                "description": "List Imports",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "team_id",
+                        "description": "Team ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Page of results to fetch.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 1,
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "description": "Number of results to return per page.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 100,
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_ImportSerializer"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Imports"
+                ],
+                "operationId": "getV1TeamsTeamIdImports"
             }
-          }
+        },
+        "/v1/teams/{team_id}/files": {
+            "get": {
+                "description": "List files",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "team_id",
+                        "description": "Team ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Page of results to fetch.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 1,
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "description": "Number of results to return per page.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 100,
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_Imports_FileSerializer"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Import Files"
+                ],
+                "operationId": "getV1TeamsTeamIdFiles"
+            }
+        },
+        "/v1/teams": {
+            "get": {
+                "description": "List Accounts",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Page of results to fetch.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 1,
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "description": "Number of results to return per page.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 100,
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_TeamSerializer"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Teams"
+                ],
+                "operationId": "getV1Teams"
+            }
+        },
+        "/v1/imports/{id}": {
+            "delete": {
+                "description": "Delete a Import",
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "Import ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "purge_files",
+                        "description": "If true, the files associated with the import will be deleted. Defaults to false.",
+                        "type": "boolean",
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Delete a Import"
+                    }
+                },
+                "tags": [
+                    "Imports"
+                ],
+                "operationId": "deleteV1ImportsId"
+            },
+            "get": {
+                "description": "Retrieve a Import",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "Import ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_ImportSerializer"
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Imports"
+                ],
+                "operationId": "getV1ImportsId"
+            }
+        },
+        "/v1/imports/{import_id}/files": {
+            "post": {
+                "description": "Add a New File",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "import_id",
+                        "description": "The id of the Import",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "formData",
+                        "name": "name",
+                        "description": "The name of the file",
+                        "type": "string",
+                        "required": true,
+                        "example": "STR.edf"
+                    },
+                    {
+                        "in": "formData",
+                        "name": "path",
+                        "description": "The path to the file relative to the SD card root.",
+                        "type": "string",
+                        "required": true,
+                        "example": "\"./\" for a file that is at the root. \"./DATALOG/20230924/\" for a file in a DATALOG folder. Note do not include the quote marks (\")"
+                    },
+                    {
+                        "in": "formData",
+                        "name": "file",
+                        "description": "The file object. Optional if the file has already been uploaded.",
+                        "type": "file",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "content_hash",
+                        "description": "The calculated content_hash of the file. See the /v1/imports/files/calculate_content_hash endpoint for more information",
+                        "type": "string",
+                        "required": true,
+                        "example": "d41d8cd98f00b204e9800998ecf8427e"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_Imports_FileSerializer"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or Bad Parameters"
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "406": {
+                        "description": "Validation Errors"
+                    },
+                    "422": {
+                        "description": "Record Not Saved"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Import Files"
+                ],
+                "operationId": "postV1ImportsImportIdFiles"
+            },
+            "get": {
+                "description": "List files",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "import_id",
+                        "description": "The id of the Import",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Page of results to fetch.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 1,
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "description": "Number of results to return per page.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 100,
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_Imports_FileSerializer"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Import Files"
+                ],
+                "operationId": "getV1ImportsImportIdFiles"
+            }
+        },
+        "/v1/imports/{id}/process_files": {
+            "post": {
+                "description": "Start processing the files from the import",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "Import ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_ImportSerializer"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or Bad Parameters"
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "406": {
+                        "description": "Validation Errors"
+                    },
+                    "422": {
+                        "description": "Record Not Saved"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Imports"
+                ],
+                "operationId": "postV1ImportsIdProcessFiles"
+            }
+        },
+        "/v1/imports/files/{id}": {
+            "delete": {
+                "description": "Delete a File",
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "File id",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Delete a File"
+                    }
+                },
+                "tags": [
+                    "Import Files"
+                ],
+                "operationId": "deleteV1ImportsFilesId"
+            },
+            "get": {
+                "description": "Retrieve a File. Note: the download_url param is a signed URL that will expire in 5 minutes.",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "File id",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_Imports_FileSerializer"
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Import Files"
+                ],
+                "operationId": "getV1ImportsFilesId"
+            }
+        },
+        "/v1/imports/files/calculate_content_hash": {
+            "post": {
+                "description": "Calculate the content hash of a file when testing your content_hash algorithm.\nNote - do not use this end point to calculate the content in your finished application.\nThis end point is only for use when validating your own implementation of the content_hash algorithm.\nExcessive use of this end point may result in your account being rate limited.\nThe content_hash is a MD5 hash of the file's content and name joined together.\nFor example, if the file's name is \"file.txt\" and the file's content is \"Hello, World!\",\nthe content_hash would be the MD5 hash of the string \"Hello, World!file.txt\"\nDo not include the file's path when calculating the content hash.\n",
+                "produces": [
+                    "application/json"
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "formData",
+                        "name": "name",
+                        "description": "The name of the file",
+                        "type": "string",
+                        "required": true
+                    },
+                    {
+                        "in": "formData",
+                        "name": "file",
+                        "description": "The file to calculate the content hash for",
+                        "type": "file",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    }
+                },
+                "tags": [
+                    "Import Files"
+                ],
+                "operationId": "postV1ImportsFilesCalculateContentHash"
+            }
+        },
+        "/v1/machines/{id}": {
+            "get": {
+                "description": "Retrieve a Machine",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "Machine ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_MachineSerializer"
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Machines"
+                ],
+                "operationId": "getV1MachinesId"
+            }
+        },
+        "/v1/machines/{machine_id}/machine_dates/{date}": {
+            "get": {
+                "description": "Find a Machine Date",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "machine_id",
+                        "description": "Machine ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "path",
+                        "name": "date",
+                        "description": "Date",
+                        "type": "string",
+                        "format": "date",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_MachineDateSerializer"
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Machine Dates"
+                ],
+                "operationId": "getV1MachinesMachineIdMachineDatesDate"
+            }
+        },
+        "/v1/machines/{machine_id}/machine_dates": {
+            "get": {
+                "description": "List Machine Dates",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "machine_id",
+                        "description": "Machine ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "sort_order",
+                        "description": "Sort Order defaults to desc so the most recent record will be first",
+                        "type": "string",
+                        "default": "desc",
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Page of results to fetch.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 1,
+                        "required": false
+                    },
+                    {
+                        "in": "query",
+                        "name": "per_page",
+                        "description": "Number of results to return per page.",
+                        "type": "integer",
+                        "format": "int32",
+                        "default": 100,
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_MachineDateSerializer"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Machine Dates"
+                ],
+                "operationId": "getV1MachinesMachineIdMachineDates"
+            }
+        },
+        "/v1/devices": {
+            "get": {
+                "description": "List Devices",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Api_V1_DeviceSerializer"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Devices"
+                ],
+                "operationId": "getV1Devices"
+            }
+        },
+        "/v1/machine_dates/{id}": {
+            "put": {
+                "description": "Update a Machine Date",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "Machine Date ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "formData",
+                        "name": "time_offset",
+                        "description": "Time Offset",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_MachineDateSerializer"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or Bad Parameters"
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "406": {
+                        "description": "Validation Errors"
+                    },
+                    "422": {
+                        "description": "Record Not Saved"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Machine Dates"
+                ],
+                "operationId": "putV1MachineDatesId"
+            },
+            "get": {
+                "description": "Retrieve a Machine Date",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "Machine Date ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_MachineDateSerializer"
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Machine Dates"
+                ],
+                "operationId": "getV1MachineDatesId"
+            }
+        },
+        "/v1/added_by/{added_by_id}/files/batch": {
+            "post": {
+                "description": "Batch create files for an Uploader or Import",
+                "produces": [
+                    "application/json"
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "added_by_id",
+                        "description": "The serial number of the uploader adding the file or the ID of the Import",
+                        "type": "string",
+                        "required": true
+                    },
+                    {
+                        "in": "formData",
+                        "name": "added_by_type",
+                        "description": "The type of the added_by object. Either 'Uploader' or 'Import'",
+                        "type": "string",
+                        "required": true
+                    },
+                    {
+                        "in": "formData",
+                        "name": "files[][name]",
+                        "description": "Name",
+                        "type": "array",
+                        "required": true,
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "formData",
+                        "name": "files[][path]",
+                        "description": "Path",
+                        "type": "array",
+                        "required": true,
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "formData",
+                        "name": "files[][content_hash]",
+                        "description": "Content Hash",
+                        "type": "array",
+                        "required": true,
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "formData",
+                        "name": "files[][file]",
+                        "description": "File",
+                        "type": "array",
+                        "required": false,
+                        "items": {
+                            "type": "file"
+                        }
+                    },
+                    {
+                        "in": "formData",
+                        "name": "files[][fingerprint_base64]",
+                        "description": "Fingerprint",
+                        "type": "array",
+                        "required": false,
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "formData",
+                        "name": "files[][size]",
+                        "description": "Size",
+                        "type": "array",
+                        "required": false,
+                        "items": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Batch create files for an Uploader or Import"
+                    }
+                },
+                "tags": [
+                    "added_by"
+                ],
+                "operationId": "postV1AddedByAddedByIdFilesBatch"
+            }
+        },
+        "/v1/journals/{id}": {
+            "put": {
+                "description": "Update a Journal",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "Journal ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    },
+                    {
+                        "in": "formData",
+                        "name": "date",
+                        "description": "Date",
+                        "type": "string",
+                        "format": "date",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "step_count",
+                        "description": "Step Count",
+                        "type": "string",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "weight_grams",
+                        "description": "Weight (Grams)",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "feeling_score",
+                        "description": "Feeling Score",
+                        "type": "string",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "active_energy_joules",
+                        "description": "Active Energy (Joules)",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "notes",
+                        "description": "Notes",
+                        "type": "string",
+                        "required": false
+                    },
+                    {
+                        "in": "formData",
+                        "name": "sleep_stages",
+                        "description": "Sleep Stages",
+                        "type": "string",
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_JournalSerializer"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or Bad Parameters"
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "406": {
+                        "description": "Validation Errors"
+                    },
+                    "422": {
+                        "description": "Record Not Saved"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Journals"
+                ],
+                "operationId": "putV1JournalsId"
+            },
+            "get": {
+                "description": "Retrieve a Journal",
+                "produces": [
+                    "application/vnd.api+json"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "description": "Journal ID",
+                        "type": "integer",
+                        "format": "int32",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Api_V1_JournalSerializer"
+                        }
+                    },
+                    "401": {
+                        "description": "Not Authorized"
+                    },
+                    "403": {
+                        "description": "Permission Denied"
+                    },
+                    "404": {
+                        "description": "Record Not Found"
+                    },
+                    "429": {
+                        "description": "API Rate Limit Exceeded"
+                    }
+                },
+                "tags": [
+                    "Journals"
+                ],
+                "operationId": "getV1JournalsId"
+            }
         }
-      },
-      "description": "Api_V1_TeamSerializer model"
     },
-    "Api_V1_MachineDateSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "usage": {
-                  "type": "string"
-                },
-                "machine_id": {
-                  "type": "integer"
-                },
-                "date": {
-                  "type": "string",
-                  "format": "date"
-                },
-                "time_offset": {
-                  "type": "integer"
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "large_leak": {
-                  "type": "integer"
-                },
-                "ahi_summary": {
-                  "type": "object"
-                },
-                "pressure_summary": {
-                  "type": "object"
-                },
-                "leak_rate_summary": {
-                  "type": "object"
-                },
-                "flow_limit_summary": {
-                  "type": "object"
-                },
-                "resp_rate_summary": {
-                  "type": "object"
-                },
-                "epap_summary": {
-                  "type": "object"
-                },
-                "machine_settings": {
-                  "type": "object"
-                },
-                "pulse_rate_summary": {
-                  "type": "object"
-                },
-                "spo2_summary": {
-                  "type": "object"
-                },
-                "movement_summary": {
-                  "type": "object"
+    "definitions": {
+        "Api_V1_UserSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "email": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "first_name": {
+                                    "type": "string"
+                                },
+                                "last_name": {
+                                    "type": "string"
+                                },
+                                "time_zone": {
+                                    "type": "string"
+                                },
+                                "created_at": {
+                                    "type": "datetime"
+                                },
+                                "updated_at": {
+                                    "type": "datetime"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {
+                                "teams": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "memberships": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "user",
+                        "attributes": {
+                            "id": 7483825833,
+                            "email": "suscipit",
+                            "name": "quia",
+                            "first_name": "laboriosam",
+                            "last_name": "exercitationem",
+                            "time_zone": "eius",
+                            "created_at": "2026-05-29 15:57:30 +0800",
+                            "updated_at": "2026-05-29 15:57:30 +0800"
+                        },
+                        "relationships": {
+                            "teams": {
+                                "data": [
+                                    {
+                                        "id": 1,
+                                        "type": "teams"
+                                    }
+                                ]
+                            },
+                            "memberships": {
+                                "data": [
+                                    {
+                                        "id": 1,
+                                        "type": "memberships"
+                                    }
+                                ]
+                            }
+                        }
+                    }
                 }
-              }
             },
-            "relationships": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "example": {
-            "id": 1,
-            "type": "machine_date",
-            "attributes": {
-              "id": 6754229127,
-              "usage": "eveniet",
-              "machine_id": 8427139398,
-              "date": "2026-05-24",
-              "time_offset": 3605430137,
-              "created_at": "2026-05-25 00:35:29 +0800",
-              "updated_at": "2026-05-25 00:35:29 +0800",
-              "large_leak": 6664600659,
-              "ahi_summary": {
-                "example": "object"
-              },
-              "pressure_summary": {
-                "example": "object"
-              },
-              "leak_rate_summary": {
-                "example": "object"
-              },
-              "flow_limit_summary": {
-                "example": "object"
-              },
-              "resp_rate_summary": {
-                "example": "object"
-              },
-              "epap_summary": {
-                "example": "object"
-              },
-              "machine_settings": {
-                "example": "object"
-              },
-              "pulse_rate_summary": {
-                "example": "object"
-              },
-              "spo2_summary": {
-                "example": "object"
-              },
-              "movement_summary": {
-                "example": "object"
-              }
-            },
-            "relationships": {}
-          }
-        }
-      },
-      "description": "Api_V1_MachineDateSerializer model"
-    },
-    "Api_V1_DeviceSerializer": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "type": {
-              "type": "string"
-            },
-            "attributes": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "brand": {
-                  "type": "string"
-                },
-                "device_type": {
-                  "type": "string"
+            "description": "Api_V1_UserSerializer model"
+        },
+        "Api_V1_JournalSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "team_id": {
+                                    "type": "integer"
+                                },
+                                "date": {
+                                    "type": "date"
+                                },
+                                "step_count": {
+                                    "type": "integer"
+                                },
+                                "weight_grams": {
+                                    "type": "integer"
+                                },
+                                "feeling_score": {
+                                    "type": "integer"
+                                },
+                                "sleep_stages": {
+                                    "type": "text"
+                                },
+                                "created_at": {
+                                    "type": "datetime"
+                                },
+                                "updated_at": {
+                                    "type": "datetime"
+                                },
+                                "notes": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "journal",
+                        "attributes": {
+                            "id": 3068871461,
+                            "team_id": 5534846001,
+                            "date": "2026-05-29",
+                            "step_count": 7045112780,
+                            "weight_grams": 1029906878,
+                            "feeling_score": 4780087457,
+                            "sleep_stages": "Quis provident maiores. Veritatis omnis ab. Iste rerum error.",
+                            "created_at": "2026-05-29 15:57:30 +0800",
+                            "updated_at": "2026-05-29 15:57:30 +0800",
+                            "notes": "libero"
+                        },
+                        "relationships": {}
+                    }
                 }
-              }
             },
-            "relationships": {
-              "type": "object",
-              "properties": {}
-            }
-          },
-          "example": {
-            "id": 1,
-            "type": "device",
-            "attributes": {
-              "id": 2866060131,
-              "name": "et",
-              "brand": "tempore",
-              "device_type": "quae"
+            "description": "Api_V1_JournalSerializer model"
+        },
+        "Api_V1_PatientSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "team_id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "created_at": {
+                                    "type": "datetime"
+                                },
+                                "updated_at": {
+                                    "type": "datetime"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {
+                                "machines": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "patient",
+                        "attributes": {
+                            "id": 4651324375,
+                            "team_id": 7874935231,
+                            "name": "voluptatem",
+                            "created_at": "2026-05-29 15:57:30 +0800",
+                            "updated_at": "2026-05-29 15:57:30 +0800"
+                        },
+                        "relationships": {
+                            "machines": {
+                                "data": [
+                                    {
+                                        "id": 1,
+                                        "type": "machines"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
             },
-            "relationships": {}
-          }
+            "description": "Api_V1_PatientSerializer model"
+        },
+        "Api_V1_MaskSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "nickname": {
+                                    "type": "string"
+                                },
+                                "purchase_date": {
+                                    "type": "date"
+                                },
+                                "created_at": {
+                                    "type": "datetime"
+                                },
+                                "updated_at": {
+                                    "type": "datetime"
+                                },
+                                "average_ahi": {
+                                    "type": "decimal"
+                                },
+                                "average_pressure": {
+                                    "type": "decimal"
+                                },
+                                "average_leak_rate": {
+                                    "type": "decimal"
+                                },
+                                "average_usage_per_night": {
+                                    "type": "integer"
+                                },
+                                "last_used_on": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "description": {
+                                    "type": "string"
+                                },
+                                "image_url": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "mask",
+                        "attributes": {
+                            "id": 4411114765,
+                            "nickname": "dolore",
+                            "purchase_date": "2026-05-29",
+                            "created_at": "2026-05-29 15:57:30 +0800",
+                            "updated_at": "2026-05-29 15:57:30 +0800",
+                            "average_ahi": "distinctio",
+                            "average_pressure": "accusamus",
+                            "average_leak_rate": "quo",
+                            "average_usage_per_night": 7343703160,
+                            "last_used_on": "nostrum",
+                            "name": "veritatis",
+                            "description": "autem",
+                            "image_url": "ea"
+                        },
+                        "relationships": {}
+                    }
+                }
+            },
+            "description": "Api_V1_MaskSerializer model"
+        },
+        "Api_V1_MachineSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "team_id": {
+                                    "type": "integer"
+                                },
+                                "model": {
+                                    "type": "string"
+                                },
+                                "brand": {
+                                    "type": "string"
+                                },
+                                "serial_number": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "created_at": {
+                                    "type": "datetime"
+                                },
+                                "updated_at": {
+                                    "type": "datetime"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "machine",
+                        "attributes": {
+                            "id": 7418706951,
+                            "team_id": 3975117618,
+                            "model": "exercitationem",
+                            "brand": "culpa",
+                            "serial_number": "laudantium",
+                            "name": "quam",
+                            "created_at": "2026-05-29 15:57:30 +0800",
+                            "updated_at": "2026-05-29 15:57:30 +0800"
+                        },
+                        "relationships": {}
+                    }
+                }
+            },
+            "description": "Api_V1_MachineSerializer model"
+        },
+        "Api_V1_ImportSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "team_id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "integer"
+                                },
+                                "file_size": {
+                                    "type": "integer"
+                                },
+                                "progress": {
+                                    "type": "integer"
+                                },
+                                "machine_id": {
+                                    "type": "integer"
+                                },
+                                "device_id": {
+                                    "type": "integer"
+                                },
+                                "mask_id": {
+                                    "type": "integer"
+                                },
+                                "programatic": {
+                                    "type": "boolean"
+                                },
+                                "failed_reason": {
+                                    "type": "string"
+                                },
+                                "created_at": {
+                                    "type": "datetime"
+                                },
+                                "updated_at": {
+                                    "type": "datetime"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {
+                                "files": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "import",
+                        "attributes": {
+                            "id": 9704033793,
+                            "team_id": 1235126622,
+                            "name": "corrupti",
+                            "status": 4073212970,
+                            "file_size": 4154191772,
+                            "progress": 6898968960,
+                            "machine_id": 6025024003,
+                            "device_id": 7180971136,
+                            "mask_id": 4637817086,
+                            "programatic": false,
+                            "failed_reason": "et",
+                            "created_at": "2026-05-29 15:57:30 +0800",
+                            "updated_at": "2026-05-29 15:57:30 +0800"
+                        },
+                        "relationships": {
+                            "files": {
+                                "data": [
+                                    {
+                                        "id": 1,
+                                        "type": "files"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "description": "Api_V1_ImportSerializer model"
+        },
+        "Api_V1_Imports_FileSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "added_by_id": {
+                                    "type": "integer"
+                                },
+                                "added_by_type": {
+                                    "type": "string"
+                                },
+                                "content_hash": {
+                                    "type": "string"
+                                },
+                                "team_id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "path": {
+                                    "type": "string"
+                                },
+                                "size": {
+                                    "type": "integer"
+                                },
+                                "fingerprint_base64": {
+                                    "type": "string"
+                                },
+                                "created_at": {
+                                    "type": "datetime"
+                                },
+                                "updated_at": {
+                                    "type": "datetime"
+                                },
+                                "download_url": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "imports/file",
+                        "attributes": {
+                            "id": 2873870533,
+                            "added_by_id": 8555662699,
+                            "added_by_type": "doloremque",
+                            "content_hash": "delectus",
+                            "team_id": 4458777480,
+                            "name": "architecto",
+                            "path": "mollitia",
+                            "size": 8677097402,
+                            "fingerprint_base64": "quo",
+                            "created_at": "2026-05-29 15:57:30 +0800",
+                            "updated_at": "2026-05-29 15:57:30 +0800",
+                            "download_url": "non"
+                        },
+                        "relationships": {}
+                    }
+                }
+            },
+            "description": "Api_V1_Imports_FileSerializer model"
+        },
+        "Api_V1_TeamSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "owner_id": {
+                                    "type": "integer"
+                                },
+                                "time_zone": {
+                                    "type": "string"
+                                },
+                                "locale": {
+                                    "type": "string"
+                                },
+                                "energy_unit": {
+                                    "type": "string"
+                                },
+                                "created_at": {
+                                    "type": "datetime"
+                                },
+                                "updated_at": {
+                                    "type": "datetime"
+                                },
+                                "teams_type": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {
+                                "machines": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "team",
+                        "attributes": {
+                            "id": 4105182850,
+                            "name": "sapiente",
+                            "owner_id": 1996649167,
+                            "time_zone": "vel",
+                            "locale": "velit",
+                            "energy_unit": "repudiandae",
+                            "created_at": "2026-05-29 15:57:30 +0800",
+                            "updated_at": "2026-05-29 15:57:30 +0800",
+                            "teams_type": "quidem"
+                        },
+                        "relationships": {
+                            "machines": {
+                                "data": [
+                                    {
+                                        "id": 1,
+                                        "type": "machine"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "description": "Api_V1_TeamSerializer model"
+        },
+        "Api_V1_MachineDateSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "usage": {
+                                    "type": "string"
+                                },
+                                "machine_id": {
+                                    "type": "integer"
+                                },
+                                "date": {
+                                    "type": "date"
+                                },
+                                "time_offset": {
+                                    "type": "integer"
+                                },
+                                "created_at": {
+                                    "type": "datetime"
+                                },
+                                "updated_at": {
+                                    "type": "datetime"
+                                },
+                                "large_leak": {
+                                    "type": "integer"
+                                },
+                                "ahi_summary": {
+                                    "type": "jsonb"
+                                },
+                                "pressure_summary": {
+                                    "type": "jsonb"
+                                },
+                                "leak_rate_summary": {
+                                    "type": "jsonb"
+                                },
+                                "flow_limit_summary": {
+                                    "type": "jsonb"
+                                },
+                                "resp_rate_summary": {
+                                    "type": "jsonb"
+                                },
+                                "epap_summary": {
+                                    "type": "jsonb"
+                                },
+                                "machine_settings": {
+                                    "type": "jsonb"
+                                },
+                                "pulse_rate_summary": {
+                                    "type": "jsonb"
+                                },
+                                "spo2_summary": {
+                                    "type": "jsonb"
+                                },
+                                "movement_summary": {
+                                    "type": "jsonb"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "machine_date",
+                        "attributes": {
+                            "id": 6008214737,
+                            "usage": "distinctio",
+                            "machine_id": 4601888550,
+                            "date": "2026-05-29",
+                            "time_offset": 2151552001,
+                            "created_at": "2026-05-29 15:57:30 +0800",
+                            "updated_at": "2026-05-29 15:57:30 +0800",
+                            "large_leak": 4822637256,
+                            "ahi_summary": {
+                                "example": "object"
+                            },
+                            "pressure_summary": {
+                                "example": "object"
+                            },
+                            "leak_rate_summary": {
+                                "example": "object"
+                            },
+                            "flow_limit_summary": {
+                                "example": "object"
+                            },
+                            "resp_rate_summary": {
+                                "example": "object"
+                            },
+                            "epap_summary": {
+                                "example": "object"
+                            },
+                            "machine_settings": {
+                                "example": "object"
+                            },
+                            "pulse_rate_summary": {
+                                "example": "object"
+                            },
+                            "spo2_summary": {
+                                "example": "object"
+                            },
+                            "movement_summary": {
+                                "example": "object"
+                            }
+                        },
+                        "relationships": {}
+                    }
+                }
+            },
+            "description": "Api_V1_MachineDateSerializer model"
+        },
+        "Api_V1_DeviceSerializer": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "brand": {
+                                    "type": "string"
+                                },
+                                "device_type": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "relationships": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    },
+                    "example": {
+                        "id": 1,
+                        "type": "device",
+                        "attributes": {
+                            "id": 1726770795,
+                            "name": "dolores",
+                            "brand": "sequi",
+                            "device_type": "fuga"
+                        },
+                        "relationships": {}
+                    }
+                }
+            },
+            "description": "Api_V1_DeviceSerializer model"
         }
-      },
-      "description": "Api_V1_DeviceSerializer model"
     }
-  }
 }

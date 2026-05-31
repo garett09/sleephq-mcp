@@ -13,14 +13,15 @@ import java.util.function.DoublePredicate;
 /**
  * Builds a {@link NightChannelSummary} from raw channel samples: applies the display-unit conversion,
  * computes p99/p95/median/min/max/avg via {@link ChannelPercentiles}, and attaches clinical markers.
- * Thresholds are named constants aligned with {@code sleephq://reference/normal-ranges}.
+ * Percentiles use <strong>every</strong> finite sample after unit scaling (NaN/null only) — same
+ * ceil-rank distribution as OSCAR / SleepHQ; no therapy or large-leak subsets.
+ * Thresholds for markers only are named constants aligned with {@code sleephq://reference/normal-ranges}.
  */
 public final class NightSummaryComputer {
 
     public static final double LEAK_LARGE_THRESHOLD_L_MIN = 24.0;
     public static final double SPO2_DESAT_THRESHOLD = 88.0;
     private static final double AT_MAX_EPSILON = 0.05;
-
     private NightSummaryComputer() {}
 
     /** Maps a PLD EDF channel label to a tool field, or null if not summarised. */
@@ -43,7 +44,14 @@ public final class NightSummaryComputer {
 
     /** @return the summary, or null if no valid samples. */
     public static NightChannelSummary summarise(String field, String rawUnit, List<Double> rawSamples, double sampleRate) {
-        OscarChannelUnitNormalizer.UnitConversion conv = OscarChannelUnitNormalizer.conversionFor(field, rawUnit);
+        return summarise(field, rawUnit, null, rawSamples, sampleRate);
+    }
+
+    /** @param edfLabel PLD/Viatom channel label (e.g. {@code Leak.2s}) for unit inference when EDF unit is blank. */
+    public static NightChannelSummary summarise(String field, String rawUnit, String edfLabel,
+                                                List<Double> rawSamples, double sampleRate) {
+        OscarChannelUnitNormalizer.UnitConversion conv =
+                OscarChannelUnitNormalizer.conversionFor(field, rawUnit, rawSamples, edfLabel);
         List<Double> scaled = new ArrayList<>(rawSamples.size());
         for (Double v : rawSamples) {
             if (v != null && !Double.isNaN(v)) {

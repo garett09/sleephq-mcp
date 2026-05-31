@@ -34,10 +34,26 @@ class NightSummaryComputerTest {
         NightChannelSummary s = NightSummaryComputer.summarise("leak_rate", "L/s", raw, 0.5);
         assertThat(s.unit()).isEqualTo("L/min");
         assertThat(s.max()).isCloseTo(30.0, within(0.01));
+        assertThat(s.p95()).isCloseTo(30.0, within(0.01));
         assertThat(s.median()).isCloseTo(6.0, within(0.01));
         assertThat(s.count()).isEqualTo(100);
         assertThat(s.markers().get("time_above_24_l_min_seconds")).isCloseTo(20.0, within(0.01));
         assertThat(s.markers().get("time_above_24_l_min_pct")).isCloseTo(10.0, within(0.01));
+    }
+
+    @Test
+    void summarise_leakRate_blankPldUnit_infersLps_matchesOscarStyleP95() {
+        List<Double> raw = new ArrayList<>();
+        for (int i = 0; i < 900; i++) {
+            raw.add(0.22);
+        }
+        for (int i = 0; i < 100; i++) {
+            raw.add(0.5);
+        }
+        NightChannelSummary s = NightSummaryComputer.summarise("leak_rate", "", raw, 0.5);
+        assertThat(s.unit()).isEqualTo("L/min");
+        assertThat(s.p95()).isCloseTo(30.0, within(0.2));
+        assertThat(s.max()).isCloseTo(30.0, within(0.2));
     }
 
     @Test
@@ -64,5 +80,25 @@ class NightSummaryComputerTest {
     @Test
     void summarise_emptySamples_returnsNull() {
         assertThat(NightSummaryComputer.summarise("pressure", "cmH2O", List.of(), 0.5)).isNull();
+    }
+
+    @Test
+    void summarise_concatenatedSessions_matchesSingleDistributionPass() {
+        List<Double> brief = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            brief.add(2.0);
+        }
+        List<Double> therapy = new ArrayList<>();
+        for (int i = 0; i < 500; i++) {
+            therapy.add(12.0);
+        }
+        List<Double> all = new ArrayList<>(brief);
+        all.addAll(therapy);
+        NightChannelSummary merged = NightSummaryComputer.summarise("pressure", "cmH2O", all, 0.5);
+        assertThat(merged.p95()).isEqualTo(12.0);
+        assertThat(merged.median()).isEqualTo(12.0);
+        assertThat(merged.count()).isEqualTo(520);
+        assertThat(merged.min()).isEqualTo(2.0);
+        assertThat(merged.max()).isEqualTo(12.0);
     }
 }

@@ -22,8 +22,9 @@ Health check: `GET http://localhost:8080/actuator/health`
 ```
 tools/        @McpTool facades — one thin method per tool, all wrapped in McpResponses.safe()
    ↓
-service/      NightService, CombinedNightService, ComparisonService, DeviceEventService,
-              WaveformService, OximetryService, JournalLookupService, DeviceContextService
+service/      NightService, CombinedNightService, SleepHqNightSummaryService, ComparisonService,
+              DeviceEventService, WaveformService, OximetryService, JournalLookupService,
+              DeviceContextService
    ↓
 client/       SleepHqClient — one method per documented endpoint family; path composition only
    ↓
@@ -44,6 +45,8 @@ auth/         AuthInterceptor (bearer token + 401 retry), TokenManager (token ca
 **SleepHQ API contract:** All upstream calls use `https://sleephq.com` + `/api` + `/v1/...` paths from the published Swagger. Do not invent undocumented routes. See `docs/sleephq-openapi-gap.md` for tools that do local processing on top of documented routes (e.g. `get-comparison`, EDF parsing, Viatom binary parsing).
 
 **EDF processing:** `get-waveform`, `get-device-events`, `scan-apnea-events` download binary EDF files via the import/S3 route and parse locally (`EdfParser`, `EdfAnnotationParser`, `EdfBinarySupport`). O2 oximetry uses a Viatom proprietary binary (`ViatomSessionParser`).
+
+**SleepHQ nightly channel summary:** `get-sleephq-night(date)` — p99/p95/median (+ markers, validation, provenance) from local mirror (`RESMED_DATA` / `SLEEPHQ_O2_RING`) with API fallback. No OSCAR; sleep stage/AHI stay on `get-combined-night-by-date`. When `coverage.cpap` or `coverage.oximetry` is false, read `coverage.cpap_reason` / `coverage.oximetry_reason` (e.g. `no_sleephq_pld`) — never guess missing channels. See `docs/sleephq-openapi-gap.md` and `goose-recipe.yaml`. Manual smoke: [`docs/smoke-test-sleephq-night.md`](docs/smoke-test-sleephq-night.md).
 
 **Contextual waveform:** `get-waveform-by-date` uses `WaveformWindowPlanner` to auto-anchor BRP slices (`anchor=auto` default when `startMinute` omitted). Response includes `window_selection` (reason + evidence). Never falls back to minute 0 — fails with `no_sleephq_brp` or `no_anchor_candidates`.
 
@@ -72,3 +75,4 @@ Optional defaults (see `application.properties` for all):
 - `SLEEPHQ_MCP_PORT` — default `8080`
 - `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS` — fallback drift correction
 - `OSCAR_DATA_PATH`, `OSCAR_PROFILE_NAME`, `OSCAR_DEVICE_FOLDER` — local OSCAR CPAP backup (optional)
+- `SLEEPHQ_LOCAL_DATA_PATH`, `SLEEPHQ_O2_LOCAL_PATH`, `SLEEPHQ_SYNC_REPORT_PATH` — local SleepHQ mirror for `get-sleephq-night` (defaults: `~/RESMED_DATA`, `~/SLEEPHQ_O2_RING`, `~/ezscript/sync_report.json`)

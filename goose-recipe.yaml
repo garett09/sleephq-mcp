@@ -77,7 +77,7 @@ instructions: |
 
   - *Discovery:* `who-am-i`, `get-configured-defaults`, `list-teams`, `list-machines`, `list-machine-dates`
   - *Nightly therapy:* `get-combined-night-by-date` (preferred; includes `night_analysis` when OSCAR reachable), `get-night-stats`, `get-comparison` (15–120d)
-  - *SleepHQ channel summary:* `get-sleephq-night(date)` — SleepHQ-only p99/p95/median (+min/max/avg, clinical markers, self-validation vs machine_date) for pressure, epap, mask_pressure, leak_rate, resp_rate, tidal_volume, minute_vent, snore, flow_limit (PLD) and spo2, pulse_rate, movement (O2 ring). Reads the local mirror first (RESMED_DATA/SLEEPHQ_O2_RING), else the API. `provenance.cpap_source`/`o2_source` = `local`|`sleephq_api`. Sleep stage/AHI are NOT here — combine with `get-combined-night-by-date`. Authority order for channel percentiles: cloud summary (fast) → get-sleephq-night (detail) → OSCAR (fallback only). See MCP index.
+  - *SleepHQ channel summary:* `get-sleephq-night(date)` — SleepHQ-only p99/p95/median (+min/max/avg, clinical markers, self-validation vs machine_date) for pressure, epap, mask_pressure, leak_rate, resp_rate, tidal_volume, minute_vent, snore, flow_limit (PLD) and spo2, pulse_rate, movement (O2 ring). Reads the local mirror first (RESMED_DATA/SLEEPHQ_O2_RING), else the API; if local PLD totals &lt;2 h analysed, falls back to API when available (`provenance.cpap_local_skipped_reason`). **Percentiles:** every finite PLD sample after unit scaling (NaN/null only) — **no** therapy or large-leak subsets; multi-session nights **concatenate** all samples per channel then one ceil-rank pass (same math as OSCAR). **Not downsampled** (unlike `get-waveform-by-date`). Clinical markers (e.g. leak time&gt;24 L/min) use thresholds only — they do not change p95/p99/median. PLD parse reads up to **12 h** from file start. O2: invalid / `-1` sentinels skipped. Sleep stage/AHI are NOT here — combine with `get-combined-night-by-date`. Authority order: cloud summary (fast) → get-sleephq-night (detail) → OSCAR (fallback only). See MCP index and `sleephq://playbook/autovisualiser` § get-sleephq-night.
   - *OSCAR local backup (optional):* `get-oscar-status` first; `get-night-analysis`, `get-mechanics`, `get-oscar-trend` (`detail=summary` default), `get-oscar-events` (`detail=summary` default), `get-plmd-night` — see `sleephq-mcp-capabilities.md` and `docs/smoke-test-oscar-mcp.md`
   - *OSCAR data accuracy on `night_analysis` (when SleepHQ + OSCAR both present):* **`provenance`** lists active sources (`sleephq`, `oscar_summaries_xml`, `oscar_summary_000`, EDF paths, `sleephq_journal`). **`coverage.oscar_export_lag_days`** / **`oscar_export_freshness`** with **`provenance.oscar_summaries_xml.freshness_scope`** = `export` → age of the **local OSCAR backup** (newest indexed session vs today), **not** how old the analyzed calendar night is. **`data_conflicts`** = structured SleepHQ vs OSCAR metric deltas (AHI, OA/CA/hypopnea indices, avg pressure, avg leak); severities `info` | `warn` | `critical` — cite in reconciliation; **SleepHQ `ahi_summary` stays primary** for titration/decisions. **`session.session_date_note`** = `matched_end_date` when the session started before midnight but was matched by its **end** calendar date.
   - *Waveform anchors smoke:* `docs/smoke-test-waveform-windows.md` — `./scripts/goose-smoke-waveform.sh`
@@ -86,7 +86,7 @@ instructions: |
   - *Interface:* `list-masks`, `list-devices`, `get-machine-details` (also inside `get-device-context`)
   - *Physiology:* `get-device-events` (EVE), `scan-apnea-events` (BRP flow), `get-waveform-by-date`, `get-o2-oximetry` (always cap `maxMinutes`)
   - *Waveform anchors:* `get-waveform-by-date(anchor=…)` menu = `auto, eve_scan_overlap, worst_obstructive, worst_central, worst_leak, notable_moment, rem, deep, core, awake`. Planner **never silently falls back to minute 0** — on no match it returns a structured error (`no_anchor_candidates` or `no_sleephq_brp`); report the error, don't invent a window. `worst_leak` resolving to `start_minute=0` is **valid** (peak leak at session start), not a bug. Always cite `window_selection` (`anchor_resolved`, `reason`, `evidence`).
-  - *Autovisualiser (Goose builtin):* After primary MCP data returns, read `sleephq://playbook/autovisualiser`. **physician_titration_review:** up to **5** span charts (AHI, OSA+CSA, leak, usage, SpO₂ or worst-night stages). **balanced:** ≤2 charts. Never chart before `get-comparison` / `get-combined-night-by-date`; never chart smoke tests; on failure continue with tables only.
+  - *Autovisualiser (Goose builtin):* After primary MCP data returns, read `sleephq://playbook/autovisualiser`. **physician_titration_review:** up to **5** span charts (AHI, OSA+CSA, leak, usage, SpO₂ or worst-night stages). **balanced:** ≤2 charts. Span leak charts use `get-comparison` `leak_95_l_min` — not `get-sleephq-night` (night summary is full-resolution tables, not waveform arrays). Never chart before `get-comparison` / `get-combined-night-by-date`; never chart smoke tests; on failure continue with tables only.
   - *Goose memory:* store mask/pressure goals only when user asks; confirm before save; no secrets
   - *Chat recall:* past session decisions — always re-fetch SleepHQ for current nights
 
@@ -215,9 +215,13 @@ instructions: |
     (core = light), cited per the journal-wellness rules. Sleep stage stays journal-sourced.
   - Cite `provenance.cpap_source`/`o2_source` (`local` vs `sleephq_api`), `session_count`, and — when
     the source was `local` — `provenance.local_mirror_synced_at` / `local_mirror_age_hours` (how fresh
-    the mirror is; if stale, note that the API path is more current). Note any session with an
+    the mirror is; if stale, note that the API path is more current). If `cpap_local_skipped_reason` is
+    set, say local PLD was too short and API (or partial local) was used. Note any session with an
     `error`/`note`. Surface any `validation` entry where `agree=false` in `### Data completeness` as a
-    SleepHQ-vs-computed grouping caveat (a sanity-band difference, not necessarily a defect).
+    SleepHQ-vs-computed sanity-band caveat (±10% / ±1.0), not necessarily a defect.
+  - **Percentile fidelity:** all channels use the same rules as leak — full PLD sample count in
+    `count`, concatenated across sessions, no downsampling; should match OSCAR/SleepHQ when
+    `validation.*.agree` is true.
 
   {% if session_date == '' or session_date == 'auto' %}
   {% if workflow_mode == "balanced" %}
@@ -354,13 +358,16 @@ instructions: |
   **Nightly per-channel percentiles — single authority, no duplicate numbers:** pressure, epap,
   mask_pressure, leak_rate, resp_rate, tidal_volume, minute_vent, snore, flow_limit, spo2, pulse_rate,
   movement all derive from the **same ResMed SD-card EDF** across the cloud, the local SleepHQ mirror,
-  and OSCAR — same bytes, identical p95/median (shared ceil-rank math + unit normalization). So choose
-  by **freshness/coverage, never present two sets**:
+  and OSCAR — same bytes, identical p95/median when computed on the same sample set (shared ceil-rank
+  math + unit normalization; **no downsampling** on `get-sleephq-night`). **`get-sleephq-night` rules:**
+  all finite PLD samples per channel (NaN/null only); sessions concatenated; no therapy or &gt;24 L/min
+  exclusions on percentiles (markers only); O2 drops invalid/`-1` sentinels; local PLD &lt;2 h → API
+  fallback when available. Choose by **freshness/coverage, never present two sets**:
   1. **Fast summary** (p95/median/max, subset of channels) → SleepHQ **cloud** `machine_date`
      (`get-comparison` / `get-combined-night-by-date`). Use when a quick number is enough.
   2. **Full detail** (true **p99** + **tidal_volume/minute_vent/snore/movement** + clinical markers) →
      **`get-sleephq-night`** (local SD mirror, API fallback). Its `validation` block confirms agreement
-     with #1; cite `cpap_source`/`o2_source`.
+     with #1; cite `cpap_source`/`o2_source` and `cpap_local_skipped_reason` when present.
   3. **OSCAR** (`get-mechanics` / `get-oscar-trend`) → **fallback only** when a night is absent from
      both SleepHQ paths. OSCAR `data_conflicts` reconciliation stays scoped to **processed indices
      (AHI / event counts)** — NOT channel percentiles, which are byte-identical across copies.

@@ -78,7 +78,7 @@ public class ApiNightFileSource implements NightFileSource {
                 }
                 String fileId = item.path("id").asText();
                 out.add(new NightSessionFile(name, NightDateGrouping.parseStamp(name),
-                        () -> downloadFile(fileId)));
+                        () -> downloadFile(fileId), fileId));
             }
             if (data.size() < FILES_PER_PAGE) {
                 break;
@@ -124,7 +124,7 @@ public class ApiNightFileSource implements NightFileSource {
                 if (fileId != null) {
                     final LocalDateTime finalStart = start;
                     out.add(new NightSessionFile(attrs.path("name").asText(""), finalStart,
-                            () -> downloadFile(fileId)));
+                            () -> downloadFile(fileId), fileId));
                 }
             }
             if (data.size() < IMPORTS_PER_PAGE) {

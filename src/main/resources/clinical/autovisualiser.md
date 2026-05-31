@@ -22,9 +22,39 @@ Use the Goose **autovisualiser** builtin **after** live MCP data returns this se
 ## When not to chart
 
 - Before the workflow primary data tool returns (`get-comparison` or `get-combined-night-by-date`).
-- Raw waveform channel arrays (`get-waveform-by-date.channels`).
+- Raw waveform channel arrays (`get-waveform-by-date.channels` — these are **downsampled** for MCP payload; see `sleephq://playbook/payload-budget`).
+- `get-sleephq-night` **sample arrays** (the tool returns aggregates only: p99/p95/median/min/max/avg/count + markers).
 - Full EVE/scan event lists (keep tables in appendix).
 - Invented or baseline (`sleephq://patient/baseline`) numbers.
+
+## `get-sleephq-night` — percentiles vs charts
+
+**Default: markdown table, not a chart.** `get-sleephq-night` is the full-resolution nightly channel summary; render it in **`### Nightly channel summary`** (goose-recipe) as rows copied verbatim from `cpap.channels` / `oximetry.channels`.
+
+**How percentiles are computed (all channels — same as leak):**
+
+| Rule | Behavior |
+|------|----------|
+| Sample set | Every finite PLD sample after unit scaling (NaN/null only) |
+| Multi-session | All sessions **concatenated** per channel, one distribution |
+| Exclusions | **None** on p95/p99/median (no therapy subset, no &gt;24 L/min drop) |
+| Markers | Thresholds only (e.g. leak time&gt;24 L/min) — do not alter percentiles |
+| Downsampling | **No** — unlike `get-waveform-by-date` |
+| O2 | Invalid / `-1` sentinels skipped before stats |
+| Local mirror | `RESMED_DATA` / `SLEEPHQ_O2_RING` first; PLD &lt;2 h analysed → API when available |
+| Parse window | Up to **12 h** from PLD file start |
+
+**Charts that use leak / resp / SpO₂ percentiles:**
+
+| Span (multi-night) | Use | Do not use |
+|--------------------|-----|------------|
+| Leak 95th trend | `get-comparison` → `leak_95_l_min` / `table_display.leak_rate_l_min` | `get-sleephq-night` (one night per call) |
+| SpO₂ nadir trend | `get-comparison` → `spo2_min_pct` | — |
+| Focal night channel table | Copy `get-sleephq-night` JSON into markdown | Do not rebuild p95 from waveform |
+
+**Optional chart (clinical_deep_dive only, ≤1 slot):** a simple bar of `get-sleephq-night` **p95** per CPAP channel for the focal night is allowed **only** if the user asks for a visual or the recipe already returned `get-sleephq-night` — use the tool’s p95 fields only, never `get-waveform-by-date` samples. Prefer the sleep-stage donut when the single chart slot is unused.
+
+**Validation:** when `validation.<channel>.agree` is true, chart labels for that metric should match SleepHQ cloud summaries; `agree=false` is a sanity band (±10% / ±1.0), not a reason to recompute from waveform.
 
 ## Data extraction (prefer structured fields)
 
@@ -104,7 +134,7 @@ Only when OSCAR was already fetched and SleepHQ span lacks nights. Use `nights[]
 
 **Deep-night only (#5 donut):** call `get-combined-night-by-date` only if already in Phase 5 deep nights — do not add extra API calls just for a chart.
 
-**Do not chart here:** waveform samples, EVE/scan event lists, raw `apnea_trends` JSON (use bullets for span summary).
+**Do not chart here:** waveform samples (downsampled), `get-sleephq-night` raw series (aggregates only), EVE/scan event lists, raw `apnea_trends` JSON (use bullets for span summary). Span **leak 95th** comes from `get-comparison`, not nightly PLD re-aggregation.
 
 ## Ventilation mechanics chart group
 

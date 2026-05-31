@@ -57,6 +57,7 @@ class ApiNightFileSourceTest {
         List<NightSessionFile> files = source.cpapSessions("2026-04-17");
 
         assertThat(files).extracting(NightSessionFile::name).containsExactly("20260418_015119_PLD.edf");
+        assertThat(files.get(0).fileId()).isEqualTo("f1");
         assertThat(files.get(0).bytes().get()).containsExactly(9, 9); // download happens lazily on get()
     }
 }

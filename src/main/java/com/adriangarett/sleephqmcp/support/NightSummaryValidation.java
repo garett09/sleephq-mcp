@@ -46,19 +46,34 @@ public final class NightSummaryValidation {
             if (ch == null) {
                 continue;
             }
+            String field = e.getKey();
             JsonNode summary = attrs.path(e.getValue());
-            if (!summary.isObject() || summary.isEmpty()) {
-                continue;
+            Double sleepHqP95 = null;
+            Double sleepHqMedian = null;
+            String comparedTo = null;
+            if ("leak_rate".equals(field)) {
+                if (attrs.path("leak_95th").isNumber()) {
+                    sleepHqP95 = attrs.path("leak_95th").asDouble();
+                    comparedTo = "leak_95th";
+                }
             }
-            Double sleepHqP95 = AhiSummarySupport.readNumeric(summary, "upper");
-            Double sleepHqMedian = AhiSummarySupport.readNumeric(summary, "med");
+            if (summary.isObject() && !summary.isEmpty()) {
+                if (sleepHqP95 == null) {
+                    sleepHqP95 = AhiSummarySupport.readNumeric(summary, "upper");
+                    comparedTo = e.getValue() + ".upper";
+                }
+                sleepHqMedian = AhiSummarySupport.readNumeric(summary, "med");
+            }
             if (sleepHqP95 == null && sleepHqMedian == null) {
                 continue;
             }
-            ObjectNode entry = out.putObject(e.getKey());
+            ObjectNode entry = out.putObject(field);
             entry.put("our_p95", ch.p95());
             if (sleepHqP95 != null) {
                 entry.put("sleephq_p95", sleepHqP95);
+            }
+            if (comparedTo != null) {
+                entry.put("compared_to", comparedTo);
             }
             entry.put("our_median", ch.median());
             if (sleepHqMedian != null) {

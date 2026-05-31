@@ -2,6 +2,7 @@ package com.adriangarett.sleephqmcp.oscar;
 
 import com.adriangarett.sleephqmcp.domain.ChannelStatistics;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -101,20 +102,76 @@ public final class OscarChannelUnitNormalizer {
     /** Display-unit conversion for a {@code get-sleephq-night} field given its raw EDF unit. */
     public record UnitConversion(String unit, double factor) {}
 
+    /** ResMed PLD leak samples in L/s are typically &lt; 5 before ×60; values already in L/min are higher. */
+    private static final double LEAK_LPS_MAGNITUDE_MAX = 5.0;
+
     /**
      * Display unit + multiplicative factor for raw PLD samples. ResMed PLD stores leak in L/s and
      * tidal volume in L; SleepHQ/AirView show L/min and mL. Other fields are identity.
      */
     public static UnitConversion conversionFor(String fieldName, String rawUnit) {
+        return conversionFor(fieldName, rawUnit, null, null);
+    }
+
+    public static UnitConversion conversionFor(String fieldName, String rawUnit, List<Double> rawSamples) {
+        return conversionFor(fieldName, rawUnit, rawSamples, null);
+    }
+
+    /**
+     * Like {@link #conversionFor(String, String)} but uses raw sample magnitude and PLD label when the
+     * EDF unit field is blank (common on {@code Leak.2s} / {@code TidVol.2s}).
+     */
+    public static UnitConversion conversionFor(String fieldName, String rawUnit, List<Double> rawSamples,
+                                               String edfLabel) {
         String lower = rawUnit == null ? "" : rawUnit.trim().toLowerCase(Locale.ROOT);
+        String labelLower = edfLabel == null ? "" : edfLabel.toLowerCase(Locale.ROOT);
         return switch (fieldName) {
-            case "leak_rate" -> lower.contains("/s")
-                    ? new UnitConversion("L/min", 60.0)
-                    : new UnitConversion(rawUnit == null || rawUnit.isBlank() ? "L/min" : rawUnit, 1.0);
-            case "tidal_volume" -> (lower.contains("ml") || lower.contains("milli"))
-                    ? new UnitConversion("mL", 1.0)
-                    : new UnitConversion("mL", 1000.0);
+            case "leak_rate" -> {
+                if (lower.contains("/s") || lower.equals("l/s") || lower.equals("ls")) {
+                    yield new UnitConversion("L/min", 60.0);
+                }
+                if (labelLower.contains("leak") && (rawUnit == null || rawUnit.isBlank())) {
+                    yield new UnitConversion("L/min", 60.0);
+                }
+                if ((rawUnit == null || rawUnit.isBlank()) && rawSamples != null && leakSamplesLookLikeLitersPerSecond(rawSamples)) {
+                    yield new UnitConversion("L/min", 60.0);
+                }
+                yield new UnitConversion(rawUnit == null || rawUnit.isBlank() ? "L/min" : rawUnit, 1.0);
+            }
+            case "tidal_volume" -> conversionForTidalVolume(lower, rawUnit, rawSamples);
             default -> new UnitConversion(rawUnit == null ? "" : rawUnit, 1.0);
         };
+    }
+
+    private static boolean leakSamplesLookLikeLitersPerSecond(List<Double> rawSamples) {
+        double max = sampleMax(rawSamples);
+        return max > 0.0 && max < LEAK_LPS_MAGNITUDE_MAX;
+    }
+
+    private static UnitConversion conversionForTidalVolume(String lower, String rawUnit, List<Double> rawSamples) {
+        if (lower.contains("ml") || lower.contains("milli")) {
+            return new UnitConversion("mL", 1.0);
+        }
+        double max = sampleMax(rawSamples);
+        if (max >= TIDAL_MILLILITER_MIN) {
+            return new UnitConversion("mL", 1.0);
+        }
+        if (rawUnit == null || rawUnit.isBlank() || lower.contains("l")) {
+            return new UnitConversion("mL", 1000.0);
+        }
+        return new UnitConversion("mL", 1000.0);
+    }
+
+    private static double sampleMax(List<Double> rawSamples) {
+        if (rawSamples == null) {
+            return 0.0;
+        }
+        double max = 0.0;
+        for (Double v : rawSamples) {
+            if (v != null && !Double.isNaN(v)) {
+                max = Math.max(max, v);
+            }
+        }
+        return max;
     }
 }

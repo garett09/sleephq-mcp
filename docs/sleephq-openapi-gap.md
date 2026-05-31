@@ -18,8 +18,21 @@ This MCP server issues HTTP requests only to paths that appear in the published 
   documented API (`list-files`, `list-imports`/`list-import-files`, `get-import-file` + S3). CPAP
   sessions are grouped by ResMed's `DATALOG/<YYYYMMDD>/` folder; flat O2 files by a noon-split.
   Self-validates computed p95/median against documented `machine_date` summaries
-  (`getMachineDateByDate`); model via `getMachine`. p99 is computed locally (machine_date/STR expose
-  only p95/median). Ti/Te are not produced (no source data — see the Ti/Te follow-up spec).
+  (`getMachineDateByDate`); for leak, prefers top-level `leak_95th` when present (same as
+  `get-comparison` `leak_cell`). Leak percentiles use all PLD samples (same ceil-rank as OSCAR);
+  large-leak exposure is in markers only (`time_above_24_l_min_*`). Blank PLD `Leak.2s` unit
+  fields infer L/s vs L/min (and tidal L vs mL) from sample magnitude. CPAP and O2: **local mirror
+  first**, API fallback when that night is not on disk. Local PLD under **2 h** analysed duration
+  is treated as incomplete (mask blip) and skipped for `cpap_source` when API PLD exists
+  (`provenance.cpap_local_skipped_reason=local_session_too_short`). Multi-session nights use per-session
+  percentiles on all samples concatenated across sessions per channel (OSCAR/SleepHQ distribution).
+  p99 is computed locally
+  (machine_date/STR expose only p95/median). Ti/Te are not produced (no source data — see the Ti/Te
+  follow-up spec).
+  When CPAP or O2 data is absent, `coverage.cpap` / `coverage.oximetry` are false and
+  `coverage.cpap_reason` / `coverage.oximetry_reason` carry machine-readable codes (e.g.
+  `no_sleephq_pld`, `no_sleephq_o2`) — do not invent channel percentiles. Provenance sessions use
+  `filename` and `file_id` (API only), not a generic `name` field.
 - **`get-waveform`**, **`get-waveform-by-date`**, **`scan-apnea-events`** — EDF parse/detect on `BRP.edf` (and other EDF uploads) via `get-import-file` + S3.
 - **`get-journal-by-date`** — Paged `list-journals` + local date index (no upstream find-by-date route).
 - **Journal overlay on night tools** — `get-night-stats`, `get-combined-night-by-date`, and `get-comparison` attach top-level `journal` from team journals (not from `machine_date`).

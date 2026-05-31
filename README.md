@@ -52,7 +52,7 @@ Server listens on `http://localhost:8080/mcp` (Streamable HTTP). Health at `/act
 
 **Goose CLI (optional):** `goose-recipe.yaml` uses the same URL/headers. `goose session --recipe goose-recipe.yaml` or `./scripts/goose-with-mcp.sh session --recipe goose-recipe.yaml`, then `./stop.sh`.
 
-[sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md) lists every tool. **More smoke tests:** [waveform windows](docs/smoke-test-waveform-windows.md) · [OSCAR](docs/smoke-test-oscar-mcp.md)
+[sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md) lists every tool. **More smoke tests:** [waveform windows](docs/smoke-test-waveform-windows.md) · [OSCAR](docs/smoke-test-oscar-mcp.md) · [SleepHQ night summary](docs/smoke-test-sleephq-night.md)
 
 ## Adding capabilities
 

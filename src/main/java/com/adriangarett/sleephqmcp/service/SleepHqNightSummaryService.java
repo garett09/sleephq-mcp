@@ -35,6 +35,8 @@ import java.util.Map;
 public class SleepHqNightSummaryService {
 
     private static final int FULL_NIGHT_SECONDS = 12 * 3600;
+    /** Reject incomplete local PLD (mask blips); fall back to API for a full therapy night. */
+    private static final int MIN_CPAP_ANALYSED_SECONDS = 2 * 3600;
 
     private final LocalNightFileSource localSource;
     private final ApiNightFileSource apiSource;
@@ -69,7 +71,8 @@ public class SleepHqNightSummaryService {
         int[] cpapAnalysed = {0};
         int[] o2Analysed = {0};
 
-        Resolved cpap = resolve((src, d) -> src.cpapSessions(d), date);
+        CpapResolveOutcome cpapOutcome = resolveCpap(date);
+        Resolved cpap = cpapOutcome.resolved();
         Map<String, NightChannelSummary> cpapChannels =
                 buildCpapChannels(cpap.files(), cpapSessions, cpapAnalysed);
 
@@ -78,7 +81,13 @@ public class SleepHqNightSummaryService {
                 buildO2Channels(o2.files(), o2Sessions, o2Analysed);
 
         coverage.put("cpap", !cpapChannels.isEmpty());
+        if (cpapChannels.isEmpty()) {
+            coverage.put("cpap_reason", cpapCoverageReason(cpap.files(), cpapSessions));
+        }
         coverage.put("oximetry", !o2Channels.isEmpty());
+        if (o2Channels.isEmpty()) {
+            coverage.put("oximetry_reason", o2CoverageReason(o2.files(), o2Sessions));
+        }
         if (cpapChannels.isEmpty() && o2Channels.isEmpty()) {
             throw new IllegalArgumentException(
                     "no_sleephq_data_for_date: no PLD or O2 sessions found locally or via API for " + date);
@@ -106,6 +115,10 @@ public class SleepHqNightSummaryService {
         provenance.put("o2_source", o2Channels.isEmpty() ? null : o2.source());
         provenance.put("cpap_analysed_seconds", cpapAnalysed[0]);
         provenance.put("o2_analysed_seconds", o2Analysed[0]);
+        if (cpapOutcome.localSkippedReason() != null) {
+            provenance.put("cpap_local_skipped_reason", cpapOutcome.localSkippedReason());
+            provenance.put("cpap_local_analysed_seconds", cpapOutcome.localAnalysedSeconds());
+        }
         addMirrorFreshness(provenance);
         root.set("provenance", provenance);
 
@@ -114,10 +127,71 @@ public class SleepHqNightSummaryService {
 
     private record Resolved(List<NightSessionFile> files, String source) {}
 
+    private record CpapResolveOutcome(Resolved resolved, String localSkippedReason, int localAnalysedSeconds) {
+        static CpapResolveOutcome of(Resolved resolved) {
+            return new CpapResolveOutcome(resolved, null, 0);
+        }
+    }
+
     private interface SessionFn {
         List<NightSessionFile> apply(NightFileSource src, String date);
     }
 
+    /**
+     * Local PLD first unless total analysed duration is below {@link #MIN_CPAP_ANALYSED_SECONDS}
+     * (e.g. a 10-minute mask blip while OSCAR shows 8+ hours) — then use API PLD when available.
+     */
+    private CpapResolveOutcome resolveCpap(String date) {
+        if (localSource.available()) {
+            try {
+                List<NightSessionFile> local = localSource.cpapSessions(date);
+                if (!local.isEmpty()) {
+                    int localSeconds = estimatePldAnalysedSeconds(local);
+                    if (localSeconds >= MIN_CPAP_ANALYSED_SECONDS) {
+                        return CpapResolveOutcome.of(new Resolved(local, localSource.label()));
+                    }
+                    Resolved api = tryApiCpap(date);
+                    if (!api.files().isEmpty()) {
+                        return new CpapResolveOutcome(api, "local_session_too_short", localSeconds);
+                    }
+                    return new CpapResolveOutcome(new Resolved(local, localSource.label()),
+                            "local_session_too_short", localSeconds);
+                }
+            } catch (RuntimeException ignored) {
+                // fall through
+            }
+        }
+        return CpapResolveOutcome.of(resolve((src, d) -> src.cpapSessions(d), date));
+    }
+
+    private Resolved tryApiCpap(String date) {
+        if (!apiSource.available()) {
+            return new Resolved(List.of(), null);
+        }
+        try {
+            List<NightSessionFile> api = apiSource.cpapSessions(date);
+            return api.isEmpty() ? new Resolved(List.of(), null) : new Resolved(api, apiSource.label());
+        } catch (RuntimeException e) {
+            return new Resolved(List.of(), null);
+        }
+    }
+
+    private static int estimatePldAnalysedSeconds(List<NightSessionFile> files) {
+        int total = 0;
+        for (NightSessionFile sf : files) {
+            try {
+                WaveformResult parsed = EdfParser.parse(sf.bytes().get(), 0, FULL_NIGHT_SECONDS);
+                if (parsed.durationSeconds() > 0) {
+                    total += (int) Math.round(parsed.durationSeconds());
+                }
+            } catch (RuntimeException ignored) {
+                // skip unreadable file
+            }
+        }
+        return total;
+    }
+
+    /** Local mirror first, SleepHQ API when the night is not on disk. */
     private Resolved resolve(SessionFn fn, String date) {
         if (localSource.available()) {
             try {
@@ -144,14 +218,11 @@ public class SleepHqNightSummaryService {
 
     private Map<String, NightChannelSummary> buildCpapChannels(List<NightSessionFile> files,
                                                                ArrayNode sessionsOut, int[] analysed) {
-        Map<String, List<Double>> samplesByField = new LinkedHashMap<>();
-        Map<String, String> unitByField = new LinkedHashMap<>();
-        Map<String, Double> rateByField = new LinkedHashMap<>();
+        Map<String, PldChannelAccumulator> accumulators = new LinkedHashMap<>();
 
         for (NightSessionFile sf : files) {
             ObjectNode s = sessionsOut.addObject();
-            s.put("name", sf.name());
-            s.put("start", sf.start() == null ? null : sf.start().toString());
+            appendSessionIdentity(s, sf);
             try {
                 WaveformResult parsed = EdfParser.parse(sf.bytes().get(), 0, FULL_NIGHT_SECONDS);
                 if (parsed.durationSeconds() <= 0) {
@@ -165,9 +236,8 @@ public class SleepHqNightSummaryService {
                     if (field == null || ch.samples() == null || ch.samples().isEmpty()) {
                         continue;
                     }
-                    samplesByField.computeIfAbsent(field, k -> new ArrayList<>()).addAll(ch.samples());
-                    unitByField.putIfAbsent(field, ch.unit());
-                    rateByField.putIfAbsent(field, ch.sampleRate());
+                    accumulators.computeIfAbsent(field, k -> new PldChannelAccumulator())
+                            .append(ch);
                     sessionSamples = Math.max(sessionSamples, ch.samples().size());
                 }
                 int durationSec = (int) Math.round(parsed.durationSeconds());
@@ -181,9 +251,8 @@ public class SleepHqNightSummaryService {
         }
 
         Map<String, NightChannelSummary> channels = new LinkedHashMap<>();
-        for (Map.Entry<String, List<Double>> e : samplesByField.entrySet()) {
-            NightChannelSummary summary = NightSummaryComputer.summarise(
-                    e.getKey(), unitByField.get(e.getKey()), e.getValue(), rateByField.get(e.getKey()));
+        for (Map.Entry<String, PldChannelAccumulator> e : accumulators.entrySet()) {
+            NightChannelSummary summary = e.getValue().summarise(e.getKey());
             if (summary != null) {
                 channels.put(e.getKey(), summary);
             }
@@ -193,27 +262,20 @@ public class SleepHqNightSummaryService {
 
     private Map<String, NightChannelSummary> buildO2Channels(List<NightSessionFile> files,
                                                              ArrayNode sessionsOut, int[] analysed) {
-        List<Double> spo2 = new ArrayList<>();
-        List<Double> pulse = new ArrayList<>();
-        List<Double> motion = new ArrayList<>();
-        double interval = 1.0;
+        O2ChannelAccumulator o2 = new O2ChannelAccumulator();
+
         for (NightSessionFile sf : files) {
             ObjectNode s = sessionsOut.addObject();
-            s.put("name", sf.name());
-            s.put("start", sf.start() == null ? null : sf.start().toString());
+            appendSessionIdentity(s, sf);
             try {
                 OximetryResult r = ViatomSessionParser.parse(sf.bytes().get(), sf.name(), FULL_NIGHT_SECONDS);
-                if (r.intervalSeconds() > 0) {
-                    interval = r.intervalSeconds();
-                }
+                double rate = r.intervalSeconds() > 0 ? 1.0 / r.intervalSeconds() : 1.0;
                 int n = 0;
                 for (OximetrySample sample : r.samples()) {
                     if (sample.invalid() || sample.spo2() < 0 || sample.pulseBpm() < 0) {
                         continue;
                     }
-                    spo2.add((double) sample.spo2());
-                    pulse.add((double) sample.pulseBpm());
-                    motion.add((double) sample.motion());
+                    o2.append(sample, rate);
                     n++;
                 }
                 int durationSec = (int) Math.round(r.durationSeconds());
@@ -225,12 +287,62 @@ public class SleepHqNightSummaryService {
                 s.put("error", "download_or_parse_failed");
             }
         }
-        double rate = interval > 0 ? 1.0 / interval : 1.0;
+
         Map<String, NightChannelSummary> channels = new LinkedHashMap<>();
-        putIfPresent(channels, "spo2", NightSummaryComputer.summarise("spo2", "%", spo2, rate));
-        putIfPresent(channels, "pulse_rate", NightSummaryComputer.summarise("pulse_rate", "bpm", pulse, rate));
-        putIfPresent(channels, "movement", NightSummaryComputer.summarise("movement", "", motion, rate));
+        putIfPresent(channels, "spo2", o2.spo2Summary());
+        putIfPresent(channels, "pulse_rate", o2.pulseSummary());
+        putIfPresent(channels, "movement", o2.motionSummary());
         return channels;
+    }
+
+    /** Concatenates PLD samples across sessions, then one OSCAR-style percentile pass per channel. */
+    private static final class PldChannelAccumulator {
+        private String unit;
+        private String edfLabel;
+        private double sampleRate;
+        private final List<Double> samples = new ArrayList<>();
+
+        void append(WaveformChannel ch) {
+            if (unit == null) {
+                unit = ch.unit();
+                edfLabel = ch.label();
+            }
+            sampleRate = ch.sampleRate();
+            samples.addAll(ch.samples());
+        }
+
+        NightChannelSummary summarise(String field) {
+            return samples.isEmpty()
+                    ? null
+                    : NightSummaryComputer.summarise(field, unit, edfLabel, samples, sampleRate);
+        }
+    }
+
+    /** Valid oximetry samples only (invalid / -1 sentinels skipped); concatenated across sessions. */
+    private static final class O2ChannelAccumulator {
+        private double sampleRate = 1.0;
+        private final List<Double> spo2 = new ArrayList<>();
+        private final List<Double> pulse = new ArrayList<>();
+        private final List<Double> motion = new ArrayList<>();
+
+        void append(OximetrySample sample, double rate) {
+            sampleRate = rate;
+            spo2.add((double) sample.spo2());
+            pulse.add((double) sample.pulseBpm());
+            motion.add((double) sample.motion());
+        }
+
+        NightChannelSummary spo2Summary() {
+            return NightSummaryComputer.summarise("spo2", "%", spo2, sampleRate);
+        }
+
+        NightChannelSummary pulseSummary() {
+            return NightSummaryComputer.summarise("pulse_rate", "bpm", pulse, sampleRate);
+        }
+
+        NightChannelSummary motionSummary() {
+            return NightSummaryComputer.summarise("movement", "", motion, sampleRate);
+        }
     }
 
     private void putIfPresent(Map<String, NightChannelSummary> map, String key, NightChannelSummary v) {
@@ -245,6 +357,38 @@ public class SleepHqNightSummaryService {
             node.set(e.getKey(), JsonApi.mapper().valueToTree(e.getValue()));
         }
         return node;
+    }
+
+    private static void appendSessionIdentity(ObjectNode session, NightSessionFile sf) {
+        session.put("filename", sf.name());
+        if (sf.fileId() != null && !sf.fileId().isBlank()) {
+            session.put("file_id", sf.fileId());
+        }
+        if (sf.start() != null) {
+            session.put("start", sf.start().toString());
+        }
+    }
+
+    /** Machine-readable reason when {@code coverage.cpap} is false — do not invent PLD data. */
+    private static String cpapCoverageReason(List<NightSessionFile> resolvedFiles, ArrayNode sessions) {
+        if (resolvedFiles.isEmpty()) {
+            return "no_sleephq_pld";
+        }
+        if (contributing(sessions) == 0) {
+            return "cpap_sessions_empty";
+        }
+        return "cpap_channels_empty";
+    }
+
+    /** Machine-readable reason when {@code coverage.oximetry} is false. */
+    private static String o2CoverageReason(List<NightSessionFile> resolvedFiles, ArrayNode sessions) {
+        if (resolvedFiles.isEmpty()) {
+            return "no_sleephq_o2";
+        }
+        if (contributing(sessions) == 0) {
+            return "o2_sessions_empty";
+        }
+        return "o2_channels_empty";
     }
 
     private static int contributing(ArrayNode sessions) {
