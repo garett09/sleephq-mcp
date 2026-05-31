@@ -14,6 +14,7 @@ import java.util.Map;
 public record NightChannelSummary(
         @JsonProperty("unit") String unit,
         @JsonProperty("p99") double p99,
+        @JsonProperty("p99_5") double p995,
         @JsonProperty("p95") double p95,
         @JsonProperty("median") double median,
         @JsonProperty("min") double min,

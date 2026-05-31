@@ -68,6 +68,7 @@ public final class NightSummaryComputer {
         return new NightChannelSummary(
                 conv.unit(),
                 round(ChannelPercentiles.percentile(sorted, 99)),
+                round(ChannelPercentiles.percentile(sorted, 99.5)),
                 round(ChannelPercentiles.percentile(sorted, 95)),
                 round(ChannelPercentiles.percentile(sorted, 50)),
                 round(min),
