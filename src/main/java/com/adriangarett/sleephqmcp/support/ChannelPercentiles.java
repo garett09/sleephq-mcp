@@ -34,6 +34,16 @@ public final class ChannelPercentiles {
         return sorted.get(idx);
     }
 
+    /** Ceil-rank percentile supporting fractional pct (e.g. 99.5). Returns 0 for empty list. */
+    public static double percentile(List<Double> sorted, double pct) {
+        if (sorted.isEmpty()) {
+            return 0;
+        }
+        int idx = (int) Math.ceil(pct / 100.0 * sorted.size()) - 1;
+        idx = Math.max(0, Math.min(sorted.size() - 1, idx));
+        return sorted.get(idx);
+    }
+
     /** Mean of the values. Returns 0 for an empty list. */
     public static double avg(List<Double> values) {
         if (values.isEmpty()) {

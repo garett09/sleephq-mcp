@@ -23,6 +23,18 @@ class ChannelPercentilesTest {
     }
 
     @Test
+    void percentile_fractionalPct_p99_5_ceilRank() {
+        // ceil(99.5/100.0 * 200) - 1 = ceil(199.0) - 1 = 198 → value 199.0
+        List<Double> sorted = ChannelPercentiles.sortedClean(rangeOneTo(200));
+        assertThat(ChannelPercentiles.percentile(sorted, 99.5)).isEqualTo(199.0);
+    }
+
+    @Test
+    void percentile_fractional_emptyList_returnsZero() {
+        assertThat(ChannelPercentiles.percentile(List.of(), 99.5)).isEqualTo(0.0);
+    }
+
+    @Test
     void sortedClean_dropsNaN_andSortsAscending() {
         List<Double> cleaned = ChannelPercentiles.sortedClean(List.of(3.0, Double.NaN, 1.0, 2.0));
         assertThat(cleaned).containsExactly(1.0, 2.0, 3.0);
