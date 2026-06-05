@@ -31,26 +31,14 @@ public final class OscarChannelUnitNormalizer {
     }
 
     private static ChannelStatistics normalizeTidalVolume(ChannelStatistics stat) {
-        double maxVal = Math.max(stat.max(), stat.percentile());
-        if (maxVal >= TIDAL_MILLILITER_MIN || unitImpliesMilliliters(stat.unit())) {
-            return withUnit(stat, "mL", 1.0);
-        }
-        if (maxVal >= TIDAL_LITER_SCALE_MAX) {
-            return withUnit(stat, "L", 1.0);
-        }
-        return scale(stat, 1000.0, "mL");
+        // max() >= percentile() by definition, so stat.max() is the magnitude both paths key on.
+        UnitConversion c = tidalConversion(stat.unit(), stat.max());
+        return scale(stat, c.factor(), c.unit());
     }
 
     private static ChannelStatistics normalizeLitersPerMinute(ChannelStatistics stat) {
-        String unit = stat.unit() == null ? "" : stat.unit().trim();
-        String lower = unit.toLowerCase(Locale.ROOT);
-        if (lower.contains("/s") || lower.equals("l/s") || lower.equals("ls")) {
-            return scale(stat, 60.0, "L/min");
-        }
-        if (unit.isBlank() || lower.contains("l")) {
-            return withUnit(stat, "L/min", 1.0);
-        }
-        return stat;
+        UnitConversion c = leakConversion(stat.fieldName(), stat.unit(), stat.max(), null);
+        return scale(stat, c.factor(), c.unit());
     }
 
     private static ChannelStatistics normalizeWithCatalogDefault(ChannelStatistics stat) {
@@ -61,14 +49,6 @@ public final class OscarChannelUnitNormalizer {
                 .filter(meta -> meta.unit() != null && !meta.unit().isBlank())
                 .map(meta -> withUnit(stat, meta.unit(), 1.0))
                 .orElse(stat);
-    }
-
-    private static boolean unitImpliesMilliliters(String unit) {
-        if (unit == null || unit.isBlank()) {
-            return false;
-        }
-        String lower = unit.toLowerCase(Locale.ROOT);
-        return lower.contains("ml") || lower.contains("milli");
     }
 
     private static ChannelStatistics withUnit(ChannelStatistics stat, String unit, double scale) {
@@ -124,41 +104,51 @@ public final class OscarChannelUnitNormalizer {
      */
     public static UnitConversion conversionFor(String fieldName, String rawUnit, List<Double> rawSamples,
                                                String edfLabel) {
-        String lower = rawUnit == null ? "" : rawUnit.trim().toLowerCase(Locale.ROOT);
-        String labelLower = edfLabel == null ? "" : edfLabel.toLowerCase(Locale.ROOT);
         return switch (fieldName) {
-            case "leak_rate" -> {
-                if (lower.contains("/s") || lower.equals("l/s") || lower.equals("ls")) {
-                    yield new UnitConversion("L/min", 60.0);
-                }
-                if (labelLower.contains("leak") && (rawUnit == null || rawUnit.isBlank())) {
-                    yield new UnitConversion("L/min", 60.0);
-                }
-                if ((rawUnit == null || rawUnit.isBlank()) && rawSamples != null && leakSamplesLookLikeLitersPerSecond(rawSamples)) {
-                    yield new UnitConversion("L/min", 60.0);
-                }
-                yield new UnitConversion(rawUnit == null || rawUnit.isBlank() ? "L/min" : rawUnit, 1.0);
-            }
-            case "tidal_volume" -> conversionForTidalVolume(lower, rawUnit, rawSamples);
+            case "leak_rate" -> leakConversion(fieldName, rawUnit, sampleMax(rawSamples), edfLabel);
+            case "tidal_volume" -> tidalConversion(rawUnit, sampleMax(rawSamples));
             default -> new UnitConversion(rawUnit == null ? "" : rawUnit, 1.0);
         };
     }
 
-    private static boolean leakSamplesLookLikeLitersPerSecond(List<Double> rawSamples) {
-        double max = sampleMax(rawSamples);
-        return max > 0.0 && max < LEAK_LPS_MAGNITUDE_MAX;
+    /**
+     * Single source of truth for L/s → L/min inference, shared by the OSCAR ({@code normalize}) and
+     * sleephq-night ({@code conversionFor}) paths so leak units cannot drift between the two tools.
+     * The magnitude/label fallback for blank units applies only to leak fields; flow channels keep
+     * identity unless their unit string explicitly says {@code /s}.
+     */
+    private static UnitConversion leakConversion(String fieldName, String rawUnit, double maxMagnitude,
+                                                 String label) {
+        String lower = rawUnit == null ? "" : rawUnit.trim().toLowerCase(Locale.ROOT);
+        String labelLower = label == null ? "" : label.toLowerCase(Locale.ROOT);
+        boolean blank = rawUnit == null || rawUnit.isBlank();
+        if (lower.contains("/s") || lower.equals("l/s") || lower.equals("ls")) {
+            return new UnitConversion("L/min", 60.0);
+        }
+        boolean isLeak = "leak".equals(fieldName) || "leak_rate".equals(fieldName);
+        if (isLeak && blank && labelLower.contains("leak")) {
+            return new UnitConversion("L/min", 60.0);
+        }
+        if (isLeak && blank && maxMagnitude > 0.0 && maxMagnitude < LEAK_LPS_MAGNITUDE_MAX) {
+            return new UnitConversion("L/min", 60.0);
+        }
+        return new UnitConversion(blank ? "L/min" : rawUnit, 1.0);
     }
 
-    private static UnitConversion conversionForTidalVolume(String lower, String rawUnit, List<Double> rawSamples) {
+    /**
+     * Single source of truth for tidal-volume L ↔ mL inference, shared by both paths. {@code <3 L}
+     * scales to mL; {@code 3..25} keeps L; {@code >=25} (or an explicit mL unit) is already mL.
+     */
+    private static UnitConversion tidalConversion(String rawUnit, double maxMagnitude) {
+        String lower = rawUnit == null ? "" : rawUnit.trim().toLowerCase(Locale.ROOT);
         if (lower.contains("ml") || lower.contains("milli")) {
             return new UnitConversion("mL", 1.0);
         }
-        double max = sampleMax(rawSamples);
-        if (max >= TIDAL_MILLILITER_MIN) {
+        if (maxMagnitude >= TIDAL_MILLILITER_MIN) {
             return new UnitConversion("mL", 1.0);
         }
-        if (rawUnit == null || rawUnit.isBlank() || lower.contains("l")) {
-            return new UnitConversion("mL", 1000.0);
+        if (maxMagnitude >= TIDAL_LITER_SCALE_MAX) {
+            return new UnitConversion("L", 1.0);
         }
         return new UnitConversion("mL", 1000.0);
     }

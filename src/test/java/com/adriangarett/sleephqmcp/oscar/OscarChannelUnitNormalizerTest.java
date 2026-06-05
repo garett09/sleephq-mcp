@@ -42,6 +42,24 @@ class OscarChannelUnitNormalizerTest {
     }
 
     @Test
+    void normalizeLeak_blankUnit_lpsMagnitude_convertsToLitersPerMinute() {
+        // Blank EDF unit + L/s-magnitude samples (max < 5) must infer ×60, matching get-sleephq-night.
+        ChannelStatistics raw = stat("leak", "", 0.037, 0.0, 1.12, 0.16);
+        ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);
+        assertThat(normalized.unit()).isEqualTo("L/min");
+        assertThat(normalized.max()).isEqualTo(67.2); // 1.12 × 60
+    }
+
+    @Test
+    void normalizeLeak_blankUnit_lpmMagnitude_staysIdentity() {
+        // Blank unit but already-L/min magnitude (max >= 5) must NOT be scaled.
+        ChannelStatistics raw = stat("leak", "", 12.0, 0.0, 38.0, 24.0);
+        ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);
+        assertThat(normalized.unit()).isEqualTo("L/min");
+        assertThat(normalized.max()).isEqualTo(38.0);
+    }
+
+    @Test
     void normalizeFlowBrp_litersPerSecond_convertsToLitersPerMinute() {
         ChannelStatistics raw = stat("flow_brp", "L/s", 0.002, -1.89, 2.214, 0.384);
         ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);
