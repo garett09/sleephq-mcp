@@ -1,10 +1,33 @@
 package com.adriangarett.sleephqmcp.oscar;
 
+import com.adriangarett.sleephqmcp.domain.ChannelStatistics;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class OscarWaveformStatisticsTest {
+
+    private static final LocalDateTime BASE = LocalDateTime.of(2026, 5, 31, 22, 0, 0);
+
+    @Test
+    void compute_allNaNSamples_returnsNull_notZeroSentinel() {
+        // A present-but-empty channel (every sample NaN) must NOT report a phantom all-zero channel.
+        List<Double> allNaN = List.of(Double.NaN, Double.NaN, Double.NaN);
+        assertNull(OscarWaveformStatistics.compute("pressure", "cmH2O", allNaN, 0.5, BASE, 95));
+    }
+
+    @Test
+    void compute_validSamples_returnsStats() {
+        ChannelStatistics cs =
+                OscarWaveformStatistics.compute("pressure", "cmH2O", List.of(8.0, 10.0, 12.0), 0.5, BASE, 95);
+        assertNotNull(cs);
+        assertEquals(3, cs.sampleCount());
+    }
 
     @Test
     void mapLabelToField_flowHiRes_variants() {

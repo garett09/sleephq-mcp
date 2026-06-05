@@ -32,7 +32,10 @@ public final class OscarWaveformStatistics {
             if (key == null || channel.samples() == null || channel.samples().isEmpty()) {
                 continue;
             }
-            stats.put(key, compute(key, channel.unit(), channel.samples(), channel.sampleRate(), base, percentile));
+            ChannelStatistics cs = compute(key, channel.unit(), channel.samples(), channel.sampleRate(), base, percentile);
+            if (cs != null) {
+                stats.put(key, cs);
+            }
         }
         return stats;
     }
@@ -47,7 +50,10 @@ public final class OscarWaveformStatistics {
             if (key == null || channel.samples() == null || channel.samples().isEmpty()) {
                 continue;
             }
-            stats.put(key, compute(key, channel.unit(), channel.samples(), channel.sampleRate(), base, percentile));
+            ChannelStatistics cs = compute(key, channel.unit(), channel.samples(), channel.sampleRate(), base, percentile);
+            if (cs != null) {
+                stats.put(key, cs);
+            }
         }
         return stats;
     }
@@ -113,7 +119,8 @@ public final class OscarWaveformStatistics {
         return null;
     }
 
-    private static ChannelStatistics compute(
+    /** @return channel stats, or null if no finite samples (mirrors {@code NightSummaryComputer.summarise}). */
+    static ChannelStatistics compute(
             String fieldName,
             String unit,
             List<Double> samples,
@@ -142,8 +149,11 @@ public final class OscarWaveformStatistics {
             }
         }
         sorted.removeIf(v -> Double.isNaN(v));
+        if (sorted.isEmpty()) {
+            return null; // present-but-empty channel: emit nothing rather than a phantom all-zero stat
+        }
         sorted.sort(Double::compareTo);
-        double avg = sorted.isEmpty() ? 0 : sum / sorted.size();
+        double avg = sum / sorted.size();
         double p = ChannelPercentiles.percentile(sorted, percentile);
         double p995 = ChannelPercentiles.percentile(sorted, 99.5);
         double medianValue = ChannelPercentiles.percentile(sorted, 50);
@@ -151,10 +161,6 @@ public final class OscarWaveformStatistics {
         String maxAt = clockAt(base, sampleRate, maxIdx);
         int minAtSeconds = offsetSeconds(sampleRate, minIdx);
         int maxAtSeconds = offsetSeconds(sampleRate, maxIdx);
-        if (min == Double.POSITIVE_INFINITY) {
-            min = 0;
-            max = 0;
-        }
         ChannelStatistics raw = new ChannelStatistics(fieldName, unit == null ? "" : unit,
                 round(avg), round(min), round(max), round(p), round(p995), round(medianValue),
                 minAt, maxAt, minAtSeconds, maxAtSeconds, sorted.size());
