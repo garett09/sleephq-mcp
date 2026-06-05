@@ -4,6 +4,8 @@
 
 **Goal:** Fix OSCAR EDF channel mapping gaps, add p99.5 to both statistics paths, and surface calories_kcal from journal joules — making MCP output match what OSCAR's UI actually shows.
 
+**Already on branch (do not re-implement):** `NightSummaryComputer.mapPldLabel()` already maps `mask_pressure`, `epap`, `snore`, `flow_limit`, and the nine PLD fields covered by `NightSummaryComputerRealPldTest`. Task 5 only adds Ti/Te + `epapres` alias. OSCAR EDF mapping (Task 4) is the main channel gap for `get-combined-night-by-date`.
+
 **Architecture:** All changes are purely additive or in-place fixups within existing classes. No new services, no architectural layers. Record fields are added (triggering constructor ripple in ~9 call sites), label-mapper methods gain new `if` entries, and one JSON builder gets a derived field. Tests are updated in lockstep with each structural change to maintain a green suite throughout.
 
 **Tech Stack:** Java 21 records, JUnit 5, AssertJ, Jackson, Maven (`./mvnw test`)
@@ -29,12 +31,16 @@
 | `src/test/.../oscar/OscarWaveformStatisticsTest.java` | Add new mapping tests |
 | `src/test/.../oscar/OscarChannelStatisticsTest.java` | Assert `p995` is NaN |
 | `src/test/.../oscar/OscarChannelUnitNormalizerTest.java` | Update `stat()` helper |
+| `src/test/.../oscar/OscarChannelUnitNormalizerConversionTest.java` | Assert `p995` scales on `normalize()` |
 | `src/test/.../oscar/OscarEventCorrelatorTest.java` | Update 6 constructors |
 | `src/test/.../support/NightSummaryComputerTest.java` | Add Ti/Te + p99_5 assertions |
-| `src/test/.../domain/NightChannelSummaryTest.java` | **CREATE** — JSON shape test |
+| `src/test/.../domain/NightChannelSummaryTest.java` | **Modify** — update constructors + add `p99_5` tests |
+| `src/test/.../support/NightAnalysisSupportChannelNodeTest.java` | **Create** — `channelStatsNode` emits `p99_5` |
 | `src/test/.../support/NightSummaryComputerRealPldTest.java` | Assert `p99_5` plausible |
 | `src/test/.../support/JournalOverlaySupportTest.java` | Assert `calories_kcal` |
 | `docs/smoke-test-sleephq-night.md` | Require `p99_5` in channel shape |
+| `src/main/java/.../tools/NightTools.java` | Mention `p99_5` in `get-sleephq-night` description |
+| `docs/sleephq-openapi-gap.md` | Optional: document MCP-only `p99_5` / `calories_kcal` |
 
 All paths use the package prefix `com.adriangarett.sleephqmcp`.
 
@@ -67,7 +73,7 @@ void percentile_fractional_emptyList_returnsZero() {
 - [ ] **Step 1.2 — Run tests to confirm they fail**
 
 ```bash
-./mvnw test -Dtest=ChannelPercentilesTest -pl . 2>&1 | tail -20
+./mvnw test -Dtest=ChannelPercentilesTest 2>&1 | tail -20
 ```
 
 Expected: compilation error — method `percentile(List, double)` not found.
@@ -91,7 +97,7 @@ public static double percentile(List<Double> sorted, double pct) {
 - [ ] **Step 1.4 — Run tests to confirm they pass**
 
 ```bash
-./mvnw test -Dtest=ChannelPercentilesTest -pl . 2>&1 | tail -20
+./mvnw test -Dtest=ChannelPercentilesTest 2>&1 | tail -20
 ```
 
 Expected: `BUILD SUCCESS`, 6 tests pass.
@@ -309,7 +315,31 @@ void fromSummarySession_p995IsNaNWhenUnknown() {
 
 Expected: `BUILD SUCCESS`.
 
-- [ ] **Step 2.10 — Commit**
+- [ ] **Step 2.10 — Add `p995` scaling test in `OscarChannelUnitNormalizerConversionTest`**
+
+Add to `OscarChannelUnitNormalizerConversionTest.java` (add imports: `ChannelStatistics`, `static org.assertj.core.api.Assertions.within`):
+
+```java
+@Test
+void normalize_leakRate_scalesP995_withLitersPerSecondConversion() {
+    ChannelStatistics raw = new ChannelStatistics(
+            "leak_rate", "L/s", 0.2, 0.1, 0.5, 0.22, 0.48, 0.15,
+            "00:00:00", "01:00:00", 0, 3600, 100);
+    ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);
+    assertThat(normalized.p995()).isCloseTo(28.8, within(0.01)); // 0.48 L/s × 60
+    assertThat(normalized.percentile()).isCloseTo(13.2, within(0.01));
+}
+```
+
+Run:
+
+```bash
+./mvnw test -Dtest=OscarChannelUnitNormalizerConversionTest 2>&1 | tail -20
+```
+
+Expected: `BUILD SUCCESS`.
+
+- [ ] **Step 2.11 — Commit**
 
 ```bash
 git add src/main/java/com/adriangarett/sleephqmcp/domain/ChannelStatistics.java \
@@ -318,7 +348,8 @@ git add src/main/java/com/adriangarett/sleephqmcp/domain/ChannelStatistics.java 
         src/main/java/com/adriangarett/sleephqmcp/oscar/OscarChannelUnitNormalizer.java \
         src/test/java/com/adriangarett/sleephqmcp/oscar/OscarChannelUnitNormalizerTest.java \
         src/test/java/com/adriangarett/sleephqmcp/oscar/OscarEventCorrelatorTest.java \
-        src/test/java/com/adriangarett/sleephqmcp/oscar/OscarChannelStatisticsTest.java
+        src/test/java/com/adriangarett/sleephqmcp/oscar/OscarChannelStatisticsTest.java \
+        src/test/java/com/adriangarett/sleephqmcp/oscar/OscarChannelUnitNormalizerConversionTest.java
 git commit -m "feat(stats): add p995 field to ChannelStatistics; compute p99.5 from EDF samples"
 ```
 
@@ -329,7 +360,9 @@ git commit -m "feat(stats): add p995 field to ChannelStatistics; compute p99.5 f
 **Files:**
 - Modify: `src/main/java/com/adriangarett/sleephqmcp/domain/NightChannelSummary.java`
 - Modify: `src/main/java/com/adriangarett/sleephqmcp/support/NightSummaryComputer.java`
-- Create: `src/test/java/com/adriangarett/sleephqmcp/domain/NightChannelSummaryTest.java`
+- Modify: `src/test/java/com/adriangarett/sleephqmcp/domain/NightChannelSummaryTest.java` (file **already exists**)
+
+**Order matters:** update `NightChannelSummaryTest` in the same commit as the record change so `./mvnw test` compiles throughout.
 
 - [ ] **Step 3.1 — Add `p995` to `NightChannelSummary` record**
 
@@ -351,7 +384,30 @@ public record NightChannelSummary(
 ) {}
 ```
 
-- [ ] **Step 3.2 — Update `NightSummaryComputer.summarise()` to pass p99.5**
+- [ ] **Step 3.2 — Update existing `NightChannelSummaryTest` constructors (compile fix)**
+
+In `NightChannelSummaryTest.java`, insert the `p995` argument **between `p99` and `p95`** in both tests:
+
+```java
+        NightChannelSummary s = new NightChannelSummary(
+                "cmH2O", 11.2, 11.8, 10.6, 8.4, 4.0, 12.0, 8.6, 14400, null);
+        // ...
+        assertThat(json).contains("\"p99\":11.2", "\"p99_5\":11.8", "\"p95\":10.6", "\"median\":8.4",
+```
+
+```java
+        NightChannelSummary s = new NightChannelSummary(
+                "L/min", 22, 24, 12, 2, 0, 38, 4.1, 14400,
+                Map.of("time_above_24_l_min_seconds", 180.0));
+```
+
+Run (expect compile success; tests may fail until Step 3.3):
+
+```bash
+./mvnw test -Dtest=NightChannelSummaryTest 2>&1 | tail -20
+```
+
+- [ ] **Step 3.3 — Update `NightSummaryComputer.summarise()` to pass p99.5**
 
 In `NightSummaryComputer.java`, replace the `return new NightChannelSummary(...)` statement in `summarise()`:
 
@@ -369,34 +425,19 @@ In `NightSummaryComputer.java`, replace the `return new NightChannelSummary(...)
                 markers.isEmpty() ? null : markers);
 ```
 
-- [ ] **Step 3.3 — Verify existing NightSummaryComputer tests still pass**
+- [ ] **Step 3.4 — Add integration tests to `NightChannelSummaryTest`**
 
-```bash
-./mvnw test -Dtest=NightSummaryComputerTest,NightSummaryComputerRealPldTest 2>&1 | tail -20
-```
-
-Expected: `BUILD SUCCESS`. (Existing assertions on `p95`, `median`, etc. are unchanged.)
-
-- [ ] **Step 3.4 — Create `NightChannelSummaryTest`**
-
-Create file `src/test/java/com/adriangarett/sleephqmcp/domain/NightChannelSummaryTest.java`:
+Append to the existing class (keep serialization tests from Step 3.2):
 
 ```java
-package com.adriangarett.sleephqmcp.domain;
-
-import com.adriangarett.sleephqmcp.support.ChannelPercentiles;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.NightSummaryComputer;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
-
-class NightChannelSummaryTest {
 
     @Test
     void summarise_pressureSamples_jsonContainsp99_5Key() throws Exception {
@@ -420,20 +461,19 @@ class NightChannelSummaryTest {
     @Test
     void summarise_leakRate_p99_5_isPlausible() {
         List<Double> raw = new ArrayList<>();
-        for (int i = 0; i < 95; i++) raw.add(0.1);  // 6 L/min after conversion
-        for (int i = 0; i < 5; i++) raw.add(0.5);   // 30 L/min after conversion
+        for (int i = 0; i < 95; i++) raw.add(0.1);
+        for (int i = 0; i < 5; i++) raw.add(0.5);
 
         NightChannelSummary s = NightSummaryComputer.summarise("leak_rate", "L/s", raw, 0.5);
         assertThat(s.p995()).isCloseTo(30.0, within(0.01));
         assertThat(s.p995()).isGreaterThanOrEqualTo(s.p95());
     }
-}
 ```
 
-- [ ] **Step 3.5 — Run the new test**
+- [ ] **Step 3.5 — Run NightSummary + NightChannelSummary tests**
 
 ```bash
-./mvnw test -Dtest=NightChannelSummaryTest 2>&1 | tail -20
+./mvnw test -Dtest=NightSummaryComputerTest,NightSummaryComputerRealPldTest,NightChannelSummaryTest 2>&1 | tail -20
 ```
 
 Expected: `BUILD SUCCESS`.
@@ -667,41 +707,13 @@ git commit -m "fix(night): add Ti/Te label mappings and epapres alias to NightSu
 
 **Files:**
 - Modify: `src/main/java/com/adriangarett/sleephqmcp/support/NightAnalysisSupport.java`
-- Modify: `src/test/java/com/adriangarett/sleephqmcp/support/NightSummaryComputerTest.java` (add p99_5 check)
+- Create: `src/test/java/com/adriangarett/sleephqmcp/support/NightAnalysisSupportChannelNodeTest.java`
 
-- [ ] **Step 6.1 — Write a failing test**
+(`NightAnalysisSupportTest.java` already exists for respiratory indices / summary channels — keep `channelStatsNode` tests in a separate class to avoid mixing concerns.)
 
-Add to `NightSummaryComputerTest.java`:
+- [ ] **Step 6.1 — Create failing `NightAnalysisSupportChannelNodeTest`**
 
-```java
-@Test
-void summarise_pressure_p99_5_isPresentAndPlausible() {
-    List<Double> p = new ArrayList<>();
-    for (int i = 0; i < 90; i++) p.add(8.0);
-    for (int i = 0; i < 10; i++) p.add(12.0);
-    NightChannelSummary s = NightSummaryComputer.summarise("pressure", "cmH2O", p, 0.5);
-    assertThat(s.p995()).isGreaterThanOrEqualTo(s.p95());
-    assertThat(s.p995()).isCloseTo(12.0, within(0.01));
-}
-```
-
-This will pass after Task 3, so run it to confirm:
-
-```bash
-./mvnw test -Dtest=NightSummaryComputerTest 2>&1 | tail -20
-```
-
-Expected: `BUILD SUCCESS` (test already passes from Task 3 work).
-
-Now write the `NightAnalysisSupport` test. There is currently no unit test for `channelStatsNode` — add one to verify `p99_5` is emitted. Create a new test file:
-
-`src/test/java/com/adriangarett/sleephqmcp/support/NightAnalysisSupportTest.java` — check if this exists:
-
-```bash
-ls src/test/java/com/adriangarett/sleephqmcp/support/NightAnalysisSupportTest.java 2>/dev/null || echo "does not exist"
-```
-
-If it exists, add the test there. If not, create it:
+Create `src/test/java/com/adriangarett/sleephqmcp/support/NightAnalysisSupportChannelNodeTest.java`:
 
 ```java
 package com.adriangarett.sleephqmcp.support;
@@ -794,8 +806,7 @@ Expected: `BUILD SUCCESS`.
 
 ```bash
 git add src/main/java/com/adriangarett/sleephqmcp/support/NightAnalysisSupport.java \
-        src/test/java/com/adriangarett/sleephqmcp/support/NightSummaryComputerTest.java
-git add src/test/java/com/adriangarett/sleephqmcp/support/NightAnalysisSupportChannelNodeTest.java 2>/dev/null || true
+        src/test/java/com/adriangarett/sleephqmcp/support/NightAnalysisSupportChannelNodeTest.java
 git commit -m "feat(oscar): emit p99_5 in channelStatsNode JSON output"
 ```
 
@@ -922,40 +933,73 @@ git commit -m "test: assert p99_5 present and plausible on real PLD fixture"
 
 ---
 
-## Task 9 — Smoke test doc update
+## Task 9 — Documentation updates
 
 **Files:**
 - Modify: `docs/smoke-test-sleephq-night.md`
+- Modify: `src/main/java/com/adriangarett/sleephqmcp/tools/NightTools.java`
 
-- [ ] **Step 9.1 — Find the channel shape assertion in the smoke test doc**
+- [ ] **Step 9.1 — Update smoke test channel shape**
 
-```bash
-grep -n "p99\|p95\|median\|channels" docs/smoke-test-sleephq-night.md | head -20
-```
+In `docs/smoke-test-sleephq-night.md`:
 
-- [ ] **Step 9.2 — Add `p99_5` to the expected channel shape**
+- Table row **cpap stats shape**: add `p99_5` to the required field list (with `p99`, `p95`, `median`, …).
+- **Source / percentile notes** (or equivalent): document that `p99_5` matches OSCAR UI 99.5% display.
 
-Find the section documenting the `cpap.channels.<name>` shape and add `p99_5` alongside `p99` and `p95`. The exact wording depends on the existing format, but the shape comment should include:
+Example shape reference:
 
 ```
 p99      – 99th percentile
-p99_5    – 99.5th percentile (matches OSCAR UI display)
+p99_5    – 99.5th percentile (matches OSCAR UI)
 p95      – 95th percentile
 median   – 50th percentile
 ```
 
-- [ ] **Step 9.3 — Commit**
+- [ ] **Step 9.2 — Update `get-sleephq-night` tool description**
+
+In `NightTools.java`, extend the `@McpTool` description for `get-sleephq-night` to mention `p99_5` alongside `p99/p95/median`.
+
+- [ ] **Step 9.3 — (Optional) `docs/sleephq-openapi-gap.md`**
+
+Add a short note that `p99_5` and `calories_kcal` are MCP-derived fields not in upstream SleepHQ Swagger.
+
+- [ ] **Step 9.4 — Commit**
 
 ```bash
-git add docs/smoke-test-sleephq-night.md
-git commit -m "docs: document p99_5 in get-sleephq-night channel shape"
+git add docs/smoke-test-sleephq-night.md \
+        src/main/java/com/adriangarett/sleephqmcp/tools/NightTools.java
+# optional:
+# git add docs/sleephq-openapi-gap.md
+git commit -m "docs: document p99_5 channel shape and calories_kcal"
 ```
+
+---
+
+## Task 10 — Final verification (acceptance)
+
+- [ ] **Step 10.1 — Full test suite**
+
+```bash
+./mvnw test 2>&1 | tail -30
+```
+
+Expected: `BUILD SUCCESS`.
+
+- [ ] **Step 10.2 — Spec acceptance checklist** (manual smoke when credentials available)
+
+| Criterion | Verify |
+|-----------|--------|
+| `get-combined-night-by-date` PLD nights | `night_analysis.channels` has `epap`, `mask_pressure`, `snore`, `flow_limit` when in EDF; each has `p95` + `p99_5` (not `p99`) |
+| Ti/Te on combined night | `insp_time` / `exp_time` when device PLD includes Ti/Te |
+| `get-sleephq-night` | Every summarised channel has `p99_5` |
+| Journal overlay | `calories_kcal` when `active_energy_joules` present |
+| `leak` vs `leak_rate` | Combined night uses `leak`; sleephq-night uses `leak_rate` (unchanged) |
 
 ---
 
 ## Self-Review Checklist
 
-After writing this plan, checking it against the spec:
+Mapped to `docs/superpowers/specs/2026-05-31-data-accuracy-option-a-design.md`:
 
 | Spec requirement | Task |
 |---|---|
@@ -963,22 +1007,24 @@ After writing this plan, checking it against the spec:
 | `NightChannelSummary` add p99_5 | Task 3 |
 | `ChannelPercentiles` double overload | Task 1 |
 | OSCAR EDF: epap, mask_pressure, snore, flow_limit, insp_time, exp_time | Task 4 |
-| OSCAR `compute()` computes p99.5 | Task 2 step 2.2 |
-| `OscarChannelUnitNormalizer.scale()` carries p995 | Task 2 step 2.4 |
-| `OscarChannelStatistics` NaN for p995 | Task 2 step 2.3 |
+| OSCAR `compute()` computes p99.5 | Task 2.2 |
+| `OscarChannelUnitNormalizer.scale()` carries p995 | Task 2.4 |
+| `OscarChannelStatistics` NaN for p995 | Task 2.3 |
 | `NightSummaryComputer` Ti/Te + epapres alias | Task 5 |
-| `NightSummaryComputer` p99.5 in summarise() | Task 3 step 3.2 |
-| `NightAnalysisSupport` emit p99_5 | Task 6 |
+| `NightSummaryComputer` p99.5 in summarise() | Task 3.3 |
+| `NightAnalysisSupport` emit p99_5 (not p99) | Task 6 |
 | `JournalOverlaySupport` calories_kcal | Task 7 |
 | Tests: ChannelPercentilesTest | Task 1 |
 | Tests: OscarWaveformStatisticsTest | Task 4 |
-| Tests: OscarChannelStatisticsTest p995 NaN | Task 2 step 2.8 |
-| Tests: OscarChannelUnitNormalizerTest stat() helper | Task 2 step 2.5 |
-| Tests: OscarEventCorrelatorTest 6 constructors | Task 2 step 2.6 |
-| Tests: NightSummaryComputerTest Ti/Te + p99_5 | Tasks 3, 5, 6 |
-| Tests: NightChannelSummaryTest (new) | Task 3 step 3.4 |
+| Tests: OscarChannelStatisticsTest p995 NaN | Task 2.8 |
+| Tests: OscarChannelUnitNormalizerTest stat() helper | Task 2.5 |
+| Tests: OscarChannelUnitNormalizerConversionTest p995 scale | Task 2.10 |
+| Tests: OscarEventCorrelatorTest 6 constructors | Task 2.6 |
+| Tests: NightSummaryComputerTest Ti/Te | Task 5 |
+| Tests: NightChannelSummaryTest modify + summarise | Task 3.2, 3.4 |
 | Tests: NightSummaryComputerRealPldTest p99_5 | Task 8 |
+| Tests: NightAnalysisSupportChannelNodeTest | Task 6 |
 | Tests: JournalOverlaySupportTest calories_kcal | Task 7 |
-| Docs: smoke-test-sleephq-night.md | Task 9 |
-
-All spec requirements are covered. ✓
+| Docs: smoke-test + NightTools | Task 9 |
+| Optional: sleephq-openapi-gap.md | Task 9.3 |
+| Acceptance / full suite | Task 10 |
