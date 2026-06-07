@@ -14,6 +14,11 @@ public class OscarDeviceResolver {
         this.properties = properties;
     }
 
+    /** TODO(Task 7): removed in OSCAR 2.0 migration; stub keeps callers compiling until OscarRepository is rewritten. */
+    public Optional<Path> resolveDeviceFolder() {
+        return Optional.empty();
+    }
+
     /** Returns the path to oscar.db if it exists under the configured data root. */
     public Optional<Path> resolveDbFile() {
         Path base = resolveDataPath();
