@@ -9,10 +9,7 @@ public record OscarSessionIndexEntry(
         boolean hasEvents,
         Instant firstInstant,
         Instant lastInstant,
-        List<Integer> channelIds,
+        List<String> channelCodes,
         List<Integer> settingChannelIds
 ) {
-    public String summaryFileName() {
-        return Long.toHexString(sessionId) + ".000";
-    }
 }

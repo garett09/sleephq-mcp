@@ -8,10 +8,14 @@ public record OscarSession(
         long sessionId,
         long startMs,
         long durationSeconds,
-        Map<Integer, ChannelSummary> channels,
-        List<Integer> availableChannelIds
+        Map<String, ChannelSummary> channels,
+        Map<String, Integer> eventCounts
 ) {
     public long endMs() {
         return startMs + durationSeconds * 1000L;
+    }
+
+    public List<String> availableChannelCodes() {
+        return List.copyOf(channels.keySet());
     }
 }
