@@ -1,6 +1,12 @@
 # sleephq-mcp
 
-A Spring AI MCP server (Streamable HTTP transport) that wraps the SleepHQ REST API and exposes it as MCP **tools** for an LLM client (e.g. Goose) to drive sleep therapy analysis and titration decisions.
+A Spring AI MCP server (Streamable HTTP transport) that wraps the SleepHQ REST API and exposes it as MCP **tools** for an LLM client (Goose, Claude Desktop, or any MCP-compatible client) to drive sleep therapy analysis and titration decisions.
+
+## Prerequisites
+
+- **Java 21+** — [download from Adoptium](https://adoptium.net/) or via `brew install temurin@21`
+- **SleepHQ account** — free tier works; CPAP data uploaded via [Magic Uploader](https://sleephq.com) or manual import
+- Maven is **not** required — `./mvnw` is the self-contained wrapper included in this repo
 
 ## Architecture
 
@@ -30,29 +36,81 @@ Outbound URLs are composed only from paths in [https://sleephq.com/api/swagger.j
 
 ## Setup
 
+### 1. Get SleepHQ OAuth credentials
+
+Log in to [sleephq.com](https://sleephq.com) → **Settings** → **API** → create an OAuth application. Copy the **Client ID** and **Client Secret** — these go into `.env` as `SLEEPHQ_CLIENT_ID` / `SLEEPHQ_CLIENT_SECRET`.
+
+### 2. Configure and start
+
 ```bash
 cp .env.example .env
-# edit .env: SleepHQ OAuth credentials, SLEEPHQ_MCP_API_KEY (or SLEEPHQ_MCP_ALLOW_ANONYMOUS=true for local-only)
+# Required: fill in SLEEPHQ_CLIENT_ID, SLEEPHQ_CLIENT_SECRET, SLEEPHQ_MCP_API_KEY
+# Optional: set OSCAR_DATA_PATH if your OSCAR backup isn't at ~/Documents/OSCAR_Data
+# Optional: set SLEEPHQ_LOCAL_DATA_PATH / SLEEPHQ_O2_LOCAL_PATH if using local SleepHQ mirror
 ./run.sh
 ```
 
-`./run.sh` stops any old JVM on port 8080, rebuilds, copies the jar to `dist/`, and starts a single fresh process (avoids `NoClassDefFoundError` from stale servers). Wait for log line `Classpath sanity OK` before connecting Goose.
+`./run.sh` stops any old JVM on port 8080, rebuilds, copies the jar to `dist/`, and starts a single fresh process (avoids `NoClassDefFoundError` from stale servers). Wait for log line `Classpath sanity OK` before connecting a client.
 
 **Stop when done:** `./stop.sh` frees port 8080 (the JVM keeps running until stopped).
+
+### 3. Verify it's up
+
+```bash
+curl -s http://localhost:8080/actuator/health
+# → {"status":"UP"}
+```
 
 **CPAP clock drift:** Date-based EDF tools (`get-device-events`, `get-waveform-by-date`, `scan-apnea-events` with `date`) read `time_offset` from the CPAP `machine_date` API. Optional env fallback: `SLEEPHQ_CPAP_CLOCK_ADJUST_SECONDS`. O2 and journal are never shifted. See `sleephq://playbook/clock-alignment`.
 
 Server listens on `http://localhost:8080/mcp` (Streamable HTTP). Health at `/actuator/health`.
 
-## Hook up Goose
+## Connect an MCP client
 
-**Goose Desktop:** `./run.sh` in a terminal, then in the app add a Streamable HTTP extension → `http://localhost:8080/mcp` with header `X-SleepHQ-MCP-Key` = your `SLEEPHQ_MCP_API_KEY` from `.env`. Enable it in a new chat. When done: `./stop.sh`.
+The server speaks **Streamable HTTP** at `http://localhost:8080/mcp`. Any MCP-compatible client works; add the URL and the `X-SleepHQ-MCP-Key` header matching your `SLEEPHQ_MCP_API_KEY`.
 
-**Waveform smoke (Desktop):** paste [`context/goose-smoke-waveform.txt`](context/goose-smoke-waveform.txt) into a chat — see [docs/smoke-test-waveform-windows.md](docs/smoke-test-waveform-windows.md).
+### Claude Desktop
 
-**Goose CLI (optional):** `goose-recipe.yaml` uses the same URL/headers. `goose session --recipe goose-recipe.yaml` or `./scripts/goose-with-mcp.sh session --recipe goose-recipe.yaml`, then `./stop.sh`.
+Add to your `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "sleephq": {
+      "url": "http://localhost:8080/mcp",
+      "headers": {
+        "X-SleepHQ-MCP-Key": "YOUR_SLEEPHQ_MCP_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop after editing. Run `./run.sh` first so the server is up.
+
+### Goose Desktop
+
+`./run.sh` in a terminal → in the app add a **Streamable HTTP** extension → URL `http://localhost:8080/mcp`, header `X-SleepHQ-MCP-Key` = your key. Enable it in a new chat. When done: `./stop.sh`.
+
+**Waveform smoke:** paste [`context/goose-smoke-waveform.txt`](context/goose-smoke-waveform.txt) into a chat — see [docs/smoke-test-waveform-windows.md](docs/smoke-test-waveform-windows.md).
+
+### Goose CLI
+
+`goose-recipe.yaml` uses the same URL/headers. `goose session --recipe goose-recipe.yaml` or `./scripts/goose-with-mcp.sh session --recipe goose-recipe.yaml`, then `./stop.sh`.
 
 [sleephq-mcp-capabilities.md](sleephq-mcp-capabilities.md) lists every tool. **More smoke tests:** [waveform windows](docs/smoke-test-waveform-windows.md) · [OSCAR](docs/smoke-test-oscar-mcp.md) · [SleepHQ night summary](docs/smoke-test-sleephq-night.md)
+
+## Optional integrations
+
+### OSCAR (local CPAP backup)
+
+[OSCAR](https://www.sleepfiles.com/OSCAR/) is an open-source app that stores a local backup of your ResMed CPAP data. When `OSCAR_DATA_PATH` points at your OSCAR backup folder, `get-combined-night-by-date` attaches a `night_analysis` block with high-resolution statistics (tidal volume, respiratory rate, minute ventilation, event counts) derived from the local EDF files — richer than what the SleepHQ API returns alone.
+
+Default path: `~/Documents/OSCAR_Data`. Set `OSCAR_DATA_PATH` in `.env` only if yours differs.
+
+### Local SleepHQ mirror
+
+If you run `sleephq_download.py` (from [ezscript](https://github.com/adriansian/ezscript)) to download your SleepHQ PLD/EDF files locally, `get-sleephq-night` will read from disk first for faster, offline-capable access. Configure `SLEEPHQ_LOCAL_DATA_PATH`, `SLEEPHQ_O2_LOCAL_PATH`, and `SLEEPHQ_SYNC_REPORT_PATH` in `.env` if your mirror paths differ from the defaults shown in `.env.example`. Without a local mirror the tool falls back to the SleepHQ API automatically.
 
 ## Adding capabilities
 
@@ -80,3 +138,6 @@ If the server uses `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true`, omit the `X-SleepHQ-MCP-K
 - **401 from SleepHQ tools** — check `SLEEPHQ_CLIENT_ID` / `SLEEPHQ_CLIENT_SECRET`. With anonymous health, `/actuator/health` returns only UP/DOWN; configure actuator authentication if you need credential details on that endpoint.
 - **404 / empty from `get-combined-night-by-date`** — without Magic Uploader, CPAP `machine_date` may be absent; the tool still returns O2 summaries and/or `journal` when configured (`coverage.cpap_machine_date` / `o2_machine_date` / `journal`). Use `get-journal-by-date` for sleep stages only. Fatal only when CPAP, O2, and journal are all missing for that date.
 - **MCP client can't connect** — confirm the server is on the right port (default 8080, override via `SLEEPHQ_MCP_PORT`). Streamable HTTP requires both `Content-Type: application/json` and `Accept: application/json, text/event-stream`.
+- **OSCAR tools return empty / `get-oscar-status` says not configured** — set `OSCAR_DATA_PATH` in `.env` pointing at your OSCAR backup folder (contains `Profiles/` subdirectory). Restart `./run.sh` after changing env vars.
+- **`get-sleephq-night` shows `no_sleephq_pld`** — no local mirror found at `SLEEPHQ_LOCAL_DATA_PATH`; the tool falls back to the API. If you want local-first reads, run `sleephq_download.py` first and confirm the path matches `.env`.
+- **`NoClassDefFoundError` after code change** — always restart via `./run.sh` (full clean rebuild), never hot-reload into a running JVM.
