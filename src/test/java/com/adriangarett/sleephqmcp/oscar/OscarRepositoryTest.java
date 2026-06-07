@@ -3,6 +3,7 @@ package com.adriangarett.sleephqmcp.oscar;
 import com.adriangarett.sleephqmcp.config.OscarProperties;
 import com.adriangarett.sleephqmcp.domain.OscarSession;
 import com.adriangarett.sleephqmcp.domain.OscarSessionIndexEntry;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +28,11 @@ class OscarRepositoryTest {
     void setUp() throws Exception {
         conn = OscarSqliteFixture.createInMemory();
         repo = OscarRepository.forTesting(props(), OscarSqliteDb.wrap(conn));
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        conn.close();
     }
 
     @Test

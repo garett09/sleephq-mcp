@@ -340,8 +340,8 @@ public class OscarRepository {
     }
 
     public Optional<Map<String, Integer>> loadSummaryEventCounts(OscarSessionIndexEntry indexEntry) {
-        return loadSession(indexEntry).map(s -> s.eventCounts().isEmpty() ? null : s.eventCounts())
-                .map(Optional::ofNullable).flatMap(o -> o);
+        return loadSession(indexEntry)
+                .flatMap(s -> Optional.ofNullable(s.eventCounts().isEmpty() ? null : s.eventCounts()));
     }
 
     // ── EDF stubs (Phase 2: blob decompression not yet implemented) ───────────
