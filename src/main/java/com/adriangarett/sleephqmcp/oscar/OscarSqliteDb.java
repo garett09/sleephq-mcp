@@ -58,6 +58,7 @@ public final class OscarSqliteDb implements AutoCloseable {
             }
         } catch (SQLException e) {
             log.warn("OSCAR query failed [{}]: {}", sql.substring(0, Math.min(60, sql.length())), e.getMessage());
+            return List.of();
         }
         return results;
     }
