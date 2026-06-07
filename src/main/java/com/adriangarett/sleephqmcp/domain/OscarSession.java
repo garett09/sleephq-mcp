@@ -11,6 +11,11 @@ public record OscarSession(
         Map<String, ChannelSummary> channels,
         Map<String, Integer> eventCounts
 ) {
+    public OscarSession {
+        channels = channels == null ? Map.of() : Map.copyOf(channels);
+        eventCounts = eventCounts == null ? Map.of() : Map.copyOf(eventCounts);
+    }
+
     public long endMs() {
         return startMs + durationSeconds * 1000L;
     }

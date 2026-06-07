@@ -12,4 +12,8 @@ public record OscarSessionIndexEntry(
         List<String> channelCodes,
         List<Integer> settingChannelIds
 ) {
+    public OscarSessionIndexEntry {
+        channelCodes = channelCodes == null ? List.of() : List.copyOf(channelCodes);
+        settingChannelIds = settingChannelIds == null ? List.of() : List.copyOf(settingChannelIds);
+    }
 }
