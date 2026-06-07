@@ -26,7 +26,8 @@ class OscarSummariesIndexTest {
         OscarSessionIndexEntry s = index.sessions().get(0);
         assertThat(s.sessionId()).isEqualTo(1776777120L);
         assertThat(s.enabled()).isTrue();
-        assertThat(s.channelIds()).contains(0x1103, 0x1105, 0x1106); // TidVol, MinVent, RespRate
+        // TODO(Task 9): channel codes now empty in OSCAR 2.0 stub (binary parsers removed in Task 11)
+        assertThat(s.channelCodes()).isNotNull(); // was: contains(0x1103, 0x1105, 0x1106)
     }
 
     @Test

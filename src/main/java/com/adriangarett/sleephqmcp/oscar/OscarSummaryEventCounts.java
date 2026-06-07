@@ -24,20 +24,11 @@ public final class OscarSummaryEventCounts {
     private OscarSummaryEventCounts() {}
 
     public static Map<String, Integer> fromSession(OscarSession session) {
-        if (session == null || session.channels().isEmpty()) {
+        if (session == null || session.eventCounts().isEmpty()) {
             return Map.of();
         }
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (Map.Entry<Integer, ChannelSummary> entry : session.channels().entrySet()) {
-            if (!OscarChannelIdClassification.isCountedEventChannel(entry.getKey())) {
-                continue;
-            }
-            Integer count = toIntegerCount(entry.getValue().count());
-            if (count != null) {
-                counts.put(OscarChannelCatalog.fieldName(entry.getKey()), count);
-            }
-        }
-        return counts;
+        // TODO(Task 11): binary parser stub — now delegate to eventCounts in OSCAR 2.0
+        return session.eventCounts();
     }
 
     public static Map<String, Integer> scan(byte[] summaryBytes, List<Integer> availableChannelIds) {

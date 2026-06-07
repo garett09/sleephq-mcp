@@ -4,7 +4,6 @@ import com.adriangarett.sleephqmcp.config.OscarProperties;
 import com.adriangarett.sleephqmcp.domain.ChannelSummary;
 import com.adriangarett.sleephqmcp.domain.OscarSession;
 import com.adriangarett.sleephqmcp.domain.OscarSessionIndexEntry;
-import com.adriangarett.sleephqmcp.oscar.OscarChannelIds;
 import com.adriangarett.sleephqmcp.oscar.OscarRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -121,15 +120,16 @@ class UnifiedNightAnalysisServiceTest {
         ObjectNode machineAttrs = mapper.createObjectNode();
         machineAttrs.putObject("ahi_summary").put("av", 1.2);
 
-        Map<Integer, ChannelSummary> channels = new HashMap<>();
-        channels.put(OscarChannelIds.CPAP_AHI, new ChannelSummary(3.5, 0.0, 10.0, 3.5, null, null));
+        // TODO(Task 10): updated to use String channel codes in OSCAR 2.0
+        Map<String, ChannelSummary> channels = new HashMap<>();
+        channels.put("AHI", new ChannelSummary(3.5, 0.0, 10.0, 3.5, null, null));
         OscarSession session = new OscarSession(
                 date.toString(),
                 123456L,
                 start.toEpochMilli(),
                 3600,
                 channels,
-                List.of(OscarChannelIds.CPAP_AHI));
+                Map.of());
 
         OscarSessionIndexEntry indexEntry = sessionEntry(start, end);
         stubConfiguredSession(date, indexEntry, lastSessionDate, session);
@@ -175,19 +175,20 @@ class UnifiedNightAnalysisServiceTest {
         when(oscarRepository.loadSummaryHeader(indexEntry)).thenReturn(Optional.empty());
 
         OscarProperties.Analysis analysis = new OscarProperties.Analysis(95, 120, 20, 100, 5);
-        OscarProperties properties = new OscarProperties("path", "profile", "device", analysis);
+        OscarProperties properties = new OscarProperties(true, "path", "profile", "device", analysis);
         when(oscarRepository.properties()).thenReturn(properties);
         when(oscarRepository.loadSession(indexEntry)).thenReturn(Optional.of(session));
         when(oscarRepository.edfPathsForSession(indexEntry)).thenReturn(Optional.empty());
     }
 
     private static OscarSessionIndexEntry sessionEntry(Instant start, Instant end) {
+        // TODO(Task 10): channelCodes now List<String> in OSCAR 2.0
         return new OscarSessionIndexEntry(
-                123456L, true, true, start, end, List.of(OscarChannelIds.CPAP_AHI), List.of());
+                123456L, true, true, start, end, List.of("AHI"), List.of());
     }
 
     private static OscarSession emptySession(LocalDate date, Instant start) {
-        return new OscarSession(date.toString(), 123456L, start.toEpochMilli(), 3600, new HashMap<>(), List.of());
+        return new OscarSession(date.toString(), 123456L, start.toEpochMilli(), 3600, new HashMap<>(), Map.of());
     }
 
     private static ObjectNode findConflictByMetric(ArrayNode conflicts, String metric) {

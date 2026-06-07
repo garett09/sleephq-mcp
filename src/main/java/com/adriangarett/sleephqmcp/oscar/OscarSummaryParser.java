@@ -21,14 +21,8 @@ public final class OscarSummaryParser {
     private OscarSummaryParser() {}
 
     public static OscarSession parse(byte[] bytes, LocalDate calendarDate, ZoneId zone) {
+        // TODO(Task 11): binary parser stub — returns empty session; full removal in Task 11
         OscarSummaryHeaderParser.SummaryHeader header = OscarSummaryHeaderParser.parse(bytes);
-        List<Integer> available = readAvailableChannelsFromTail(bytes);
-        Map<Integer, ChannelSummary> channels = Map.of();
-        try {
-            channels = parseChannelStats(bytes, available);
-        } catch (RuntimeException ignored) {
-            // Settings QDataStream layout varies by OSCAR build; EDF stats remain primary.
-        }
         String date = calendarDate != null
                 ? calendarDate.toString()
                 : header.startInstant().atZone(zone).toLocalDate().toString();
@@ -37,8 +31,8 @@ public final class OscarSummaryParser {
                 header.sessionId(),
                 header.startInstant().toEpochMilli(),
                 header.durationSeconds(),
-                channels,
-                available);
+                Map.of(),
+                Map.of());
     }
 
     private static Map<Integer, ChannelSummary> parseChannelStats(byte[] bytes, List<Integer> available) {
@@ -201,11 +195,12 @@ public final class OscarSummaryParser {
 
     public static OscarSession parseHeaderOnly(byte[] bytes, LocalDate calendarDate, ZoneId zone,
                                               List<Integer> channelIds) {
+        // TODO(Task 11): binary parser stub — returns empty session; full removal in Task 11
         OscarSummaryHeaderParser.SummaryHeader header = OscarSummaryHeaderParser.parse(bytes);
         String date = calendarDate != null
                 ? calendarDate.toString()
                 : header.startInstant().atZone(zone).toLocalDate().toString();
         return new OscarSession(date, header.sessionId(), header.startInstant().toEpochMilli(),
-                header.durationSeconds(), Map.of(), channelIds);
+                header.durationSeconds(), Map.of(), Map.of());
     }
 }

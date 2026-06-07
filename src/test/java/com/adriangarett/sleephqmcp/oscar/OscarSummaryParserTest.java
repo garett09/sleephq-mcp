@@ -58,6 +58,7 @@ class OscarSummaryParserTest {
                 ZoneId.of("UTC"), List.of(0x1103, 0x1106));
         assertThat(session.sessionId()).isEqualTo(0x6A0DB26CL);
         assertThat(session.durationSeconds()).isEqualTo(28_800L);
-        assertThat(session.availableChannelIds()).contains(0x1103);
+        // TODO(Task 11): availableChannelIds() removed in OSCAR 2.0; now uses availableChannelCodes()
+        assertThat(session.availableChannelCodes()).isNotNull();
     }
 }

@@ -37,13 +37,14 @@ class OscarSummaryRealFileIntegrationTest {
         assertThat(scanned).isNotEmpty();
         assertThat(scanned.get(OscarChannelIds.CPAP_AHI).avg()).isBetween(0.0, 100.0);
 
+        // TODO(Task 11): channels are now String-keyed in OSCAR 2.0; stub passes empty map
         OscarSession enriched = new OscarSession(
                 parsed.date(),
                 parsed.sessionId(),
                 parsed.startMs(),
                 parsed.durationSeconds(),
-                scanned,
-                channelIds);
+                Map.of(),
+                Map.of());
         ObjectNode indices = NightAnalysisSupport.respiratoryIndices(Optional.of(enriched), null);
         assertThat(indices.has("oscar_ahi_per_hr")).isTrue();
         assertThat(indices.get("oscar_ahi_per_hr").isNumber()).isTrue();

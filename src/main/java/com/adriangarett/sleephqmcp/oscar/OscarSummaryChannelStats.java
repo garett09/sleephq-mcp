@@ -39,9 +39,7 @@ public final class OscarSummaryChannelStats {
             byte[] summaryBytes,
             OscarSession session,
             List<Integer> availableChannelIds) {
-        if (session != null && !session.channels().isEmpty()) {
-            return session.channels();
-        }
+        // TODO(Task 11): binary parser stub — session.channels() is now String-keyed in OSCAR 2.0
         return scan(summaryBytes, availableChannelIds);
     }
 

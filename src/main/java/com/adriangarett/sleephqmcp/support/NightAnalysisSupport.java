@@ -4,10 +4,8 @@ import com.adriangarett.sleephqmcp.domain.ChannelStatistics;
 import com.adriangarett.sleephqmcp.domain.ChannelSummary;
 import com.adriangarett.sleephqmcp.domain.OscarSession;
 import com.adriangarett.sleephqmcp.domain.OscarSessionIndexEntry;
-import com.adriangarett.sleephqmcp.oscar.OscarChannelCatalog;
-import com.adriangarett.sleephqmcp.oscar.OscarChannelIdClassification;
 import com.adriangarett.sleephqmcp.oscar.OscarChannelIds;
-import com.adriangarett.sleephqmcp.oscar.OscarSummaryHeaderParser;
+import com.adriangarett.sleephqmcp.oscar.OscarChannelMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -57,17 +55,20 @@ public final class NightAnalysisSupport {
     }
 
     public static ObjectNode summaryChannelNode(OscarSession session) {
+        // TODO(Task 9): updated to use String channel codes in OSCAR 2.0
         ObjectNode channels = JsonApi.mapper().createObjectNode();
-        for (int channelId : session.availableChannelIds()) {
-            if (OscarChannelIdClassification.isEventChannel(channelId)) {
+        for (String code : session.availableChannelCodes()) {
+            if (OscarChannelMapper.isEventChannel(code)) {
                 continue;
             }
-            String field = OscarChannelCatalog.fieldName(channelId);
-            ChannelSummary summary = session.channels().get(channelId);
+            String field = OscarChannelMapper.fieldName(code);
+            ChannelSummary summary = session.channels().get(code);
             ObjectNode ch = channels.putObject(field);
-            ch.put("channel_id", String.format("0x%04x", channelId));
-            ch.put("label", OscarChannelCatalog.label(channelId));
-            OscarChannelCatalog.find(channelId).ifPresent(meta -> ch.put("unit", meta.unit()));
+            ch.put("channel_code", code);
+            String unit = OscarChannelMapper.unit(code);
+            if (!unit.isBlank()) {
+                ch.put("unit", unit);
+            }
             if (summary != null) {
                 putIfPresent(ch, "avg", summary.avg());
                 putIfPresent(ch, "min", summary.min());
@@ -89,16 +90,14 @@ public final class NightAnalysisSupport {
 
     public static ObjectNode sessionNode(
             OscarSessionIndexEntry session,
-            OscarSummaryHeaderParser.SummaryHeader header) {
+            Map<String, Double> header) {
+        // TODO(Task 10): header is now Map<String,Double> from SQLite in OSCAR 2.0
         ObjectNode node = JsonApi.mapper().createObjectNode();
         node.put("session_id", Long.toHexString(session.sessionId()));
         node.put("start", session.firstInstant().toString());
         node.put("end", session.lastInstant().toString());
-        if (header != null) {
-            node.put("duration_seconds", header.durationSeconds());
-        }
-        ArrayNode channelIds = node.putArray("channel_ids");
-        session.channelIds().forEach(id -> channelIds.add(String.format("0x%04x", id)));
+        ArrayNode channelCodes = node.putArray("channel_codes");
+        session.channelCodes().forEach(channelCodes::add);
         return node;
     }
 
@@ -194,7 +193,12 @@ public final class NightAnalysisSupport {
 
     private static void putIndexFromSummary(
             ObjectNode indices, String key, OscarSession session, int channelId) {
-        ChannelSummary summary = session.channels().get(channelId);
+        // TODO(Task 9): channels are now String-keyed in OSCAR 2.0; stub looks up by field name
+        String targetField = key.replace("oscar_", "").replace("_per_hr", "");
+        ChannelSummary summary = session.channels().entrySet().stream()
+                .filter(e -> OscarChannelMapper.fieldName(e.getKey()).equals(targetField))
+                .map(Map.Entry::getValue)
+                .findFirst().orElse(null);
         if (summary != null && summary.avg() != null) {
             putRounded(indices, key, summary.avg());
         }

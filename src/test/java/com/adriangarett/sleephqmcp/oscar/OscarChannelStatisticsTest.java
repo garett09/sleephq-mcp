@@ -5,7 +5,6 @@ import com.adriangarett.sleephqmcp.domain.ChannelSummary;
 import com.adriangarett.sleephqmcp.domain.OscarSession;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,10 +19,11 @@ class OscarChannelStatisticsTest {
     private static final int OBSTRUCTIVE    = OscarChannelIds.CPAP_Obstructive;  // 0x1002
 
     private OscarSession mixedSession() {
-        Map<Integer, ChannelSummary> channels = Map.of(
-                PRESSURE_ID,  new ChannelSummary(10.0, 8.0, 14.0, null, null, null),
-                CLEAR_AIRWAY, new ChannelSummary(13.0, 0.0, 20.0, null, null, null),
-                OBSTRUCTIVE,  new ChannelSummary(5.0,  0.0, 10.0, null, null, null)
+        // TODO(Task 8): updated to use String channel codes in OSCAR 2.0
+        Map<String, ChannelSummary> channels = Map.of(
+                "Pressure",    new ChannelSummary(10.0, 8.0, 14.0, null, null, null),
+                "ClearAirway", new ChannelSummary(13.0, 0.0, 20.0, null, null, null),
+                "Obstructive", new ChannelSummary(5.0,  0.0, 10.0, null, null, null)
         );
         return new OscarSession(
                 "2026-05-27",
@@ -31,7 +31,7 @@ class OscarChannelStatisticsTest {
                 0L,
                 28_800L,
                 channels,
-                List.of(PRESSURE_ID, CLEAR_AIRWAY, OBSTRUCTIVE));
+                Map.of());
     }
 
     @Test

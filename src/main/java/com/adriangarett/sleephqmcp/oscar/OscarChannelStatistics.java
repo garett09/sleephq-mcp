@@ -13,17 +13,17 @@ public final class OscarChannelStatistics {
 
     public static Map<String, ChannelStatistics> fromSummarySession(OscarSession session) {
         Map<String, ChannelStatistics> stats = new LinkedHashMap<>();
-        for (Map.Entry<Integer, ChannelSummary> entry : session.channels().entrySet()) {
-            int id = entry.getKey();
-            if (OscarChannelIdClassification.isEventChannel(id)) {
+        for (Map.Entry<String, ChannelSummary> entry : session.channels().entrySet()) {
+            String code = entry.getKey();
+            if (OscarChannelMapper.isEventChannel(code)) {
                 continue;
             }
             ChannelSummary summary = entry.getValue();
             if (summary.avg() == null && summary.min() == null && summary.max() == null) {
                 continue;
             }
-            String field = OscarChannelCatalog.fieldName(id);
-            String unit = OscarChannelCatalog.find(id).map(OscarChannelCatalog.ChannelMeta::unit).orElse("");
+            String field = OscarChannelMapper.fieldName(code);
+            String unit = OscarChannelMapper.unit(code);
             ChannelStatistics raw = new ChannelStatistics(
                     field,
                     unit,

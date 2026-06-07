@@ -11,7 +11,6 @@ import com.adriangarett.sleephqmcp.oscar.OscarChannelStatistics;
 import com.adriangarett.sleephqmcp.oscar.OscarEventCorrelator;
 import com.adriangarett.sleephqmcp.oscar.OscarEventSummaryBuilder;
 import com.adriangarett.sleephqmcp.oscar.OscarRepository;
-import com.adriangarett.sleephqmcp.oscar.OscarSummaryHeaderParser;
 import com.adriangarett.sleephqmcp.oscar.OscarWaveformStatistics;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.NightAnalysisSupport;
@@ -70,9 +69,9 @@ public class UnifiedNightAnalysisService {
         ObjectNode nightAnalysis = JsonApi.mapper().createObjectNode();
         nightAnalysis.put("date", date);
 
-        OscarSummaryHeaderParser.SummaryHeader header =
+        Map<String, Double> header =
                 oscarRepository.loadSummaryHeader(indexEntry).orElse(null);
-        
+
         ObjectNode sessionNode = NightAnalysisSupport.sessionNode(indexEntry, header);
         LocalDate sessionStartDate = indexEntry.firstInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
         LocalDate sessionEndDate = indexEntry.lastInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();

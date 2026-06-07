@@ -68,8 +68,8 @@ public final class OscarSummariesIndex {
                     hasEvents,
                     Instant.ofEpochMilli(firstMs),
                     Instant.ofEpochMilli(lastMs),
-                    channels,
-                    settings));
+                    List.of(), // TODO(Task 9): channel codes stub — binary parsers removed in Task 11
+                    List.of()));
         }
         return new OscarSummariesIndex(entries);
     }
