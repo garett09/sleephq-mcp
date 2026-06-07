@@ -19,7 +19,7 @@ Checks:
 - Step 0: mcp_payload_hints shows your waveform_default_max_minutes and cap.
 - Calls 1–2: omit maxMinutes; window_selection.max_minutes should match server default; anchor rules as before.
 - Call 3: manual override with maxMinutes=15 only to keep response smaller.
-- Call 4: journal.sleep_stages_summary must include summary_schema_version (>=3), legend_profile, minutes_by_stage_for_reporting, reporting_source. If summary_schema_version < 3, FAIL — restart ./run.sh. For 2026-05-19 expect legend_profile=sleephq_dashboard and reporting minutes near SleepHQ UI (rem ~240, awake ~14, deep ~217, core ~358).
+- Call 4: journal.sleep_stages_summary must include summary_schema_version (>=3), legend_profile, minutes_by_stage_for_reporting, reporting_source. If summary_schema_version < 3, FAIL — restart ./run.sh. For your TEST_DATE expect legend_profile=sleephq_dashboard and reporting minutes near what your SleepHQ UI shows (rem/awake/deep/core in minutes).
 
 Reply with:
 1) markdown table: step | PASS/FAIL | note
