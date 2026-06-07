@@ -4,7 +4,7 @@
 
 ```properties
 oscar.data-path=${OSCAR_DATA_PATH:${user.home}/Documents/OSCAR_Data}
-oscar.profile-name=${OSCAR_PROFILE_NAME:adriansian}
+oscar.profile-name=${OSCAR_PROFILE_NAME:your-oscar-profile-name}
 oscar.device-folder=${OSCAR_DEVICE_FOLDER:}  # optional override
 ```
 
