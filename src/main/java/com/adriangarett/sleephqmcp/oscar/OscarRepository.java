@@ -9,6 +9,7 @@ import com.adriangarett.sleephqmcp.domain.OscarSessionIndexEntry;
 import com.adriangarett.sleephqmcp.domain.WaveformResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
@@ -31,6 +32,7 @@ public class OscarRepository {
     private final OscarDeviceResolver deviceResolver;
     private final OscarSqliteDb testDb;
 
+    @Autowired
     public OscarRepository(OscarProperties properties) {
         this.properties = properties;
         this.deviceResolver = new OscarDeviceResolver(properties);
