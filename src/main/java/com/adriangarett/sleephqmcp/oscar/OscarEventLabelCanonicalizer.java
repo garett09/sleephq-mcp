@@ -5,10 +5,9 @@ import java.util.Set;
 
 /**
  * Maps raw EVE.edf annotation labels to the canonical field names used in
- * {@code OscarChannelCatalog} summary counts (e.g. {@code "obstructive"},
- * {@code "clear_airway"}).  This lets downstream code compare
- * {@code events.counts} (from EVE annotations) directly against
- * {@code events.summary_counts} (from Summaries/*.000 hash).
+ * summary counts (e.g. {@code "obstructive"}, {@code "clear_airway"}).
+ * This lets downstream code compare {@code events.counts} (from EVE annotations)
+ * directly against {@code events.summary_counts} (from the SQLite summary).
  *
  * <p>Pure utility — no Spring bean, no state.</p>
  */

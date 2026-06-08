@@ -12,13 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class OscarChannelStatisticsTest {
 
-    // 0x110C = CPAP_Pressure (waveform)
-    private static final int PRESSURE_ID    = OscarChannelIds.CPAP_Pressure;     // 0x110C
-    // 0x1001 = CPAP_ClearAirway (event)
-    private static final int CLEAR_AIRWAY   = OscarChannelIds.CPAP_ClearAirway;  // 0x1001
-    // 0x1002 = CPAP_Obstructive (event)
-    private static final int OBSTRUCTIVE    = OscarChannelIds.CPAP_Obstructive;  // 0x1002
-
     private OscarSession mixedSession() {
         // TODO(Task 8): updated to use String channel codes in OSCAR 2.0
         Map<String, ChannelSummary> channels = Map.of(

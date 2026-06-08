@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Pure distribution math shared by OSCAR ({@code OscarWaveformStatistics}) and the SleepHQ night
- * summary ({@code NightSummaryComputer}) so the two paths cannot drift. Ceil-rank percentile,
+ * Pure distribution math shared across OSCAR and SleepHQ night summary paths
+ * ({@code NightSummaryComputer}) so the two paths cannot drift. Ceil-rank percentile,
  * matching what ResMed/SleepHQ report as {@code .50}/{@code upper}.
  */
 public final class ChannelPercentiles {
