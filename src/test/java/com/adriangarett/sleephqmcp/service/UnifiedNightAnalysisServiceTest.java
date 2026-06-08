@@ -73,7 +73,7 @@ class UnifiedNightAnalysisServiceTest {
         assertThat(analysisNode.path("coverage").path("oscar_export_lag_days").asInt()).isEqualTo(5);
         assertThat(analysisNode.path("coverage").path("oscar_export_freshness").asText()).isEqualTo("acceptable_lag");
 
-        ObjectNode oscarProv = (ObjectNode) analysisNode.path("provenance").path("oscar_summaries_xml");
+        ObjectNode oscarProv = (ObjectNode) analysisNode.path("provenance").path("oscar_sqlite");
         assertThat(oscarProv.path("export_freshness").asText()).isEqualTo("acceptable_lag");
         assertThat(oscarProv.path("export_lag_days").asInt()).isEqualTo(5);
         assertThat(oscarProv.path("freshness_scope").asText()).isEqualTo("export");

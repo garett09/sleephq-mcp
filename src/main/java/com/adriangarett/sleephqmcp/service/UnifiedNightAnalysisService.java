@@ -7,11 +7,11 @@ import com.adriangarett.sleephqmcp.domain.DeviceEventResult;
 import com.adriangarett.sleephqmcp.domain.OscarEdfPaths;
 import com.adriangarett.sleephqmcp.domain.OscarSession;
 import com.adriangarett.sleephqmcp.domain.OscarSessionIndexEntry;
+import com.adriangarett.sleephqmcp.oscar.OscarChannelHistogram;
 import com.adriangarett.sleephqmcp.oscar.OscarChannelStatistics;
 import com.adriangarett.sleephqmcp.oscar.OscarEventCorrelator;
 import com.adriangarett.sleephqmcp.oscar.OscarEventSummaryBuilder;
 import com.adriangarett.sleephqmcp.oscar.OscarRepository;
-import com.adriangarett.sleephqmcp.oscar.OscarWaveformStatistics;
 import com.adriangarett.sleephqmcp.support.JsonApi;
 import com.adriangarett.sleephqmcp.support.NightAnalysisSupport;
 import com.adriangarett.sleephqmcp.support.NightDataConflictAnalyzer;
@@ -82,8 +82,10 @@ public class UnifiedNightAnalysisService {
 
         Map<String, ChannelStatistics> channelStats = new LinkedHashMap<>();
         if (oscarSession.isPresent()) {
+            Map<String, OscarChannelHistogram> histograms =
+                    oscarRepository.loadChannelHistograms(localDate);
             OscarChannelStatistics.mergePreferEdf(channelStats,
-                    OscarChannelStatistics.fromSummarySession(oscarSession.get()));
+                    OscarChannelStatistics.fromSummarySession(oscarSession.get(), histograms));
         }
 
         Optional<OscarEdfPaths> edfPaths = oscarRepository.edfPathsForSession(indexEntry);
@@ -131,7 +133,6 @@ public class UnifiedNightAnalysisService {
 
         NightAnalysisSupport.attachSleepHq(nightAnalysis, machineDateAttrs, journalAttrs);
 
-        // Surfacing data conflicts
         if (oscarSession.isPresent()) {
             ArrayNode conflicts = NightDataConflictAnalyzer.analyze(machineDateAttrs, oscarSession.get());
             if (!conflicts.isEmpty()) {
@@ -143,9 +144,9 @@ public class UnifiedNightAnalysisService {
         if (machineDateAttrs != null) {
             sources.add("sleephq");
         }
-        sources.add("oscar_summaries_xml");
+        sources.add("oscar_sqlite");
         if (oscarSession.isPresent() && !oscarSession.get().channels().isEmpty()) {
-            sources.add("oscar_summary_000");
+            sources.add("oscar_sqlite_session");
         }
         if (hasPld) {
             sources.add("oscar_pld_edf");
@@ -164,8 +165,8 @@ public class UnifiedNightAnalysisService {
             shqProv.put("type", "api");
             shqProv.put("available", true);
         }
-        ObjectNode oscarProv = provenance.putObject("oscar_summaries_xml");
-        oscarProv.put("type", "local_file");
+        ObjectNode oscarProv = provenance.putObject("oscar_sqlite");
+        oscarProv.put("type", "sqlite");
         oscarProv.put("available", true);
         if (lastSessionDateOpt.isPresent()) {
             oscarProv.put("last_session_date", lastSessionDateOpt.get().toString());
@@ -184,8 +185,8 @@ public class UnifiedNightAnalysisService {
         }
 
         if (oscarSession.isPresent() && !oscarSession.get().channels().isEmpty()) {
-            ObjectNode sum000Prov = provenance.putObject("oscar_summary_000");
-            sum000Prov.put("type", "local_file");
+            ObjectNode sum000Prov = provenance.putObject("oscar_sqlite_session");
+            sum000Prov.put("type", "sqlite");
             sum000Prov.put("available", true);
         }
         if (hasPld) {
@@ -232,19 +233,11 @@ public class UnifiedNightAnalysisService {
     }
 
     private Map<String, ChannelStatistics> loadPld(Path pld, int percentile) {
-        try {
-            return OscarWaveformStatistics.fromPld(pld, percentile);
-        } catch (Exception e) {
-            return Map.of();
-        }
+        return Map.of();
     }
 
     private Map<String, ChannelStatistics> loadBrp(Path brp, int percentile) {
-        try {
-            return OscarWaveformStatistics.fromBrp(brp, percentile);
-        } catch (Exception e) {
-            return Map.of();
-        }
+        return Map.of();
     }
 
     private OscarProperties.Analysis resolveAnalysis() {

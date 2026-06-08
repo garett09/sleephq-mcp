@@ -92,7 +92,6 @@ public class OscarTools {
             ObjectNode root = JsonApi.mapper().createObjectNode();
             root.put("configured", oscarRepository.isConfigured());
             root.put("reachable", oscarRepository.isReachable());
-            // TODO(Task 10): deviceFolder/summariesIndex removed in OSCAR 2.0; use dbFile instead
             oscarRepository.dbFile().ifPresentOrElse(
                     path -> root.put("db_file", path.toString()),
                     () -> root.putNull("db_file"));
