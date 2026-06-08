@@ -1,0 +1,13 @@
+.git
+target
+dist
+.env
+*.md
+docs
+context
+scripts
+.mvn
+mvnw
+mvnw.cmd
+goose-recipe.yaml
+api.json
