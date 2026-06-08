@@ -45,7 +45,7 @@ Log in to [sleephq.com](https://sleephq.com) → **Settings** → **API** → cr
 ```bash
 cp .env.example .env
 # Required: fill in SLEEPHQ_CLIENT_ID, SLEEPHQ_CLIENT_SECRET, SLEEPHQ_MCP_API_KEY
-# Optional: set OSCAR_DATA_PATH if your OSCAR backup isn't at ~/Documents/OSCAR_Data
+# Optional OSCAR 2.0: set OSCAR_ENABLED=true and OSCAR_DATA_PATH (folder with oscar.db)
 # Optional: set SLEEPHQ_LOCAL_DATA_PATH / SLEEPHQ_O2_LOCAL_PATH if using local SleepHQ mirror
 ./run.sh
 ```
@@ -104,9 +104,11 @@ Restart Claude Desktop after editing. Run `./run.sh` first so the server is up.
 
 ### OSCAR (local CPAP backup)
 
-[OSCAR](https://www.sleepfiles.com/OSCAR/) is an open-source app that stores a local backup of your ResMed CPAP data. When `OSCAR_DATA_PATH` points at your OSCAR backup folder, `get-combined-night-by-date` attaches a `night_analysis` block with high-resolution statistics (tidal volume, respiratory rate, minute ventilation, event counts) derived from the local EDF files — richer than what the SleepHQ API returns alone.
+[OSCAR](https://www.sleepfiles.com/OSCAR/) is an open-source app that stores a local backup of your ResMed CPAP data. **Requires OSCAR 2.0.0 or later** — the legacy binary format used by OSCAR 1.x is not supported.
 
-Default path: `~/Documents/OSCAR_Data`. Set `OSCAR_DATA_PATH` in `.env` only if yours differs.
+Set `OSCAR_ENABLED=true` in `.env` and point `OSCAR_DATA_PATH` at the folder containing `oscar.db` (OSCAR 2.0 writes this alongside the `Profiles/` directory). When configured, `get-combined-night-by-date` attaches a `night_analysis` block with per-channel statistics (respiratory rate, tidal volume, minute ventilation, flow limit, leak, EPAP/IPAP, event counts) derived from the local SQLite database — richer than what the SleepHQ API returns alone.
+
+Default path: `~/Documents/OSCAR20_Data`. Set `OSCAR_DATA_PATH` in `.env` if yours differs.
 
 ### Local SleepHQ mirror
 
@@ -138,6 +140,6 @@ If the server uses `SLEEPHQ_MCP_ALLOW_ANONYMOUS=true`, omit the `X-SleepHQ-MCP-K
 - **401 from SleepHQ tools** — check `SLEEPHQ_CLIENT_ID` / `SLEEPHQ_CLIENT_SECRET`. With anonymous health, `/actuator/health` returns only UP/DOWN; configure actuator authentication if you need credential details on that endpoint.
 - **404 / empty from `get-combined-night-by-date`** — without Magic Uploader, CPAP `machine_date` may be absent; the tool still returns O2 summaries and/or `journal` when configured (`coverage.cpap_machine_date` / `o2_machine_date` / `journal`). Use `get-journal-by-date` for sleep stages only. Fatal only when CPAP, O2, and journal are all missing for that date.
 - **MCP client can't connect** — confirm the server is on the right port (default 8080, override via `SLEEPHQ_MCP_PORT`). Streamable HTTP requires both `Content-Type: application/json` and `Accept: application/json, text/event-stream`.
-- **OSCAR tools return empty / `get-oscar-status` says not configured** — set `OSCAR_DATA_PATH` in `.env` pointing at your OSCAR backup folder (contains `Profiles/` subdirectory). Restart `./run.sh` after changing env vars.
+- **OSCAR tools return empty / `get-oscar-status` says not configured** — set `OSCAR_ENABLED=true` and `OSCAR_DATA_PATH` in `.env` pointing at the folder that contains `oscar.db` (OSCAR 2.0.0+ required; OSCAR 1.x binary format is not supported). Restart `./run.sh` after changing env vars.
 - **`get-sleephq-night` shows `no_sleephq_pld`** — no local mirror found at `SLEEPHQ_LOCAL_DATA_PATH`; the tool falls back to the API. If you want local-first reads, run `sleephq_download.py` first and confirm the path matches `.env`.
 - **`NoClassDefFoundError` after code change** — always restart via `./run.sh` (full clean rebuild), never hot-reload into a running JVM.
