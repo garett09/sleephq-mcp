@@ -4,7 +4,6 @@ import com.adriangarett.sleephqmcp.domain.ChannelStatistics;
 import com.adriangarett.sleephqmcp.domain.ChannelSummary;
 import com.adriangarett.sleephqmcp.domain.OscarSession;
 import com.adriangarett.sleephqmcp.domain.OscarSessionIndexEntry;
-import com.adriangarett.sleephqmcp.oscar.OscarChannelIds;
 import com.adriangarett.sleephqmcp.oscar.OscarChannelMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -55,7 +54,6 @@ public final class NightAnalysisSupport {
     }
 
     public static ObjectNode summaryChannelNode(OscarSession session) {
-        // TODO(Task 9): updated to use String channel codes in OSCAR 2.0
         ObjectNode channels = JsonApi.mapper().createObjectNode();
         for (String code : session.availableChannelCodes()) {
             if (OscarChannelMapper.isEventChannel(code)) {
@@ -91,7 +89,6 @@ public final class NightAnalysisSupport {
     public static ObjectNode sessionNode(
             OscarSessionIndexEntry session,
             Map<String, Double> header) {
-        // TODO(Task 10): header is now Map<String,Double> from SQLite in OSCAR 2.0
         ObjectNode node = JsonApi.mapper().createObjectNode();
         node.put("session_id", Long.toHexString(session.sessionId()));
         node.put("start", session.firstInstant().toString());
@@ -167,8 +164,8 @@ public final class NightAnalysisSupport {
     }
 
     private static void putOscarIndices(ObjectNode indices, OscarSession session) {
-        putIndexFromSummary(indices, "oscar_ahi_per_hr", session, OscarChannelIds.CPAP_AHI);
-        putIndexFromSummary(indices, "oscar_rdi_per_hr", session, OscarChannelIds.CPAP_RDI);
+        putIndexFromSummary(indices, "oscar_ahi_per_hr", session);
+        putIndexFromSummary(indices, "oscar_rdi_per_hr", session);
     }
 
     private static void putSleepHqIndices(ObjectNode indices, JsonNode machineDateAttrs) {
@@ -191,17 +188,15 @@ public final class NightAnalysisSupport {
         }
     }
 
-    private static void putIndexFromSummary(
-            ObjectNode indices, String key, OscarSession session, int channelId) {
-        // TODO(Task 9): channels are now String-keyed in OSCAR 2.0; stub looks up by field name
+    private static void putIndexFromSummary(ObjectNode indices, String key, OscarSession session) {
+        // key = "oscar_ahi_per_hr" → target field = "ahi"; "oscar_rdi_per_hr" → "rdi"
         String targetField = key.replace("oscar_", "").replace("_per_hr", "");
-        ChannelSummary summary = session.channels().entrySet().stream()
+        session.channels().entrySet().stream()
                 .filter(e -> OscarChannelMapper.fieldName(e.getKey()).equals(targetField))
                 .map(Map.Entry::getValue)
-                .findFirst().orElse(null);
-        if (summary != null && summary.avg() != null) {
-            putRounded(indices, key, summary.avg());
-        }
+                .filter(s -> s.avg() != null)
+                .findFirst()
+                .ifPresent(s -> putRounded(indices, key, s.avg()));
     }
 
     private static void putRounded(ObjectNode indices, String key, double value) {

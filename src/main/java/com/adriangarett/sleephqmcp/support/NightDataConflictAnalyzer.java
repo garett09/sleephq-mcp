@@ -2,18 +2,12 @@ package com.adriangarett.sleephqmcp.support;
 
 import com.adriangarett.sleephqmcp.domain.OscarSession;
 import com.adriangarett.sleephqmcp.domain.ChannelSummary;
-import com.adriangarett.sleephqmcp.oscar.OscarChannelIds;
-import com.adriangarett.sleephqmcp.oscar.OscarSummaryEventCounts;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.Map;
 
-/**
- * Compares overlapping SleepHQ machine_date metrics with OSCAR session summary values.
- * Central apnea uses a tighter warn threshold (0.3/hr) than obstructive/hypopnea (0.5/hr).
- */
 public final class NightDataConflictAnalyzer {
 
     private static final String[] AVG_KEYS = AhiSummarySupport.avgKeys();
@@ -29,7 +23,7 @@ public final class NightDataConflictAnalyzer {
             return conflicts;
         }
 
-        Map<String, Integer> eventCounts = OscarSummaryEventCounts.fromSession(oscarSession);
+        Map<String, Integer> eventCounts = oscarSession.eventCounts();
 
         // 1. AHI Comparison
         compareAhi(conflicts, machineDateAttrs, oscarSession);
@@ -54,7 +48,7 @@ public final class NightDataConflictAnalyzer {
 
     private static void compareAhi(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
         Double shqAhi = AhiSummarySupport.readNumeric(attrs.path("ahi_summary"), AVG_KEYS);
-        ChannelSummary oscarAhiSummary = session.channels().get(OscarChannelIds.CPAP_AHI);
+        ChannelSummary oscarAhiSummary = session.channels().get("AHI");
         Double oscarAhi = (oscarAhiSummary != null) ? oscarAhiSummary.avg() : null;
 
         if (shqAhi != null && oscarAhi != null) {
@@ -140,7 +134,7 @@ public final class NightDataConflictAnalyzer {
 
     private static void comparePressure(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
         Double shqPres = AhiSummarySupport.readNumeric(attrs.path("pressure_summary"), AVG_KEYS);
-        ChannelSummary oscarPresSummary = session.channels().get(OscarChannelIds.CPAP_Pressure);
+        ChannelSummary oscarPresSummary = session.channels().get("Pressure");
         Double oscarPres = (oscarPresSummary != null) ? oscarPresSummary.avg() : null;
 
         if (shqPres != null && oscarPres != null) {
@@ -160,7 +154,7 @@ public final class NightDataConflictAnalyzer {
 
     private static void compareLeak(ArrayNode conflicts, JsonNode attrs, OscarSession session) {
         Double shqLeakAvg = AhiSummarySupport.readNumeric(attrs.path("leak_rate_summary"), AVG_KEYS);
-        ChannelSummary oscarLeakSummary = session.channels().get(OscarChannelIds.CPAP_Leak);
+        ChannelSummary oscarLeakSummary = session.channels().get("Leak");
         Double oscarLeakAvg = (oscarLeakSummary != null) ? oscarLeakSummary.avg() : null;
 
         if (shqLeakAvg != null && oscarLeakAvg != null) {

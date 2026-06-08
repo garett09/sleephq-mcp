@@ -13,11 +13,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * TODO(Task 9): NightDataConflictAnalyzer updated to use String channel codes in OSCAR 2.0.
- * Channel lookups now use "AHI", "Pressure", "Leak" instead of OscarChannelIds integer constants.
- * Tests stubbed to compile; full behavioral update in Task 9.
- */
 class NightDataConflictAnalyzerTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -43,7 +38,6 @@ class NightDataConflictAnalyzerTest {
         ObjectNode shqLeakSummary = shqAttrs.putObject("leak_rate_summary");
         shqLeakSummary.put("avg", 2.1);
 
-        // TODO(Task 9): String-keyed channels in OSCAR 2.0
         Map<String, ChannelSummary> oscarChannels = new HashMap<>();
         oscarChannels.put("AHI", new ChannelSummary(1.2, 0.0, 5.0, 1.2, null, null));
         oscarChannels.put("Pressure", new ChannelSummary(9.5, 4.0, 12.0, 9.5, null, null));
@@ -61,14 +55,12 @@ class NightDataConflictAnalyzerTest {
                 Map.of()
         );
 
-        // Note: NightDataConflictAnalyzer still uses integer channel IDs internally (Task 9 fix).
-        // With String-keyed channels, lookups by integer ID will return null, so no conflicts detected.
         ArrayNode conflicts = NightDataConflictAnalyzer.analyze(shqAttrs, session);
-        assertThat(conflicts).isNotNull();
+        assertThat(conflicts).isEmpty();
     }
 
     @Test
-    void analyze_withDiscrepancies_stubCompilesWithStringKeys() {
+    void analyze_withDiscrepancies_detectsConflicts() {
         ObjectNode shqAttrs = mapper.createObjectNode();
         ObjectNode shqAhiSummary = shqAttrs.putObject("ahi_summary");
         shqAhiSummary.put("av", 1.2);
@@ -82,7 +74,6 @@ class NightDataConflictAnalyzerTest {
         ObjectNode shqLeakSummary = shqAttrs.putObject("leak_rate_summary");
         shqLeakSummary.put("avg", 2.1);
 
-        // TODO(Task 9): updated to String channel codes in OSCAR 2.0
         Map<String, ChannelSummary> oscarChannels = new HashMap<>();
         oscarChannels.put("AHI", new ChannelSummary(3.5, 0.0, 10.0, 3.5, null, null));
         oscarChannels.put("Pressure", new ChannelSummary(11.0, 4.0, 15.0, 11.0, null, null));
@@ -100,10 +91,9 @@ class NightDataConflictAnalyzerTest {
                 Map.of()
         );
 
-        // NightDataConflictAnalyzer uses integer channel IDs; Task 9 will update to String codes.
-        // For now, just assert it doesn't throw.
+        // AHI diff=2.3 > 2.0 → critical; Pressure diff=1.5 > 1.0 → warn; Leak diff=6.4 > 5.0 → warn
         ArrayNode conflicts = NightDataConflictAnalyzer.analyze(shqAttrs, session);
-        assertThat(conflicts).isNotNull();
+        assertThat(conflicts.size()).isGreaterThanOrEqualTo(3);
     }
 
     private ObjectNode findConflictByMetric(ArrayNode conflicts, String metric) {
