@@ -6,6 +6,7 @@ import com.adriangarett.sleephqmcp.domain.OscarSession;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.TreeMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,5 +68,42 @@ class OscarChannelStatisticsTest {
         ChannelStatistics pressure = stats.get("pressure");
         assertThat(pressure).isNotNull();
         assertThat(pressure.p995()).isNaN();
+    }
+
+    @Test
+    void fromSummarySessionWithHistograms_computesP95FromHistogram() {
+        // RespRate histogram: value=80 count=50, value=100 count=50, gain=0.2
+        // p95 (95th of 100 values) = value 100 * gain 0.2 = 20.0
+        // median (50th of 100 values) = value 80 * gain 0.2 = 16.0
+        TreeMap<Integer, Long> buckets = new TreeMap<>();
+        buckets.put(80, 50L);
+        buckets.put(100, 50L);
+        OscarChannelHistogram hist = new OscarChannelHistogram(buckets, 0.2);
+        Map<String, OscarChannelHistogram> histograms = Map.of("RespRate", hist);
+
+        Map<String, ChannelSummary> channels = Map.of(
+                "RespRate", new ChannelSummary(16.0, 10.0, 22.0, null, 100.0, null));
+        OscarSession session = new OscarSession("2024-01-15", 1L, 0L, 28800L, channels, Map.of());
+
+        Map<String, ChannelStatistics> stats = OscarChannelStatistics.fromSummarySession(session, histograms);
+        assertThat(stats).containsKey("resp_rate");
+        ChannelStatistics rs = stats.get("resp_rate");
+        assertThat(rs.percentile()).isEqualTo(20.0);
+        assertThat(rs.median()).isEqualTo(16.0);
+        assertThat(rs.p995()).isGreaterThan(0);
+    }
+
+    @Test
+    void fromSummarySessionWithHistograms_nanWhenNoHistogramForChannel() {
+        Map<String, OscarChannelHistogram> histograms = Map.of();
+
+        Map<String, ChannelSummary> channels = Map.of(
+                "Pressure", new ChannelSummary(10.6, 10.6, 10.6, null, 100.0, null));
+        OscarSession session = new OscarSession("2024-01-15", 1L, 0L, 28800L, channels, Map.of());
+
+        Map<String, ChannelStatistics> stats = OscarChannelStatistics.fromSummarySession(session, histograms);
+        assertThat(stats).containsKey("pressure");
+        assertThat(stats.get("pressure").percentile()).isNaN();
+        assertThat(stats.get("pressure").p995()).isNaN();
     }
 }

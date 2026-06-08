@@ -4,7 +4,6 @@ import com.adriangarett.sleephqmcp.domain.ChannelStatistics;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 /**
  * Aligns reported units with value magnitude and catalog conventions (e.g. tidal mL, leak L/min).
@@ -42,17 +41,7 @@ public final class OscarChannelUnitNormalizer {
     }
 
     private static ChannelStatistics normalizeWithCatalogDefault(ChannelStatistics stat) {
-        if (stat.unit() != null && !stat.unit().isBlank()) {
-            return stat;
-        }
-        return OscarChannelCatalog.findByFieldName(stat.fieldName())
-                .filter(meta -> meta.unit() != null && !meta.unit().isBlank())
-                .map(meta -> withUnit(stat, meta.unit(), 1.0))
-                .orElse(stat);
-    }
-
-    private static ChannelStatistics withUnit(ChannelStatistics stat, String unit, double scale) {
-        return scale(stat, scale, unit);
+        return stat;
     }
 
     private static ChannelStatistics scale(ChannelStatistics stat, double factor, String unit) {

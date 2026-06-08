@@ -43,6 +43,47 @@ public final class OscarChannelStatistics {
         return stats;
     }
 
+    public static Map<String, ChannelStatistics> fromSummarySession(
+            OscarSession session, Map<String, OscarChannelHistogram> histograms) {
+        Map<String, ChannelStatistics> stats = new LinkedHashMap<>();
+        for (Map.Entry<String, ChannelSummary> entry : session.channels().entrySet()) {
+            String code = entry.getKey();
+            if (OscarChannelMapper.isEventChannel(code)) {
+                continue;
+            }
+            ChannelSummary summary = entry.getValue();
+            if (summary.avg() == null && summary.min() == null && summary.max() == null) {
+                continue;
+            }
+            String field = OscarChannelMapper.fieldName(code);
+            String unit = OscarChannelMapper.unit(code);
+
+            double p95 = Double.NaN;
+            double p995 = Double.NaN;
+            double median = Double.NaN;
+
+            OscarChannelHistogram hist = histograms.get(code);
+            if (hist != null && !hist.buckets().isEmpty()) {
+                p95    = OscarHistogram.percentile(hist.buckets(), hist.gainFactor(), 95);
+                p995   = OscarHistogram.percentile(hist.buckets(), hist.gainFactor(), 99.5);
+                median = OscarHistogram.percentile(hist.buckets(), hist.gainFactor(), 50);
+            }
+
+            ChannelStatistics raw = new ChannelStatistics(
+                    field, unit,
+                    round(summary.avg()),
+                    round(summary.min()),
+                    round(summary.max()),
+                    p95, p995, median,
+                    null, null,
+                    ChannelStatistics.OFFSET_UNKNOWN,
+                    ChannelStatistics.OFFSET_UNKNOWN,
+                    0);
+            stats.put(field, OscarChannelUnitNormalizer.normalize(raw));
+        }
+        return stats;
+    }
+
     public static void mergePreferEdf(Map<String, ChannelStatistics> target, Map<String, ChannelStatistics> edf) {
         edf.forEach(target::put);
     }
