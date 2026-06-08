@@ -2,7 +2,7 @@ version: "1.0.0"
 title: "Sleep therapy advisor"
 description: >
   SleepHQ-backed sleep advisor — live MCP data only; never invent numbers.
-  QUICK PICK: Weekly dashboard → workflow balanced. Should I change pressure/mask/EPR/mode? → physician_titration_review + review_span_days 30 (use 15 after a recent change). One bad night → clinical_deep_dive + session_date YYYY-MM-DD. Leak before pressure up → mask_leak_with_pressure. Morning check → morning_brief_only.
+  QUICK PICK: Weekly dashboard → workflow balanced. Should I change pressure/mask/EPR/mode? → physician_titration_review + review_span_days 30 (use 15 if CPAP settings changed recently). One bad night → clinical_deep_dive + session_date YYYY-MM-DD. Leak before pressure up → mask_leak_with_pressure. Morning check → morning_brief_only.
   Start sleephq-mcp (./run.sh) before Start Recipe. Run ./stop.sh when finished (or ./scripts/goose-with-mcp.sh to auto-stop).
 
 parameters:
@@ -22,7 +22,7 @@ parameters:
     input_type: select
     requirement: optional
     default: "30"
-    description: "Only used with physician_titration_review. 30 = default titration visit. 15 = re-check after a settings change. 60–90 = long APAP/pressure history."
+    description: "Only used with physician_titration_review. 30 = default titration visit. 15 = re-check after a CPAP settings change. 60–90 = long APAP/pressure history."
     options:
       - "15"
       - "30"
@@ -47,8 +47,8 @@ instructions: |
   | Goal | workflow_mode | review_span_days | session_date | persona_addendum |
   |------|---------------|------------------|--------------|------------------|
   | Weekly how am I doing? | **balanced** | (ignored) | auto | none |
-  | **Should I change pressure/mask/EPR/mode?** | **physician_titration_review** | **30** (15 if settings changed within ~2 weeks) | auto | what you are considering |
-  | Re-check after a settings change | physician_titration_review | **15** | auto | date + what changed |
+  | **Should I change pressure/mask/EPR/mode?** | **physician_titration_review** | **30** (15 if CPAP settings changed within ~2 weeks) | auto | what you are considering |
+  | Re-check after a CPAP settings change | physician_titration_review | **15** | auto | date + what changed |
   | One terrible / confusing night | **clinical_deep_dive** | (ignored) | **YYYY-MM-DD** | symptom if any |
   | Leak high — fix before pressure ↑ | **mask_leak_with_pressure** | (ignored) | auto or date | mask model if new |
   | Quick last-night check | morning_brief_only | (ignored) | auto | none |
@@ -61,6 +61,8 @@ instructions: |
   You selected **balanced** — 7-day screening. For **device change recommendations**, stop and tell the user to re-run with **workflow_mode=physician_titration_review** and **review_span_days=30** unless they only want a weekly snapshot.
   {% elif workflow_mode == "physician_titration_review" %}
   You selected **physician_titration_review** — **{{ review_span_days }}** days ending **{{ session_date }}**.
+
+  **CRITICAL REQUIREMENT:** You MUST analyze and query exactly **{{ review_span_days }}** days of data using `get-comparison`. Do not dynamically shorten, override, or change the span to 15 days (or any other number) even if a settings change is detected, if there is a note about a recent change, or for any other reason. The parameter `{{ review_span_days }}` is absolute and must be strictly followed.
 
   **First MCP tool for this mode (non-negotiable):** `get-comparison(fromDate=toDate−({{ review_span_days }}−1)d, toDate=resolved end date)`. If `session_date` is **auto**, call `list-machine-dates` on the CPAP machine first — newest therapy date = **toDate**.
 
@@ -118,6 +120,12 @@ instructions: |
 
   After **get-night-stats**, **get-combined-night-by-date**, or **get-comparison**, read top-level **`journal`** when present. Narrate: **step_count** (comma-formatted), **sleep_stages_summary**, **active_energy_joules** (÷4184 ≈ kcal), **`feeling_label`** (SleepHQ mood: Awful→Great; score 1–5), **weight_grams**. Use **—** when absent. Do not infer steps/stages from `movement_summary` or **get-o2-oximetry**.
 
+  **CRITICAL: CPAP USAGE VS. SLEEP DURATION:**
+  Do not confuse CPAP usage time (the duration the CPAP machine was worn and running, e.g., `usage_cell` or `usage_hours` from the CPAP machine) with actual sleep duration (the time the user was asleep, e.g., `sleep_cell` or `asleep_minutes` from Apple Health/Dreem journal data).
+  - Always refer to CPAP machine runtime as "CPAP usage" or "CPAP wear time" (e.g., "CPAP usage was 4h 41m").
+  - Always refer to journal/Apple Health data as "sleep duration" or "sleep time" (e.g., "sleep duration was 7h 30m").
+  - Never report CPAP usage time as sleep duration (e.g., do not say "your sleep is only 4h 41m" if 4h 41m was the CPAP usage). Be precise in your terminology.
+
   **Sleep stages:** Report from **`minutes_by_stage_for_reporting`** (the server already resolved the right basis) and cite **`reporting_source`** (`sleephq_dashboard_naive` | `main_sleep_episode` | `merged_timeline`) — do not re-pick between `minutes_by_stage` and `minutes_by_stage_main_episode`. Report **core** as **light sleep** (`sleep_cell`). If `overlap_detected`, cite `sleep_window.span_minutes` + caveat — do not claim fragmentation from full-span totals alone. **Apnea:** **`apnea_indices_cell`** in one column (e.g. `OSA 0.2/hr · CSA 0.1/hr · H 0.27/hr · AHI 0.57/hr`) — include **H** (hypopnea); **not** three thin OSA/CSA/AHI columns; read **`apnea_trends`** on `get-comparison`. **Leak** = `leak_cell`. **Resp** = `resp_rate_cell`. **Heart rate** = `pulse_cell` from merged O2 `pulse_rate_summary` (all workflows when O2 configured; **—** if absent). SpO₂ cells must include **%** (`spo2_cell`). **Mask:** ResMed AirFit F40 may correctly use **Pillows** in menu — do not recommend mask change for label mismatch alone (see `sleephq://playbook/output-format`).
 
   ## Workflow tool and prompt matrix (use every Required tool — do not skip)
@@ -161,7 +169,7 @@ instructions: |
   {% elif workflow_mode == "physician_titration_review" %}
   **physician_titration_review** — {{ review_span_days }}d ending at session_date (titration visit — full visibility):
     - **Phase 0:** Resolve **toDate** (if `session_date` is auto → `list-machine-dates` → newest CPAP night).
-    - **Phase 1 (BLOCKER):** **`get-comparison(fromDate=toDate−({{ review_span_days }}−1)d, toDate)`** — must run **before** any report text. Check **`titration_readiness.ready_for_span_trends`** and **`apnea_trends.nights_with_ahi_summary`**.
+    - **Phase 1 (BLOCKER):** **`get-comparison(fromDate=toDate−({{ review_span_days }}−1)d, toDate)`** — must run **before** any report text. Query exactly the requested **{{ review_span_days }}** days; never dynamically shorten this span to 15 days or any other range. Check **`titration_readiness.ready_for_span_trends`** and **`apnea_trends.nights_with_ahi_summary`**.
     - **Phase 1b (OSCAR cross-check — only if `get-oscar-status.reachable`):** `get-oscar-trend(detail=summary)` over the same span as a parallel read. OSCAR is **confirmatory only** — SleepHQ `get-comparison` stays the decision authority (`decision_guardrails`, `apnea_trends`, per-hour `ahi_summary`). OSCAR confirms **whether centrals exist and the count direction** and covers nights SleepHQ lacks `machine_date`. **Never** derive an index by dividing OSCAR `summary_counts` by sleep hours (same trap as scan≠AHI) — CA ≥5/hr and AHI ≥5 compare against SleepHQ indices only. Reconcile per the **OSCAR vs SleepHQ** rule (authority + `event_counts_agree` + **`data_conflicts`** when present); do not restate it. Note **`coverage.oscar_export_freshness`** once (export-wide backup age — not per-night). If OSCAR is unreachable, continue on SleepHQ alone.
     - **Phase 2:** `get-device-context` — publish **`### Current device (live)`** block (mode, pressure, EPR, masks).
     - **Phase 3:** Publish **`### Apnea trends (span)`** only from **`apnea_trends.titration_decision_support.span_summary_bullets`** (verbatim) + `suggested_pressure_action` + `pressure_signals`.
@@ -391,17 +399,18 @@ instructions: |
   After the workflow **Required** tools succeed:
   1. Read MCP resource **`sleephq://playbook/autovisualiser`**.
   2. Build chart payloads from numeric JSON paths listed there (`table_display.ahi`, `minutes_by_stage_for_reporting`, etc.) — not from memory.
+  3. **DO NOT DUPLICATE CHARTS.** Output the charts exactly ONCE in the entire session report. Place them only under the `### Span trends (charts)` section (or the relevant chart section for the selected workflow_mode) immediately after the markdown table they summarize. Do not output them again at the end of the report.
   {% if workflow_mode == "physician_titration_review" %}
-  3. Render **up to 5** inline charts per `sleephq://playbook/autovisualiser` physician chart pack (AHI, OSA+CSA, leak, usage, SpO₂ or worst-night stages).
+  4. Render **up to 5** inline charts per `sleephq://playbook/autovisualiser` physician chart pack (AHI, OSA+CSA, leak, usage, SpO₂ or worst-night stages).
   {% elif workflow_mode == "balanced" %}
-  3. Render **at most 2** inline charts after `get-comparison`.
+  4. Render **at most 2** inline charts after `get-comparison`.
   {% elif workflow_mode == "clinical_deep_dive" %}
-  3. Render **at most 1** chart (sleep stages) after `get-combined-night-by-date`.
+  4. Render **at most 1** chart (sleep stages) after `get-combined-night-by-date`.
   {% else %}
-  3. Default **at most 1** chart when structured span/night data exists; **0** for `morning_brief_only` unless the user asks.
+  4. Default **at most 1** chart when structured span/night data exists; **0** for `morning_brief_only` unless the user asks.
   {% endif %}
-  4. Place charts immediately after the markdown table they summarize; caption with tool + date span.
-  5. **Tables and FINAL RECOMMENDATIONS win** if chart and table disagree.
+  5. Place charts immediately after the markdown table they summarize; caption with tool + date span.
+  6. **Tables and FINAL RECOMMENDATIONS win** if chart and table disagree.
 
   {% if workflow_mode == "morning_brief_only" %}
   Do **not** call autovisualiser in this mode unless the user explicitly requests a chart.
@@ -416,7 +425,7 @@ activities:
     message: |
       **SleepHQ — parameter cheat sheet**
       - Weekly dashboard → workflow `balanced`
-      - Change pressure/mask/EPR → workflow `physician_titration_review` + span `30` (or `15` after a change)
+      - Change pressure/mask/EPR → workflow `physician_titration_review` + span `30` (or `15` if settings changed recently)
       - This run: workflow={{ workflow_mode }} · span={{ review_span_days }}d · night={{ session_date }}
       - MCP must be up (`./run.sh`). Stop when done: `./stop.sh`. Full index: `sleephq-mcp-capabilities.md` (37 tools incl. OSCAR). OSCAR smoke: `docs/smoke-test-oscar-mcp.md`
   - |

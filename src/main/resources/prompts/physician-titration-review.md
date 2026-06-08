@@ -1,5 +1,7 @@
 Physician titration review for **{{reviewSpanDays}}** days ending **{{toDate}}**.
 
+**CRITICAL REQUIREMENT:** You MUST analyze and query exactly **{{reviewSpanDays}}** days. Never dynamically shorten, override, or reduce this span to 15 days (or any other number) even if a CPAP settings change is detected, if there is a note about a recent change, or for any other reason. The parameter **{{reviewSpanDays}}** is absolute.
+
 Resources: get-device-context, patient/baseline, resmed-titration, resmed-therapy-handbook, normal-ranges, playbook/workflows, playbook/payload-budget, playbook/data-sources, playbook/output-format, playbook/autovisualiser
 
 Apply pressure/central/leak rules from `sleephq://guidelines/resmed-therapy-handbook` §5 (home adaptation) — not single-night lab cookbook.
@@ -10,7 +12,7 @@ Apply pressure/central/leak rules from `sleephq://guidelines/resmed-therapy-hand
 
 **Do not write** `### Apnea trends`, `### Titration Configuration`, or **FINAL RECOMMENDATIONS** until **`get-comparison`** has succeeded for this span.
 
-1. `fromDate` = **{{toDate}}** minus (**{{reviewSpanDays}}** − 1) calendar days (inclusive span = **{{reviewSpanDays}}** nights).
+1. `fromDate` = **{{toDate}}** minus (**{{reviewSpanDays}}** − 1) calendar days (inclusive span = **{{reviewSpanDays}}** nights). You must query exactly this range via `get-comparison`. Never shorten it dynamically.
 2. **`get-comparison(fromDate, toDate={{toDate}})`** — **first required MCP tool** for this workflow (before `get-device-context` if needed to unlock dates).
 3. Confirm **`titration_readiness.ready_for_span_trends`** is true OR **`apnea_trends.nights_with_ahi_summary` ≥ 1**. If zero, publish **`### Data completeness`** only and stop — do not invent "no data in span" without calling the tool.
 4. **`### Apnea trends (span)`** — copy **`apnea_trends.titration_decision_support.span_summary_bullets`** verbatim from that JSON (not from memory).
@@ -26,6 +28,9 @@ Apply pressure/central/leak rules from `sleephq://guidelines/resmed-therapy-hand
 
 **LEAK RULE (MANDATORY):** If any night has `leak_cell` 95th ≥24 L/min or non-zero `large_leak` minutes, recommend mask/seal investigation before any pressure change. Do not increase pressure when unresolved mask leak is present.
 
+**CPAP USAGE vs SLEEP DURATION (MANDATORY):**
+Never confuse or conflate CPAP usage time (`usage_cell` / CPAP runtime) with actual sleep duration (`sleep_cell` / journal / Apple Health sleep stages). Always refer to CPAP runtime as "CPAP usage" or "CPAP wear time" (e.g. "CPAP usage was 4h 41m"), and journal sleep duration as "sleep duration" or "sleep time" (e.g. "Sleep duration was 7h 30m"). Do not report CPAP usage time as sleep duration (e.g., do not say that the user slept for only 4h 41m if that was just their CPAP wear time). Be highly precise in your terminology to avoid hallucinating or misrepresenting sleep adequacy.
+
 ---
 
 ## Mandatory visible sections (do not skip)
@@ -35,7 +40,7 @@ Publish **in this order** so titration decisions are scannable:
 1. **`### Current device (live)`** — from **`get-device-context`**: mode, pressure/min-max, EPR, ramp, mask menu vs `registered_masks` (one short block).
 2. **`### Apnea trends (span)`** — **only after `get-comparison`**: bullets from **`apnea_trends.titration_decision_support.span_summary_bullets`** + **`suggested_pressure_action`** + **`pressure_signals`**.
 3. **`### Titration Configuration`** — one row per night from `get-comparison` → `nights[]` → **`table_display` only** (never invent).
-4. **`### Span trends (charts)`** — after the table: up to **5** Goose **autovisualiser** charts from `get-comparison` JSON (see `sleephq://playbook/autovisualiser` physician pack): AHI line, OSA+CSA line, leak 95th bar, usage bar, SpO₂ min line or worst-night sleep-stage donut. Tables stay authoritative.
+4. **`### Span trends (charts)`** — after the table: up to **5** Goose **autovisualiser** charts from `get-comparison` JSON (see `sleephq://playbook/autovisualiser` physician pack): AHI line, OSA+CSA line, leak 95th bar, usage bar, SpO₂ min line or worst-night sleep-stage donut. Tables stay authoritative. **DO NOT DUPLICATE CHARTS:** Output these charts exactly once under this section, and never repeat them at the end of the report or elsewhere.
 4b. **`### Ventilation summary (span)`** — after the Span trends charts: one AirView-style table from `get-comparison` `ventilation_summary.respiratory_rate_per_min` (RR) and `get-oscar-trend` `ventilation_summary` (TV + MV). Copy numbers verbatim. TV/MV show `—` if OSCAR not available. See `sleephq://playbook/output-format` §Ventilation summary.
 5. **`### Data completeness`** — `titration_readiness`, skipped nights, missing `therapy_summaries_present`, missing O2/journal. If OSCAR was read: one line on reachability + `event_counts_agree` + authority.
 6. Deep dives + **`## Physician assessment`** with explicit **pressure decision** in **FINAL RECOMMENDATIONS**.

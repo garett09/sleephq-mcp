@@ -25,6 +25,12 @@ Workflow:
 - **Journal:** `table_display.journal_cell` — comma-formatted steps, SleepHQ mood (e.g. `Okay (3)`), notes only
 - CPAP missing: `—` in therapy columns; journal/sleep still shown when present
 
+**CPAP USAGE vs SLEEP DURATION (MANDATORY):**
+Never confuse or conflate CPAP usage time (`usage_cell` / CPAP runtime) with actual sleep duration (`sleep_cell` / journal / Apple Health sleep stages). Always refer to CPAP runtime as "CPAP usage" or "CPAP wear time" (e.g. "CPAP usage was 4h 41m"), and journal sleep duration as "sleep duration" or "sleep time" (e.g. "Sleep duration was 7h 30m"). Do not report CPAP usage time as sleep duration (e.g., do not say that the user slept for only 4h 41m if that was just their CPAP wear time). Be highly precise in your terminology.
+
+**DO NOT DUPLICATE CHARTS:**
+If charts are rendered, output them exactly once in the entire report, immediately after the table they summarize. Never output them again at the end of the report.
+
 ### Ventilation summary (span)
 
 When `get-comparison` returns `ventilation_summary.respiratory_rate_per_min` and/or `get-oscar-trend` returns `ventilation_summary`:
