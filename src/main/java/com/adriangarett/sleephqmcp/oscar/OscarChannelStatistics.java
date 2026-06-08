@@ -45,6 +45,7 @@ public final class OscarChannelStatistics {
 
     public static Map<String, ChannelStatistics> fromSummarySession(
             OscarSession session, Map<String, OscarChannelHistogram> histograms) {
+        Map<String, OscarChannelHistogram> safeHistograms = histograms == null ? Map.of() : histograms;
         Map<String, ChannelStatistics> stats = new LinkedHashMap<>();
         for (Map.Entry<String, ChannelSummary> entry : session.channels().entrySet()) {
             String code = entry.getKey();
@@ -62,7 +63,7 @@ public final class OscarChannelStatistics {
             double p995 = Double.NaN;
             double median = Double.NaN;
 
-            OscarChannelHistogram hist = histograms.get(code);
+            OscarChannelHistogram hist = safeHistograms.get(code);
             if (hist != null && !hist.buckets().isEmpty()) {
                 p95    = OscarHistogram.percentile(hist.buckets(), hist.gainFactor(), 95);
                 p995   = OscarHistogram.percentile(hist.buckets(), hist.gainFactor(), 99.5);
