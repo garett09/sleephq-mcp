@@ -77,6 +77,26 @@ class OscarChannelUnitNormalizerTest {
     }
 
     @Test
+    void normalizeTidalVolume_nanPercentileSurvivesScaling() {
+        ChannelStatistics raw = new ChannelStatistics(
+                "tidal_volume", "L", 0.373, 0.0, 1.0, Double.NaN, Double.NaN, Double.NaN,
+                null, null, ChannelStatistics.OFFSET_UNKNOWN, ChannelStatistics.OFFSET_UNKNOWN, 0);
+        ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);
+        assertThat(Double.isNaN(normalized.percentile())).isTrue();
+        assertThat(normalized.avg()).isEqualTo(373.0);
+    }
+
+    @Test
+    void normalizeLeak_nanPercentileSurvivesScaling() {
+        ChannelStatistics raw = new ChannelStatistics(
+                "leak", "L/s", 0.037, 0.0, 1.12, Double.NaN, Double.NaN, Double.NaN,
+                null, null, ChannelStatistics.OFFSET_UNKNOWN, ChannelStatistics.OFFSET_UNKNOWN, 0);
+        ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);
+        assertThat(Double.isNaN(normalized.percentile())).isTrue();
+        assertThat(normalized.avg()).isEqualTo(2.22);
+    }
+
+    @Test
     void normalizeTidalVolume_scalesMedianWithOtherStats() {
         ChannelStatistics raw = stat("tidal_volume", "L", 0.373, 0.0, 1.0, 0.5, 0.36);
         ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);

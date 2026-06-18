@@ -164,6 +164,28 @@ class UnifiedNightAnalysisServiceTest {
         assertThat(result.get().path("provenance").path("sleephq_journal").path("available").asBoolean()).isTrue();
     }
 
+    @Test
+    void analyzeNight_withSummaryCounts_attachesEventsOutsideEdfGate() {
+        LocalDate date = LocalDate.parse("2026-05-28");
+        LocalDate lastSessionDate = LocalDate.now(ZoneId.systemDefault());
+        Instant start = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant end = start.plusSeconds(3600);
+
+        OscarSessionIndexEntry indexEntry = sessionEntry(start, end);
+        stubConfiguredSession(date, indexEntry, lastSessionDate, emptySession(date, start));
+
+        Map<String, Integer> counts = Map.of("obstructive", 3, "clear_airway", 1);
+        when(oscarRepository.loadSummaryEventCounts(indexEntry)).thenReturn(Optional.of(counts));
+
+        Optional<ObjectNode> result = service.analyzeNight("2026-05-28");
+        assertThat(result).isPresent();
+
+        ObjectNode events = (ObjectNode) result.get().path("events");
+        assertThat(events.isMissingNode()).isFalse();
+        assertThat(events.path("summary_counts").path("obstructive").asInt()).isEqualTo(3);
+        assertThat(events.path("event_count_authority").asText()).isEqualTo("oscar_summary_000");
+    }
+
     private void stubConfiguredSession(
             LocalDate date,
             OscarSessionIndexEntry indexEntry,

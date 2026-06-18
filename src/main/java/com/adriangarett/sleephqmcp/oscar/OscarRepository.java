@@ -151,7 +151,7 @@ public class OscarRepository {
     private OscarSessionIndexEntry buildIndexEntry(OscarSqliteDb db, List<long[]> rows) {
         long firstOscarId = rows.get(0)[1];
         long minStart = rows.get(0)[2];
-        long maxEnd = rows.get(rows.size() - 1)[3];
+        long maxEnd = rows.stream().mapToLong(r -> r[3]).max().orElse(rows.get(rows.size() - 1)[3]);
 
         // Collect distinct channel codes across all sessions
         List<String> channelCodes = new ArrayList<>();

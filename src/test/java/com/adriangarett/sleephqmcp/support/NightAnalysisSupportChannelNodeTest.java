@@ -37,4 +37,32 @@ class NightAnalysisSupportChannelNodeTest {
 
         assertThat(ch.has("p99_5")).isFalse();
     }
+
+    @Test
+    void channelStatsNode_omitsP95_whenNaN() {
+        ChannelStatistics stat = new ChannelStatistics(
+                "pressure", "cmH2O", 10.0, 7.0, 14.0, Double.NaN, Double.NaN, 9.5,
+                null, null, ChannelStatistics.OFFSET_UNKNOWN, ChannelStatistics.OFFSET_UNKNOWN, 0);
+
+        ObjectNode node = NightAnalysisSupport.channelStatsNode(Map.of("pressure", stat));
+        ObjectNode ch = (ObjectNode) node.path("pressure");
+
+        assertThat(ch.has("p95")).isFalse();
+        assertThat(ch.path("avg").asDouble()).isEqualTo(10.0);
+    }
+
+    @Test
+    void channelStatsNode_omitsAvgMinMax_whenNaN() {
+        ChannelStatistics stat = new ChannelStatistics(
+                "tidal_volume", "mL", Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN,
+                null, null, ChannelStatistics.OFFSET_UNKNOWN, ChannelStatistics.OFFSET_UNKNOWN, 0);
+
+        ObjectNode node = NightAnalysisSupport.channelStatsNode(Map.of("tidal_volume", stat));
+        ObjectNode ch = (ObjectNode) node.path("tidal_volume");
+
+        assertThat(ch.has("avg")).isFalse();
+        assertThat(ch.has("min")).isFalse();
+        assertThat(ch.has("max")).isFalse();
+        assertThat(ch.has("p95")).isFalse();
+    }
 }

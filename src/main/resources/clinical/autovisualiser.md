@@ -159,12 +159,20 @@ A separate chart group, independent of the 5-chart titration cap. Render under `
 
 ## Autovisualiser usage
 
-1. Extract JSON arrays/objects as above from the latest tool result.
-2. Call autovisualiser with a short title + the structured payload (chart type is inferred by the extension).
-3. Place charts under `## Technologist read` after the markdown table for the same data.
+**CRITICAL:** Autovisualiser is a **Goose builtin tool**. You MUST invoke it as a tool call — do NOT print or output chart JSON as a code block. If you output `{"type":"line",...}` or any chart spec as a code block, the chart will NOT render; it will appear as raw JSON to the user.
+
+1. Extract the numeric arrays from the latest tool result (e.g. `nights[].table_display`).
+2. **Invoke the `autovisualiser` builtin tool** with a natural-language instruction + the domain data object (see example below). Do not construct a chart-library JSON spec yourself.
+3. Place the tool call inline at the point in the report where the chart should appear (after the markdown table).
 4. Caption each chart: tool name + date span (e.g. `get-comparison 2026-05-19–25`).
 5. On failure: one-line note "Chart skipped (autovisualiser error)" and continue — do not block the report.
 
-## Example instruction to autovisualiser
+**NEVER output a code block containing `"type":"line"`, `"type":"bar"`, `"series":`, or any chart-library JSON.** That is not how autovisualiser works and produces broken output.
+
+## Example instruction to autovisualiser (tool call format)
+
+Invoke the tool with a natural-language prompt that includes the data inline:
 
 > Line chart: nightly total AHI (events/hr) by date. Data: {"dates":["2026-05-19","2026-05-20"],"ahi_total":[0.57,0.42]}. Source: get-comparison table_display.ahi.
+
+Pass **domain-named keys** (`dates`, `ahi_total`, `usage_hours`, etc.) — NOT chart-library keys (`x`, `series`, `type`). The autovisualiser builtin infers chart type from the instruction text.

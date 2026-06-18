@@ -89,6 +89,7 @@ public class UnifiedNightAnalysisService {
         }
 
         Optional<OscarEdfPaths> edfPaths = oscarRepository.edfPathsForSession(indexEntry);
+        Optional<Map<String, Integer>> summaryEventCounts = oscarRepository.loadSummaryEventCounts(indexEntry);
         String sessionStart = indexEntry.firstInstant().toString().substring(0, 19);
         List<DeviceEvent> events = List.of();
         boolean hasPld = false;
@@ -108,8 +109,6 @@ public class UnifiedNightAnalysisService {
                 hasBrp = true;
                 mergeStats(channelStats, loadBrp(paths.brp().get(), analysis.percentile()));
             }
-            Optional<Map<String, Integer>> summaryEventCounts =
-                    oscarRepository.loadSummaryEventCounts(indexEntry);
             Optional<DeviceEventResult> eve = paths.eve().flatMap(oscarRepository::loadEvents);
             if (eve.isPresent()) {
                 hasEve = true;
@@ -121,6 +120,10 @@ public class UnifiedNightAnalysisService {
                 nightAnalysis.set("events",
                         OscarEventSummaryBuilder.buildSummaryOnly(summaryEventCounts.get()));
             }
+        }
+
+        if (!nightAnalysis.has("events") && summaryEventCounts.isPresent()) {
+            nightAnalysis.set("events", OscarEventSummaryBuilder.buildSummaryOnly(summaryEventCounts.get()));
         }
 
         ObjectNode channelsNode = NightAnalysisSupport.channelStatsNode(channelStats);

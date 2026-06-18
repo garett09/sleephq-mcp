@@ -91,7 +91,7 @@ public final class OscarChannelStatistics {
 
     private static double round(Double value) {
         if (value == null || value.isNaN()) {
-            return 0;
+            return Double.NaN;
         }
         return Math.round(value * 100.0) / 100.0;
     }
