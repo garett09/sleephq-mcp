@@ -51,7 +51,7 @@ public final class OscarChannelUnitNormalizer {
                 round(stat.avg() * factor),
                 round(stat.min() * factor),
                 round(stat.max() * factor),
-                round(stat.percentile() * factor),
+                scaleValue(stat.percentile(), factor),
                 scaleValue(stat.p995(), factor),
                 scaleValue(stat.median(), factor),
                 stat.minAt(),
@@ -62,6 +62,7 @@ public final class OscarChannelUnitNormalizer {
     }
 
     private static double round(double value) {
+        if (Double.isNaN(value)) return Double.NaN;
         return Math.round(value * 1000.0) / 1000.0;
     }
 
@@ -121,7 +122,12 @@ public final class OscarChannelUnitNormalizer {
         if (isLeak && blank && maxMagnitude > 0.0 && maxMagnitude < LEAK_LPS_MAGNITUDE_MAX) {
             return new UnitConversion("L/min", 60.0);
         }
-        return new UnitConversion(blank ? "L/min" : rawUnit, 1.0);
+        // No conversion was inferred. For a leak field a blank unit defaults to L/min (its only display unit);
+        // for flow (which shares this path) we must NOT fabricate "L/min" — an unknown unit stays unknown.
+        if (blank) {
+            return new UnitConversion(isLeak ? "L/min" : "", 1.0);
+        }
+        return new UnitConversion(rawUnit, 1.0);
     }
 
     /**

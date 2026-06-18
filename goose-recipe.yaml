@@ -1,46 +1,7 @@
-version: "1.0.0"
-title: "Sleep therapy advisor"
-description: >
-  SleepHQ-backed sleep advisor — live MCP data only; never invent numbers.
-  QUICK PICK: Weekly dashboard → workflow balanced. Should I change pressure/mask/EPR/mode? → physician_titration_review + review_span_days 30 (use 15 if CPAP settings changed recently). One bad night → clinical_deep_dive + session_date YYYY-MM-DD. Leak before pressure up → mask_leak_with_pressure. Morning check → morning_brief_only.
-  Start sleephq-mcp (./run.sh) before Start Recipe. Run ./stop.sh when finished (or ./scripts/goose-with-mcp.sh to auto-stop).
-
-parameters:
-  - key: workflow_mode
-    input_type: select
-    requirement: optional
-    default: "balanced"
-    description: "balanced = 7d weekly table (screening). physician_titration_review = BEST for change recommendations (pressure epochs, mask check, FINAL RECOMMENDATIONS). clinical_deep_dive = one focal night. mask_leak_with_pressure = before raising pressure."
-    options:
-      - balanced
-      - physician_titration_review
-      - clinical_deep_dive
-      - mask_leak_with_pressure
-      - morning_brief_only
-
-  - key: review_span_days
-    input_type: select
-    requirement: optional
-    default: "30"
-    description: "Only used with physician_titration_review. 30 = default titration visit. 15 = re-check after a CPAP settings change. 60–90 = long APAP/pressure history."
-    options:
-      - "15"
-      - "30"
-      - "60"
-      - "90"
-
-  - key: session_date
-    input_type: string
-    requirement: optional
-    default: "auto"
-    description: "auto = newest CPAP night (toDate for 7d/30d spans). Or YYYY-MM-DD to end the review on that night (e.g. last night before a trip)."
-
-  - key: persona_addendum
-    input_type: string
-    requirement: optional
-    default: "none"
-    description: "Context for this run (not stored unless you use Goose memory). Example: Switched to CPAP 11.0 on 2026-05-18; EPR off 05-17. none = leave empty."
-
+version: 1.0.0
+title: Sleep therapy advisor
+description: |
+  SleepHQ-backed sleep advisor — live MCP data only; never invent numbers. QUICK PICK: Weekly dashboard → workflow balanced. Should I change pressure/mask/EPR/mode? → physician_titration_review + review_span_days 30 (use 15 if CPAP settings changed recently). One bad night → clinical_deep_dive + session_date YYYY-MM-DD. Leak before pressure up → mask_leak_with_pressure. Morning check → morning_brief_only. Start sleephq-mcp (./run.sh) before Start Recipe. Run ./stop.sh when finished (or ./scripts/goose-with-mcp.sh to auto-stop).
 instructions: |
   ## Parameter guide (read first)
 
@@ -88,7 +49,7 @@ instructions: |
   - *Interface:* `list-masks`, `list-devices`, `get-machine-details` (also inside `get-device-context`)
   - *Physiology:* `get-device-events` (EVE), `scan-apnea-events` (BRP flow), `get-waveform-by-date`, `get-o2-oximetry` (always cap `maxMinutes`)
   - *Waveform anchors:* `get-waveform-by-date(anchor=…)` menu = `auto, eve_scan_overlap, worst_obstructive, worst_central, worst_leak, notable_moment, rem, deep, core, awake`. Planner **never silently falls back to minute 0** — on no match it returns a structured error (`no_anchor_candidates` or `no_sleephq_brp`); report the error, don't invent a window. `worst_leak` resolving to `start_minute=0` is **valid** (peak leak at session start), not a bug. Always cite `window_selection` (`anchor_resolved`, `reason`, `evidence`).
-  - *Autovisualiser (Goose builtin):* After primary MCP data returns, read `sleephq://playbook/autovisualiser`. **physician_titration_review:** up to **5** span charts (AHI, OSA+CSA, leak, usage, SpO₂ or worst-night stages). **balanced:** ≤2 charts. Span leak charts use `get-comparison` `leak_95_l_min` — not `get-sleephq-night` (night summary is full-resolution tables, not waveform arrays). Never chart before `get-comparison` / `get-combined-night-by-date`; never chart smoke tests; on failure continue with tables only.
+  - *Autovisualiser (Goose builtin):* After primary MCP data returns, read `sleephq://playbook/autovisualiser`. **INVOKE autovisualiser as a tool call** — NEVER print chart JSON as a code block (that renders as raw text, not a chart). Pass a natural-language prompt + domain data keys (dates/ahi_total etc.), not chart-library JSON (type/x/series). **physician_titration_review:** up to **5** span charts (AHI, OSA+CSA, leak, usage, SpO₂ or worst-night stages). **balanced:** ≤2 charts. Span leak charts use `get-comparison` `leak_95_l_min` — not `get-sleephq-night` (night summary is full-resolution tables, not waveform arrays). Never chart before `get-comparison` / `get-combined-night-by-date`; never chart smoke tests; on failure continue with tables only.
   - *Goose memory:* store mask/pressure goals only when user asks; confirm before save; no secrets
   - *Chat recall:* past session decisions — always re-fetch SleepHQ for current nights
 
@@ -415,58 +376,95 @@ instructions: |
   {% if workflow_mode == "morning_brief_only" %}
   Do **not** call autovisualiser in this mode unless the user explicitly requests a chart.
   {% endif %}
-
 prompt: |
   Session: workflow={{ workflow_mode }}, review_span_days={{ review_span_days }}, session_date={{ session_date }}.
   Follow the **Workflow tool and prompt matrix** in instructions for this workflow_mode — invoke every **Required** tool and the listed MCP prompt before writing the report.
-
-activities:
-  - |
-    message: |
-      **SleepHQ — parameter cheat sheet**
-      - Weekly dashboard → workflow `balanced`
-      - Change pressure/mask/EPR → workflow `physician_titration_review` + span `30` (or `15` if settings changed recently)
-      - This run: workflow={{ workflow_mode }} · span={{ review_span_days }}d · night={{ session_date }}
-      - MCP must be up (`./run.sh`). Stop when done: `./stop.sh`. Full index: `sleephq-mcp-capabilities.md` (37 tools incl. OSCAR). OSCAR smoke: `docs/smoke-test-oscar-mcp.md`
-  - |
-    message: |
-      **Session start (all workflows):** `who-am-i` or `get-configured-defaults` if auth fails → `get-device-context` → read `sleephq://playbook/workflows` → invoke the **MCP prompt** for your workflow_mode (see instructions matrix) → run **Required tools** for that mode.
-  - "physician_titration_review: list-machine-dates (if session_date auto) → get-comparison (BLOCKER) → get-device-context → MCP prompt physician-titration-review → deep nights get-device-events + scan-apnea-events + get-waveform-by-date + get-o2-oximetry."
-  - "balanced: get-comparison 7d (BLOCKER) → weekly-trend prompt → get-device-context; escalate night with get-device-events + scan-apnea-events."
-  - "clinical_deep_dive: clinical-deep-dive prompt → get-combined-night-by-date → get-device-events → scan-apnea-events → get-waveform-by-date → get-o2-oximetry → get-device-context."
-  - "mask_leak_with_pressure: leak-diagnosis prompt → get-device-context → list-masks → get-combined-night-by-date → get-waveform-by-date."
-  - "morning_brief_only: morning-brief prompt → get-combined-night-by-date."
-  - "Sub-investigations (when triggered): central-apnea-investigation, obstructive-residual-investigation, o2-desat-review, titration-decision, leak-diagnosis, event-reconciliation."
-  - "Discovery/fallback only: list-teams, list-machines, get-machine-date-by-date, list-import-files, get-import-file, get-waveform(fileId), get-journal-by-date."
-  - "OSCAR (when local backup configured): get-oscar-status → get-night-analysis or get-combined-night-by-date (read night_analysis provenance, oscar_export_freshness, data_conflicts); multi-night → get-oscar-trend(detail=summary); events → get-oscar-events(detail=summary); PLMD → get-plmd-night. Smoke: docs/smoke-test-oscar-mcp.md."
-  - "Charts: physician_titration_review → up to 5 span charts after get-comparison (AHI, OSA+CSA, leak, usage, SpO₂/stages). balanced → ≤2. Skip morning_brief_only and smoke runs."
-
 extensions:
-  - type: streamable_http
-    name: sleephq
-    description: >
-      SleepHQ MCP: 37 tools (31 SleepHQ API + 6 OSCAR local), 11 prompts; live device/context from SleepHQ; get-comparison up to 120d; get-sleephq-night per-channel p99/p95/median; optional OSCAR night_analysis on combined night and get-oscar-trend.
-    uri: http://localhost:8080/mcp
-    timeout: 30
-    headers:
-      X-SleepHQ-MCP-Key: "${SLEEPHQ_MCP_API_KEY}"
-
-  - type: builtin
-    name: memory
-    bundled: true
-    timeout: 120
-    description: Store/retrieve durable notes (mask, pressure goals). Confirm before save.
-
-  - type: platform
-    name: chatrecall
-    bundled: true
-    timeout: 120
-    description: Search prior Goose sessions; not a substitute for fresh SleepHQ data.
-
-  - type: builtin
-    name: autovisualiser
-    bundled: true
-    timeout: 120
-    description: >
-      Inline charts from structured SleepHQ MCP JSON. Use only after get-comparison
-      or get-combined-night-by-date returns; tables remain authoritative.
+- type: builtin
+  name: memory
+  description: Store/retrieve durable notes (mask, pressure goals). Confirm before save.
+  display_name: null
+  timeout: 120
+  bundled: true
+  available_tools: []
+- type: platform
+  name: chatrecall
+  description: Search prior Goose sessions; not a substitute for fresh SleepHQ data.
+  display_name: null
+  bundled: true
+  available_tools: []
+- type: builtin
+  name: autovisualiser
+  description: |
+    Inline charts from structured SleepHQ MCP JSON. INVOKE AS A TOOL CALL with natural-language instruction + domain data (dates/ahi_total/usage_hours etc.). NEVER output chart JSON as a code block — doing so produces raw JSON instead of a rendered chart. Use only after get-comparison or get-combined-night-by-date returns; tables remain authoritative.
+  display_name: null
+  timeout: 120
+  bundled: true
+  available_tools: []
+- type: streamable_http
+  name: SleepHQ
+  description: 'SleepHQ CPAP + O2 Ring data '
+  uri: http://localhost:8080/mcp
+  envs: {}
+  env_keys: []
+  headers:
+    X-SleepHQ-MCP-Key: 10fc51f476e55be6bc4db9f28cad9677f7fb723a9ed6e7102deef1378e5995db
+  timeout: 300
+  socket: null
+  bundled: null
+  available_tools: []
+settings:
+  goose_provider: claude-code
+  goose_model: opus
+activities:
+- |
+  message: |
+    **SleepHQ — parameter cheat sheet**
+    - Weekly dashboard → workflow `balanced`
+    - Change pressure/mask/EPR → workflow `physician_titration_review` + span `30` (or `15` if settings changed recently)
+    - This run: workflow={{ workflow_mode }} · span={{ review_span_days }}d · night={{ session_date }}
+    - MCP must be up (`./run.sh`). Stop when done: `./stop.sh`. Full index: `sleephq-mcp-capabilities.md` (37 tools incl. OSCAR). OSCAR smoke: `docs/smoke-test-oscar-mcp.md`
+- |
+  message: |
+    **Session start (all workflows):** `who-am-i` or `get-configured-defaults` if auth fails → `get-device-context` → read `sleephq://playbook/workflows` → invoke the **MCP prompt** for your workflow_mode (see instructions matrix) → run **Required tools** for that mode.
+- 'physician_titration_review: list-machine-dates (if session_date auto) → get-comparison (BLOCKER) → get-device-context → MCP prompt physician-titration-review → deep nights get-device-events + scan-apnea-events + get-waveform-by-date + get-o2-oximetry.'
+- 'balanced: get-comparison 7d (BLOCKER) → weekly-trend prompt → get-device-context; escalate night with get-device-events + scan-apnea-events.'
+- 'clinical_deep_dive: clinical-deep-dive prompt → get-combined-night-by-date → get-device-events → scan-apnea-events → get-waveform-by-date → get-o2-oximetry → get-device-context.'
+- 'mask_leak_with_pressure: leak-diagnosis prompt → get-device-context → list-masks → get-combined-night-by-date → get-waveform-by-date.'
+- 'morning_brief_only: morning-brief prompt → get-combined-night-by-date.'
+- 'Sub-investigations (when triggered): central-apnea-investigation, obstructive-residual-investigation, o2-desat-review, titration-decision, leak-diagnosis, event-reconciliation.'
+- 'Discovery/fallback only: list-teams, list-machines, get-machine-date-by-date, list-import-files, get-import-file, get-waveform(fileId), get-journal-by-date.'
+- 'OSCAR (when local backup configured): get-oscar-status → get-night-analysis or get-combined-night-by-date (read night_analysis provenance, oscar_export_freshness, data_conflicts); multi-night → get-oscar-trend(detail=summary); events → get-oscar-events(detail=summary); PLMD → get-plmd-night. Smoke: docs/smoke-test-oscar-mcp.md.'
+- 'Charts: physician_titration_review → up to 5 span charts after get-comparison (AHI, OSA+CSA, leak, usage, SpO₂/stages). balanced → ≤2. Skip morning_brief_only and smoke runs.'
+parameters:
+- key: workflow_mode
+  input_type: select
+  requirement: optional
+  description: balanced = 7d weekly table (screening). physician_titration_review = BEST for change recommendations (pressure epochs, mask check, FINAL RECOMMENDATIONS). clinical_deep_dive = one focal night. mask_leak_with_pressure = before raising pressure.
+  default: balanced
+  options:
+  - balanced
+  - physician_titration_review
+  - clinical_deep_dive
+  - mask_leak_with_pressure
+  - morning_brief_only
+- key: review_span_days
+  input_type: select
+  requirement: optional
+  description: Only used with physician_titration_review. 30 = default titration visit. 15 = re-check after a CPAP settings change. 60–90 = long APAP/pressure history.
+  default: '30'
+  options:
+  - '15'
+  - '30'
+  - '60'
+  - '90'
+- key: session_date
+  input_type: string
+  requirement: optional
+  description: auto = newest CPAP night (toDate for 7d/30d spans). Or YYYY-MM-DD to end the review on that night (e.g. last night before a trip).
+  default: auto
+- key: persona_addendum
+  input_type: string
+  requirement: optional
+  description: 'Context for this run (not stored unless you use Goose memory). Example: Switched to CPAP 11.0 on 2026-05-18; EPR off 05-17. none = leave empty.'
+  default: none

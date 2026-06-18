@@ -118,26 +118,28 @@ public class ComparisonService {
     private ObjectNode buildNightRow(String day, String cpap, Map<String, JsonNode> journalByDate) {
         ObjectNode row = JsonApi.mapper().createObjectNode();
         row.put("date", day);
-        JsonNode journalAttrs = journalByDate.get(day);
-        if (journalAttrs != null) {
-            ObjectNode journalOut = JournalOverlaySupport.buildWellnessObject(journalAttrs);
-            if (journalOut != null) {
-                row.set("journal", journalOut);
-            }
-        }
         try {
+            JsonNode journalAttrs = journalByDate.get(day);
+            if (journalAttrs != null) {
+                ObjectNode journalOut = JournalOverlaySupport.buildWellnessObject(journalAttrs);
+                if (journalOut != null) {
+                    row.set("journal", journalOut);
+                }
+            }
             String envelope = combinedNightService.combineForCalendarDateWithJournalMap(day, cpap, null, journalByDate);
             JsonNode parsed = JsonApi.parse(envelope);
             row.set("data", parsed.path("data"));
             if (parsed.has("journal") && !row.has("journal")) {
                 row.set("journal", parsed.get("journal").deepCopy());
             }
+            ComparisonTableDisplay.attachIfPresent(row);
         } catch (RuntimeException e) {
+            // One bad day must never sink the whole comparison — these rows are join()ed, so an uncaught
+            // throw here would fail every night. Mark it skipped with a reason and keep partial results honest.
             row.put("skipped", true);
             String msg = e.getMessage();
             row.put("reason", msg != null ? msg : e.getClass().getSimpleName());
         }
-        ComparisonTableDisplay.attachIfPresent(row);
         return row;
     }
 

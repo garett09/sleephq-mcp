@@ -1,6 +1,7 @@
 package com.adriangarett.sleephqmcp.support;
 
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.net.URI;
@@ -26,6 +27,12 @@ public final class BinaryDownloadSupport {
             throw new IllegalStateException(
                     "Download failed for file " + fileId + " (HTTP " + e.getStatusCode().value() +
                             ") — the signed URL may have expired (5-minute TTL)", e);
+        } catch (RestClientException e) {
+            // Connection reset / read timeout / DNS — carry the fileId so the failure is triageable
+            // instead of surfacing as a bare transport error with no context.
+            throw new IllegalStateException(
+                    "Download failed for file " + fileId + " (" + e.getClass().getSimpleName() + "): "
+                            + e.getMessage(), e);
         }
     }
 }

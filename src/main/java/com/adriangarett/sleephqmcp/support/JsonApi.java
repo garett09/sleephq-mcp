@@ -24,6 +24,15 @@ public final class JsonApi {
     private JsonApi() {
     }
 
+    /** Parse {@code json} and require a JSON object, failing with a clear message instead of ClassCastException. */
+    public static ObjectNode parseObject(String json) {
+        JsonNode node = parse(json);
+        if (!node.isObject()) {
+            throw new IllegalStateException("Expected a JSON object payload but got " + node.getNodeType());
+        }
+        return (ObjectNode) node;
+    }
+
     public static JsonNode parse(String json) {
         try {
             return MAPPER.readTree(json);

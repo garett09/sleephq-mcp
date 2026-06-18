@@ -129,8 +129,7 @@ public class OscarTrendService {
         if (channelsNode != null) {
             ObjectNode therapy = slim.putObject("therapy");
             for (String ch : List.of("pressure", "ipap", "epap", "leak", "leak_total",
-                    "leak_median", "leak_max", "ahi", "rdi", "resp_rate",
-                    "minute_vent", "tidal_volume")) {
+                    "ahi", "resp_rate", "minute_vent", "tidal_volume")) {
                 if (channelsNode.has(ch)) {
                     therapy.set(ch, channelsNode.get(ch).deepCopy());
                 }

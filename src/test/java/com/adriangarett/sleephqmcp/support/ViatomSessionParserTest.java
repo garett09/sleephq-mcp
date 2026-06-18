@@ -46,6 +46,16 @@ class ViatomSessionParserTest {
     }
 
     @Test
+    void parse_o2RingS_maxSeconds_durationMatchesReturnedSamples() {
+        // With maxSeconds=2 only 2 samples (elapsed 0,1) are decoded; duration must reflect that span
+        // (2.0s), not the full pre-trim record count.
+        byte[] data = ViatomTestFixtures.o2RingSSession();
+        OximetryResult result = ViatomSessionParser.parse(data, "20260519011013-1721", 2);
+        assertThat(result.samples()).hasSize(2);
+        assertThat(result.durationSeconds()).isEqualTo(2.0);
+    }
+
+    @Test
     void parse_invalidMagic_throwsWithHexPrefix() {
         byte[] bad = {0x00, 0x00, 0x01, 0x02};
         assertThatThrownBy(() -> ViatomSessionParser.parse(bad, "x", 100))

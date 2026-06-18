@@ -73,7 +73,8 @@ class NightSummaryComputerTest {
         for (int i = 0; i < 90; i++) p.add(8.0);
         for (int i = 0; i < 10; i++) p.add(12.0);
         NightChannelSummary s = NightSummaryComputer.summarise("pressure", "cmH2O", p, 0.5);
-        assertThat(s.markers().get("max_pressure")).isEqualTo(12.0);
+        assertThat(s.markers().containsKey("max_pressure")).isFalse();
+        assertThat(s.max()).isEqualTo(12.0);
         assertThat(s.markers().get("time_at_max_seconds")).isCloseTo(20.0, within(0.01));
     }
 

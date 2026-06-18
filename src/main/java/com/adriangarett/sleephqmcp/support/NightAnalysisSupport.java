@@ -21,10 +21,10 @@ public final class NightAnalysisSupport {
         ObjectNode channels = JsonApi.mapper().createObjectNode();
         stats.forEach((key, stat) -> {
             ObjectNode ch = channels.putObject(key);
-            ch.put("avg", stat.avg());
-            ch.put("min", stat.min());
-            ch.put("max", stat.max());
-            ch.put("p95", stat.percentile());
+            if (!Double.isNaN(stat.avg())) ch.put("avg", stat.avg());
+            if (!Double.isNaN(stat.min())) ch.put("min", stat.min());
+            if (!Double.isNaN(stat.max())) ch.put("max", stat.max());
+            if (!Double.isNaN(stat.percentile())) ch.put("p95", stat.percentile());
             if (!Double.isNaN(stat.p995())) {
                 ch.put("p99_5", stat.p995());
             }

@@ -53,6 +53,13 @@ public final class OscarEventSummaryBuilder {
         if (hasSummaryCounts) {
             root.put("event_count_authority", "oscar_summary_000");
             root.put("event_counts_agree", therapyEvents == summaryTotal);
+            if (therapyEvents != summaryTotal) {
+                // Surface the disagreement explicitly so the LLM sees the magnitude, not just a boolean.
+                root.put("event_count_delta", therapyEvents - summaryTotal);
+                root.put("event_count_discrepancy",
+                        "EVE-annotated total " + therapyEvents + " != summary_000 total " + summaryTotal
+                        + "; authority=oscar_summary_000. EVE counts are sparse (annotated events only).");
+            }
         } else if (therapyEvents > 0) {
             root.put("event_count_authority", "oscar_eve_edf");
         }

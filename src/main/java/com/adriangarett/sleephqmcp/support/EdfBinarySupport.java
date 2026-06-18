@@ -211,8 +211,12 @@ public final class EdfBinarySupport {
     }
 
     public static double scale(short digital, int digMin, int digMax, double physMin, double physMax) {
-        if (digMax == digMin) {
-            return physMin;
+        // A flat channel (digMax==digMin) is legitimate EDF and reads as physMin. An INVERTED range
+        // (digMax<digMin) or non-finite physical bounds means a corrupt header: scaling it would emit a
+        // sign-flipped/garbage value that looks real. Degrade to the physical floor (a visibly constant,
+        // implausible line) rather than fabricate plausible-but-wrong samples.
+        if (digMax <= digMin || !Double.isFinite(physMin) || !Double.isFinite(physMax)) {
+            return Double.isFinite(physMin) ? physMin : 0.0;
         }
         return physMin + ((double) (digital - digMin)) * (physMax - physMin) / (digMax - digMin);
     }

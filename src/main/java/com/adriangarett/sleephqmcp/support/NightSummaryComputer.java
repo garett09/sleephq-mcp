@@ -99,7 +99,6 @@ public final class NightSummaryComputer {
             }
             case "pressure" -> {
                 int atMax = countWhere(values, v -> v >= max - AT_MAX_EPSILON);
-                m.put("max_pressure", round(max));
                 m.put("time_at_max_seconds", round(atMax * interval));
                 m.put("time_at_max_pct", round(pct(atMax, total)));
             }

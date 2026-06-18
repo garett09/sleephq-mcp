@@ -124,6 +124,20 @@ class OscarEventSummaryBuilderTest {
 
         assertThat(node.get("event_count_authority").asText()).isEqualTo("oscar_summary_000");
         assertThat(node.get("event_counts_agree").asBoolean()).isFalse();
+        // Disagreement must be surfaced explicitly, not left as a bare boolean (eve 2 - summary 5 = -3).
+        assertThat(node.get("event_count_delta").asInt()).isEqualTo(-3);
+        assertThat(node.get("event_count_discrepancy").asText()).contains("oscar_summary_000");
+    }
+
+    @Test
+    void agreeingTotalsEmitNoDiscrepancyFields() {
+        DeviceEventResult eve = result(List.of(event("Hypopnea"), event("Hypopnea")));
+        Map<String, Integer> summary = Map.of("hypopnea", 2);
+
+        JsonNode node = OscarEventSummaryBuilder.buildSummary(eve, 100, Optional.of(summary));
+
+        assertThat(node.has("event_count_delta")).isFalse();
+        assertThat(node.has("event_count_discrepancy")).isFalse();
     }
 
     @Test

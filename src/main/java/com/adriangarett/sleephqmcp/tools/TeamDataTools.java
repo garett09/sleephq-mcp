@@ -168,7 +168,7 @@ public class TeamDataTools {
             @McpToolParam(description = "Journal ID from list-journals", required = true) String journalId) {
         return McpResponses.safe(() -> {
             String raw = client.getJournal(journalId);
-            ObjectNode envelope = (ObjectNode) JsonApi.parse(raw);
+            ObjectNode envelope = JsonApi.parseObject(raw);
             JsonNode attrs = envelope.path("data").path("attributes");
             JournalOverlaySupport.attachIfPresent(envelope, attrs);
             try {

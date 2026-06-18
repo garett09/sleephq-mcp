@@ -54,9 +54,9 @@ public final class McpResponses {
             Map<String, Object> details = new LinkedHashMap<>();
             details.put("kind", "remote");
             details.put("exception", e.getClass().getSimpleName());
-            if (e.getMessage() != null && !e.getMessage().isBlank()) {
-                details.put("detail", e.getMessage());
-            }
+            // Do NOT echo the raw message of an UNEXPECTED exception to the client — unlike our deliberate
+            // IllegalArgument/IllegalState messages above, it is not allowlisted and could carry an upstream
+            // response body or token. It is already logged server-side; the client gets the exception type.
             return errorJson(McpError.fatal("Upstream request failed", details));
         }
     }

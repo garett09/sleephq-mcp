@@ -24,30 +24,30 @@ public final class ChannelPercentiles {
         return out;
     }
 
-    /** Ceil-rank percentile over an ascending-sorted list. Returns 0 for an empty list. */
+    /** Ceil-rank percentile over an ascending-sorted list. Returns NaN for an empty list (no data, not a measured 0). */
     public static double percentile(List<Double> sorted, int pct) {
         if (sorted.isEmpty()) {
-            return 0;
+            return Double.NaN;
         }
         int idx = (int) Math.ceil(pct / 100.0 * sorted.size()) - 1;
         idx = Math.max(0, Math.min(sorted.size() - 1, idx));
         return sorted.get(idx);
     }
 
-    /** Ceil-rank percentile supporting fractional pct (e.g. 99.5). Returns 0 for empty list. */
+    /** Ceil-rank percentile supporting fractional pct (e.g. 99.5). Returns NaN for empty list (no data, not a measured 0). */
     public static double percentile(List<Double> sorted, double pct) {
         if (sorted.isEmpty()) {
-            return 0;
+            return Double.NaN;
         }
         int idx = (int) Math.ceil(pct / 100.0 * sorted.size()) - 1;
         idx = Math.max(0, Math.min(sorted.size() - 1, idx));
         return sorted.get(idx);
     }
 
-    /** Mean of the values. Returns 0 for an empty list. */
+    /** Mean of the values. Returns NaN for an empty list (no data, not a measured 0). */
     public static double avg(List<Double> values) {
         if (values.isEmpty()) {
-            return 0;
+            return Double.NaN;
         }
         double sum = 0;
         for (double v : values) {

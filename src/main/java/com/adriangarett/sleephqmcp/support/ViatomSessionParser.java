@@ -106,10 +106,15 @@ public final class ViatomSessionParser {
         LocalDateTime start = resolveStartDatetime(filename, 0, 0, 0, 0, 0, 0);
         List<OximetrySample> samples = readO2RingSRecords(data, recordCount, maxSeconds);
 
+        // Report duration from the samples actually decoded — maxSeconds may have truncated them, so the
+        // pre-trim record count would over-report the session span returned to the caller.
+        double actualDuration = samples.isEmpty() ? 0.0
+                : samples.get(samples.size() - 1).elapsedSeconds() + O2RING_S_INTERVAL_SECONDS;
+
         return new OximetryResult(
                 filename != null ? filename : "",
                 start.toString(),
-                recordCount,
+                actualDuration,
                 O2RING_S_INTERVAL_SECONDS,
                 "viatom_o2ring_s",
                 samples

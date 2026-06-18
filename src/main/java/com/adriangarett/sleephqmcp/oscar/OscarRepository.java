@@ -151,7 +151,7 @@ public class OscarRepository {
     private OscarSessionIndexEntry buildIndexEntry(OscarSqliteDb db, List<long[]> rows) {
         long firstOscarId = rows.get(0)[1];
         long minStart = rows.get(0)[2];
-        long maxEnd = rows.get(rows.size() - 1)[3];
+        long maxEnd = rows.stream().mapToLong(r -> r[3]).max().orElse(rows.get(rows.size() - 1)[3]);
 
         // Collect distinct channel codes across all sessions
         List<String> channelCodes = new ArrayList<>();
@@ -324,7 +324,9 @@ public class OscarRepository {
 
                     TreeMap<Integer, Long> buckets = merged.computeIfAbsent(scRow.code(), k -> new TreeMap<>());
                     for (long[] h : hist) {
-                        buckets.merge((int) h[0], h[1], Long::sum);
+                        // Fail loud rather than silently wrap a >2^31 histogram code into a negative bucket
+                        // (which would corrupt every percentile). Real OSCAR channel codes fit in int.
+                        buckets.merge(Math.toIntExact(h[0]), h[1], Long::sum);
                     }
                 }
             }
