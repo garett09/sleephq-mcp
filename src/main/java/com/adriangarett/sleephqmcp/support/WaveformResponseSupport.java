@@ -15,7 +15,7 @@ public final class WaveformResponseSupport {
     public static String attachWindowSelection(
             String waveformJson, WaveformWindowPlan plan, SleepHqPayloadProperties payload) {
         try {
-            ObjectNode root = (ObjectNode) JsonApi.parse(waveformJson);
+            ObjectNode root = JsonApi.parseObject(waveformJson);
             ObjectNode sel = root.putObject("window_selection");
             sel.put("anchor_requested", plan.anchorRequested());
             sel.put("anchor_resolved", plan.anchorResolved());

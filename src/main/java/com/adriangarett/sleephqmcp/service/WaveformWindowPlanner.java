@@ -23,6 +23,9 @@ import java.util.OptionalLong;
 @Service
 public class WaveformWindowPlanner {
 
+    /** Upper bound on a manual startMinute so {@code startMinute * 60} cannot overflow int. */
+    private static final int MAX_START_MINUTE = 24 * 60;
+
     private final DeviceEventService deviceEventService;
     private final WaveformService waveformService;
     private final UnifiedNightAnalysisService nightAnalysisService;
@@ -55,8 +58,9 @@ public class WaveformWindowPlanner {
                 : anchor.trim().toLowerCase(Locale.ROOT);
 
         if (manualStartMinute != null) {
-            if (manualStartMinute < 0) {
-                throw new IllegalArgumentException("startMinute must be non-negative");
+            if (manualStartMinute < 0 || manualStartMinute > MAX_START_MINUTE) {
+                throw new IllegalArgumentException(
+                        "startMinute must be between 0 and " + MAX_START_MINUTE);
             }
             int startSeconds = manualStartMinute * 60;
             return new WaveformWindowPlan(
@@ -245,6 +249,12 @@ public class WaveformWindowPlanner {
         for (JsonNode moment : moments) {
             String channel = moment.path("channel").asText("").toLowerCase(Locale.ROOT);
             if (!channel.contains("leak")) {
+                continue;
+            }
+            // "Peak leak" must never come from a min-kind (low) leak moment winning the max-value
+            // comparison and getting mislabeled as the peak. Exclude explicit min-kind; max-kind and
+            // un-kinded moments remain eligible.
+            if ("min".equals(moment.path("kind").asText())) {
                 continue;
             }
             if (best == null || moment.path("value").asDouble() > best.path("value").asDouble()) {

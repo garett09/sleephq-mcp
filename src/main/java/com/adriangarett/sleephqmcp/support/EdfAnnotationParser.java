@@ -82,7 +82,8 @@ public final class EdfAnnotationParser {
                 }
                 if (durEnd > pos) {
                     String durStr = new String(bytes, pos, durEnd - pos, StandardCharsets.US_ASCII);
-                    duration = parseSeconds(durStr);
+                    double parsedDuration = parseSeconds(durStr);
+                    duration = Double.isNaN(parsedDuration) ? 0.0 : parsedDuration;
                 }
                 pos = durEnd;
             }
@@ -108,7 +109,8 @@ public final class EdfAnnotationParser {
             if (pos < bytes.length && bytes[pos] == 0) {
                 pos++;
             }
-            if (!annotations.isEmpty() || onset != 0.0 || duration > 0) {
+            // Drop a TAL whose onset failed to parse (NaN) — it cannot be placed in time.
+            if (!Double.isNaN(onset) && (!annotations.isEmpty() || onset != 0.0 || duration > 0)) {
                 result.add(new ParsedTal(onset, duration, annotations));
             }
             if (pos == talStart) {
@@ -163,7 +165,13 @@ public final class EdfAnnotationParser {
         if (s == null || s.isBlank()) {
             return 0.0;
         }
-        return Double.parseDouble(s.trim());
+        try {
+            return Double.parseDouble(s.trim());
+        } catch (NumberFormatException e) {
+            // Malformed TAL onset/duration field. Return NaN so the caller skips just this TAL
+            // instead of letting one corrupt byte sequence abort the whole file's event parse.
+            return Double.NaN;
+        }
     }
 
     private static double computeSessionDurationSeconds(EdfHeader header, List<ParsedTal> tals) {

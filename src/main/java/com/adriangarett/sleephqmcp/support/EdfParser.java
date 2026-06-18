@@ -15,6 +15,12 @@ public final class EdfParser {
 
     private EdfParser() {}
 
+    /** Clamp an ArrayList capacity hint so an overflowed/negative product can't crash or over-allocate. */
+    private static int safeCapacity(int perRecord, int records) {
+        long n = (long) Math.max(0, perRecord) * Math.max(0, records);
+        return (int) Math.min(n, 4_000_000L);
+    }
+
     public static WaveformResult parse(byte[] edf, int startSeconds, int maxSeconds) {
         EdfHeader header = EdfBinarySupport.readHeader(edf);
         int ns = header.signalCount();
@@ -43,18 +49,18 @@ public final class EdfParser {
 
         List<List<Double>> channelSamples = new ArrayList<>(ns);
         for (int i = 0; i < ns; i++) {
-            channelSamples.add(new ArrayList<>(samplesPerRec[i] * recordsToRead));
+            channelSamples.add(new ArrayList<>(safeCapacity(samplesPerRec[i], recordsToRead)));
         }
 
-        int startOffset = header.headerBytes() + skipRecords * recordSizeBytes;
+        long startOffset = (long) header.headerBytes() + (long) skipRecords * recordSizeBytes;
         int recordsRead = 0;
         for (int rec = 0; rec < recordsToRead; rec++) {
-            int recStart = startOffset + rec * recordSizeBytes;
+            long recStart = startOffset + (long) rec * recordSizeBytes;
             if (recStart + recordSizeBytes > edf.length) {
                 break;
             }
             recordsRead++;
-            int pos = recStart;
+            int pos = (int) recStart;
             for (int i = 0; i < ns; i++) {
                 int nSamples = samplesPerRec[i];
                 boolean skip = EdfBinarySupport.ANNOTATIONS_LABEL.equals(labels[i]) || "Crc16".equals(labels[i]);
@@ -134,16 +140,16 @@ public final class EdfParser {
         int[] digMaxs = EdfBinarySupport.parseIntBlock(edf, 256 + ns * 128, ns, 8);
         String[] units = EdfBinarySupport.readAsciiBlock(edf, 256 + ns * 96, ns, 8);
 
-        List<Double> flowSamples = new ArrayList<>(samplesPerRec[flowIndex] * recordsToRead);
-        int startOffset = header.headerBytes() + skipRecords * recordSizeBytes;
+        List<Double> flowSamples = new ArrayList<>(safeCapacity(samplesPerRec[flowIndex], recordsToRead));
+        long startOffset = (long) header.headerBytes() + (long) skipRecords * recordSizeBytes;
         int recordsRead = 0;
         for (int rec = 0; rec < recordsToRead; rec++) {
-            int recStart = startOffset + rec * recordSizeBytes;
+            long recStart = startOffset + (long) rec * recordSizeBytes;
             if (recStart + recordSizeBytes > edf.length) {
                 break;
             }
             recordsRead++;
-            int pos = recStart;
+            int pos = (int) recStart;
             for (int i = 0; i < ns; i++) {
                 int nSamples = samplesPerRec[i];
                 if (i == flowIndex) {

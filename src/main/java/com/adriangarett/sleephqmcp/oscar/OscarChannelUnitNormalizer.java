@@ -122,7 +122,12 @@ public final class OscarChannelUnitNormalizer {
         if (isLeak && blank && maxMagnitude > 0.0 && maxMagnitude < LEAK_LPS_MAGNITUDE_MAX) {
             return new UnitConversion("L/min", 60.0);
         }
-        return new UnitConversion(blank ? "L/min" : rawUnit, 1.0);
+        // No conversion was inferred. For a leak field a blank unit defaults to L/min (its only display unit);
+        // for flow (which shares this path) we must NOT fabricate "L/min" — an unknown unit stays unknown.
+        if (blank) {
+            return new UnitConversion(isLeak ? "L/min" : "", 1.0);
+        }
+        return new UnitConversion(rawUnit, 1.0);
     }
 
     /**

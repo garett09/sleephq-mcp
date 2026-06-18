@@ -17,6 +17,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class WaveformTools {
 
+    /** Upper bound on startMinute so {@code startMinute * 60} cannot overflow int into a negative offset. */
+    private static final int MAX_WAVEFORM_START_MINUTE = 24 * 60;
+
     private final WaveformService waveformService;
     private final DeviceEventService deviceEventService;
     private final OximetryService oximetryService;
@@ -58,8 +61,9 @@ public class WaveformTools {
         return McpResponses.safe(() -> {
             String id = SleepHqPathParams.requireResourceId(fileId, "fileId");
             int startMin = startMinute == null ? 0 : startMinute;
-            if (startMin < 0) {
-                throw new IllegalArgumentException("startMinute must be non-negative");
+            if (startMin < 0 || startMin > MAX_WAVEFORM_START_MINUTE) {
+                throw new IllegalArgumentException(
+                        "startMinute must be between 0 and " + MAX_WAVEFORM_START_MINUTE);
             }
             int minutes = resolveWaveformMaxMinutes(maxMinutes);
             return waveformService.getWaveform(id, startMin * 60, minutes * 60, cpapClockAdjustSeconds);
@@ -214,10 +218,10 @@ public class WaveformTools {
             if (cleanFileId == null && cleanDate == null) {
                 throw new IllegalArgumentException("Either fileId or date must be provided");
             }
-            int maxSec = maxMinutes == null ? Integer.MAX_VALUE / 2 : maxMinutes * 60;
             if (maxMinutes != null && (maxMinutes < 1 || maxMinutes > 720)) {
                 throw new IllegalArgumentException("maxMinutes must be between 1 and 720");
             }
+            int maxSec = maxMinutes == null ? Integer.MAX_VALUE / 2 : maxMinutes * 60;
             if (cleanFileId != null) {
                 return oximetryService.getOximetry(cleanFileId, maxSec);
             }

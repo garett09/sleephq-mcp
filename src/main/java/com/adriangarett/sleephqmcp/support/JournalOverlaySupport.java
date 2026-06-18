@@ -87,7 +87,7 @@ public final class JournalOverlaySupport {
     }
 
     public static String enrichEnvelopeJson(String envelopeJson, JsonNode journalAttributes) {
-        ObjectNode envelope = (ObjectNode) JsonApi.parse(envelopeJson);
+        ObjectNode envelope = JsonApi.parseObject(envelopeJson);
         attachIfPresent(envelope, journalAttributes);
         try {
             return JsonApi.mapper().writeValueAsString(envelope);

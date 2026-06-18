@@ -70,6 +70,16 @@ class OscarChannelUnitNormalizerTest {
     }
 
     @Test
+    void normalizeFlowBrp_blankUnit_keepsUnknownUnit_noFabricatedLabel() {
+        // A flow channel with a blank EDF unit must NOT be relabeled "L/min" with no conversion:
+        // the leak magnitude heuristic does not apply to flow, so the honest answer is unknown unit, identity.
+        ChannelStatistics raw = stat("flow_brp", "", 0.002, -1.89, 2.214, 0.384);
+        ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);
+        assertThat(normalized.unit()).isEmpty();
+        assertThat(normalized.max()).isEqualTo(2.214); // identity, not ×60
+    }
+
+    @Test
     void normalizeTidalVolume_nanMedianSurvivesScaling() {
         ChannelStatistics raw = stat("tidal_volume", "L", 0.373, 0.0, 1.0, 0.5); // median defaults to NaN
         ChannelStatistics normalized = OscarChannelUnitNormalizer.normalize(raw);

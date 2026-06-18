@@ -96,6 +96,7 @@ public class UnifiedNightAnalysisService {
         boolean pldHasStats = false;
         boolean hasEve = false;
         boolean hasBrp = false;
+        boolean brpHasStats = false;
 
         if (edfPaths.isPresent()) {
             OscarEdfPaths paths = edfPaths.get();
@@ -107,7 +108,9 @@ public class UnifiedNightAnalysisService {
             }
             if (paths.brp().isPresent()) {
                 hasBrp = true;
-                mergeStats(channelStats, loadBrp(paths.brp().get(), analysis.percentile()));
+                Map<String, ChannelStatistics> brpStats = loadBrp(paths.brp().get(), analysis.percentile());
+                brpHasStats = brpStats.values().stream().anyMatch(s -> s.sampleCount() > 0);
+                mergeStats(channelStats, brpStats);
             }
             Optional<DeviceEventResult> eve = paths.eve().flatMap(oscarRepository::loadEvents);
             if (eve.isPresent()) {
@@ -151,13 +154,15 @@ public class UnifiedNightAnalysisService {
         if (oscarSession.isPresent() && !oscarSession.get().channels().isEmpty()) {
             sources.add("oscar_sqlite_session");
         }
-        if (hasPld) {
+        // Gate EDF data_sources on actually-loaded stats, not mere file presence, so a present-but-unparsed
+        // PLD/BRP file never fabricates a "data was used" claim. (Coverage still reports file presence below.)
+        if (pldHasStats) {
             sources.add("oscar_pld_edf");
         }
         if (hasEve) {
             sources.add("oscar_eve_edf");
         }
-        if (hasBrp) {
+        if (brpHasStats) {
             sources.add("oscar_brp_edf");
         }
 
@@ -195,7 +200,8 @@ public class UnifiedNightAnalysisService {
         if (hasPld) {
             ObjectNode pldProv = provenance.putObject("oscar_pld_edf");
             pldProv.put("type", "local_file");
-            pldProv.put("available", true);
+            pldProv.put("present", true);
+            pldProv.put("available", pldHasStats);
         }
         if (hasEve) {
             ObjectNode eveProv = provenance.putObject("oscar_eve_edf");
@@ -205,7 +211,8 @@ public class UnifiedNightAnalysisService {
         if (hasBrp) {
             ObjectNode brpProv = provenance.putObject("oscar_brp_edf");
             brpProv.put("type", "local_file");
-            brpProv.put("available", true);
+            brpProv.put("present", true);
+            brpProv.put("available", brpHasStats);
         }
 
         nightAnalysis.set("coverage", NightAnalysisSupport.coverageNode(

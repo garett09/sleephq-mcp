@@ -38,7 +38,7 @@ public class NightService {
         String enriched = journal.isEmpty()
                 ? envelopeJson
                 : JournalOverlaySupport.enrichEnvelopeJson(envelopeJson, journal.get());
-        ObjectNode out = (ObjectNode) JsonApi.parse(enriched);
+        ObjectNode out = JsonApi.parseObject(enriched);
         NightTherapyDisplaySupport.attachIfPresent(out);
         try {
             return JsonApi.mapper().writeValueAsString(out);

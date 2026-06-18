@@ -324,7 +324,9 @@ public class OscarRepository {
 
                     TreeMap<Integer, Long> buckets = merged.computeIfAbsent(scRow.code(), k -> new TreeMap<>());
                     for (long[] h : hist) {
-                        buckets.merge((int) h[0], h[1], Long::sum);
+                        // Fail loud rather than silently wrap a >2^31 histogram code into a negative bucket
+                        // (which would corrupt every percentile). Real OSCAR channel codes fit in int.
+                        buckets.merge(Math.toIntExact(h[0]), h[1], Long::sum);
                     }
                 }
             }

@@ -18,8 +18,8 @@ class ChannelPercentilesTest {
     }
 
     @Test
-    void percentile_emptyList_returnsZero() {
-        assertThat(ChannelPercentiles.percentile(List.of(), 95)).isEqualTo(0.0);
+    void percentile_emptyList_returnsNaN() {
+        assertThat(ChannelPercentiles.percentile(List.of(), 95)).isNaN();
     }
 
     @Test
@@ -30,8 +30,8 @@ class ChannelPercentilesTest {
     }
 
     @Test
-    void percentile_fractional_emptyList_returnsZero() {
-        assertThat(ChannelPercentiles.percentile(List.of(), 99.5)).isEqualTo(0.0);
+    void percentile_fractional_emptyList_returnsNaN() {
+        assertThat(ChannelPercentiles.percentile(List.of(), 99.5)).isNaN();
     }
 
     @Test
@@ -41,8 +41,8 @@ class ChannelPercentilesTest {
     }
 
     @Test
-    void avg_ignoresEmpty_andAveragesValues() {
-        assertThat(ChannelPercentiles.avg(List.of())).isEqualTo(0.0);
+    void avg_emptyReturnsNaN_andAveragesValues() {
+        assertThat(ChannelPercentiles.avg(List.of())).isNaN();
         assertThat(ChannelPercentiles.avg(List.of(2.0, 4.0, 6.0))).isEqualTo(4.0);
     }
 

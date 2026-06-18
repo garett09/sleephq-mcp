@@ -54,6 +54,10 @@ public class TokenManager {
     }
 
     private void authenticate() {
+        // SleepHQ's /oauth/token endpoint requires the resource-owner "password" grant with the API
+        // client_id/client_secret supplied in BOTH the client_* and username/password fields. This is the
+        // documented SleepHQ contract — do not "modernize" to client_credentials without confirming the
+        // endpoint supports it, or authentication will break.
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "password");
         form.add("client_id", properties.clientId());
